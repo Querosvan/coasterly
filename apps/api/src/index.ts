@@ -2,18 +2,23 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 
 import {
+  addDemoUserRideCredit,
   closeDatabase,
   getParkBySlug,
   getRideBySlugs,
   initializeDatabase,
+  listDemoUserRideCredits,
   listParks,
-  listRidesForPark
+  listRidesForPark,
+  removeDemoUserRideCredit
 } from "./db.js";
 
 import type {
   HealthResponse,
   ParkResponse,
   ParksResponse,
+  RideCreditMutationResponse,
+  RideCreditsResponse,
   RideResponse,
   RidesResponse
 } from "@coasterly/types";
@@ -113,6 +118,17 @@ app.get<{
   }
 );
 
+app.get("/demo-user/ride-credits", async () => {
+  const credits = await listDemoUserRideCredits();
+
+  const response: RideCreditsResponse = {
+    user: credits.user,
+    rideIds: credits.rideIds
+  };
+
+  return response;
+});
+
 app.get<{ Params: { slug: string; rideSlug: string } }>(
   "/parks/:slug/rides/:rideSlug",
   async (request, reply) => {
@@ -130,6 +146,54 @@ app.get<{ Params: { slug: string; rideSlug: string } }>(
     const response: RideResponse = {
       park: rideRecord.park,
       ride: rideRecord.ride
+    };
+
+    return response;
+  }
+);
+
+app.put<{ Params: { slug: string; rideSlug: string } }>(
+  "/parks/:slug/rides/:rideSlug/credit",
+  async (request, reply) => {
+    const credit = await addDemoUserRideCredit(
+      request.params.slug,
+      request.params.rideSlug
+    );
+
+    if (!credit) {
+      return reply.code(404).send({
+        message: "Ride not found."
+      });
+    }
+
+    const response: RideCreditMutationResponse = {
+      user: credit.user,
+      rideId: credit.rideId,
+      ridden: true
+    };
+
+    return response;
+  }
+);
+
+app.delete<{ Params: { slug: string; rideSlug: string } }>(
+  "/parks/:slug/rides/:rideSlug/credit",
+  async (request, reply) => {
+    const credit = await removeDemoUserRideCredit(
+      request.params.slug,
+      request.params.rideSlug
+    );
+
+    if (!credit) {
+      return reply.code(404).send({
+        message: "Ride not found."
+      });
+    }
+
+    const response: RideCreditMutationResponse = {
+      user: credit.user,
+      rideId: credit.rideId,
+      ridden: false
     };
 
     return response;

@@ -51,6 +51,23 @@ export interface RideResponse {
   park: Park;
 }
 
+export interface DemoUser {
+  id: number;
+  slug: string;
+  name: string;
+}
+
+export interface RideCreditsResponse {
+  user: DemoUser;
+  rideIds: number[];
+}
+
+export interface RideCreditMutationResponse {
+  user: DemoUser;
+  rideId: number;
+  ridden: boolean;
+}
+
 export interface ProjectSurface {
   id: "web" | "api" | "mobile";
   name: string;

@@ -1,6 +1,12 @@
 import { Pool } from "pg";
 
-import type { Park, ParkStatus, Ride, RideStatus } from "@coasterly/types";
+import type {
+  DemoUser,
+  Park,
+  ParkStatus,
+  Ride,
+  RideStatus
+} from "@coasterly/types";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -11,6 +17,11 @@ if (!databaseUrl) {
 const pool = new Pool({
   connectionString: databaseUrl
 });
+
+const demoUserSeed = {
+  slug: "demo-user",
+  name: "Demo User"
+} as const;
 
 const seedParks: Omit<Park, "id">[] = [
   {
@@ -126,6 +137,14 @@ export const initializeDatabase = async () => {
 
   try {
     await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL
+      )
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS parks (
         id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         name TEXT NOT NULL,
@@ -163,6 +182,25 @@ export const initializeDatabase = async () => {
       ADD COLUMN IF NOT EXISTS speed_kmh DOUBLE PRECISION,
       ADD COLUMN IF NOT EXISTS inversions INTEGER
     `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_ride_credits (
+        user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        ride_id INTEGER NOT NULL REFERENCES rides (id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, ride_id)
+      )
+    `);
+
+    await client.query(
+      `
+        INSERT INTO users (slug, name)
+        VALUES ($1, $2)
+        ON CONFLICT (slug) DO UPDATE
+        SET name = EXCLUDED.name
+      `,
+      [demoUserSeed.slug, demoUserSeed.name]
+    );
 
     for (const park of seedParks) {
       await client.query(
@@ -253,6 +291,41 @@ type RideListOptions = {
   rideType?: string;
   manufacturer?: string;
   sort?: string;
+};
+
+const getDemoUser = async (): Promise<DemoUser> => {
+  const result = await pool.query<DemoUser>(
+    `
+      SELECT id, slug, name
+      FROM users
+      WHERE slug = $1
+      LIMIT 1
+    `,
+    [demoUserSeed.slug]
+  );
+
+  const user = result.rows[0];
+
+  if (!user) {
+    throw new Error("Demo user is not available.");
+  }
+
+  return user;
+};
+
+const getRideIdentityBySlugs = async (parkSlug: string, rideSlug: string) => {
+  const result = await pool.query<{ id: number }>(
+    `
+      SELECT rides.id
+      FROM rides
+      INNER JOIN parks ON parks.id = rides.park_id
+      WHERE parks.slug = $1 AND rides.slug = $2
+      LIMIT 1
+    `,
+    [parkSlug, rideSlug]
+  );
+
+  return result.rows[0] ?? null;
 };
 
 export const listParks = async (search?: string): Promise<Park[]> => {
@@ -475,6 +548,82 @@ export const getRideBySlugs = async (
         inversions: record.ride_inversions
       })
     }
+  };
+};
+
+export const listDemoUserRideCredits = async (): Promise<{
+  user: DemoUser;
+  rideIds: number[];
+}> => {
+  const user = await getDemoUser();
+  const result = await pool.query<{ ride_id: number }>(
+    `
+      SELECT ride_id
+      FROM user_ride_credits
+      WHERE user_id = $1
+      ORDER BY ride_id ASC
+    `,
+    [user.id]
+  );
+
+  return {
+    user,
+    rideIds: result.rows.map((row) => row.ride_id)
+  };
+};
+
+export const addDemoUserRideCredit = async (
+  parkSlug: string,
+  rideSlug: string
+): Promise<{ user: DemoUser; rideId: number } | null> => {
+  const [user, ride] = await Promise.all([
+    getDemoUser(),
+    getRideIdentityBySlugs(parkSlug, rideSlug)
+  ]);
+
+  if (!ride) {
+    return null;
+  }
+
+  await pool.query(
+    `
+      INSERT INTO user_ride_credits (user_id, ride_id)
+      VALUES ($1, $2)
+      ON CONFLICT (user_id, ride_id) DO NOTHING
+    `,
+    [user.id, ride.id]
+  );
+
+  return {
+    user,
+    rideId: ride.id
+  };
+};
+
+export const removeDemoUserRideCredit = async (
+  parkSlug: string,
+  rideSlug: string
+): Promise<{ user: DemoUser; rideId: number } | null> => {
+  const [user, ride] = await Promise.all([
+    getDemoUser(),
+    getRideIdentityBySlugs(parkSlug, rideSlug)
+  ]);
+
+  if (!ride) {
+    return null;
+  }
+
+  await pool.query(
+    `
+      DELETE FROM user_ride_credits
+      WHERE user_id = $1 AND ride_id = $2
+    `,
+    [user.id, ride.id]
+  );
+
+  return {
+    user,
+    rideId: ride.id
   };
 };
 

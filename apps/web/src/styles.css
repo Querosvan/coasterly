@@ -421,6 +421,67 @@ code {
   border-radius: 26px;
 }
 
+.ride-card-ridden {
+  border-color: rgba(29, 124, 84, 0.18);
+  box-shadow: 0 22px 46px rgba(22, 88, 62, 0.08);
+}
+
+.ride-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.catalog-chip-ridden {
+  background: rgba(29, 124, 84, 0.12);
+  color: #176245;
+}
+
+.credit-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 20px;
+  background: rgba(240, 245, 241, 0.84);
+  border: 1px solid rgba(20, 34, 41, 0.06);
+}
+
+.credit-copy {
+  margin: 0;
+  color: #556971;
+  line-height: 1.6;
+}
+
+.credit-button {
+  width: fit-content;
+  padding: 0.78rem 1rem;
+  border: 1px solid rgba(13, 108, 145, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #14303c;
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+
+.credit-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(13, 108, 145, 0.3);
+}
+
+.credit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.credit-button-active {
+  border-color: rgba(29, 124, 84, 0.24);
+  background: rgba(232, 244, 236, 0.96);
+  color: #176245;
+}
+
 .detail-grid {
   display: grid;
   gap: 0.9rem;
@@ -513,6 +574,10 @@ code {
 
   .ride-toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .credit-panel {
+    display: grid;
   }
 
   .detail-grid {

@@ -6,6 +6,8 @@ import type {
   ParkResponse,
   ParksResponse,
   Ride,
+  RideCreditMutationResponse,
+  RideCreditsResponse,
   RideResponse,
   RidesResponse
 } from "@coasterly/types";
@@ -54,6 +56,11 @@ type ParkRideOptions = {
   rideTypes: string[];
   manufacturers: string[];
 };
+
+type RideCreditsStatus =
+  | { state: "loading" }
+  | { state: "success"; rideIds: number[]; userName: string }
+  | { state: "error"; message: string };
 
 type RideDetailStatus =
   | { state: "idle" }
@@ -111,9 +118,14 @@ function App() {
   const [rideTypeFilter, setRideTypeFilter] = useState("");
   const [manufacturerFilter, setManufacturerFilter] = useState("");
   const [parkRideSort, setParkRideSort] = useState<ParkRideSort>("name");
+  const [rideCreditsStatus, setRideCreditsStatus] = useState<RideCreditsStatus>({
+    state: "loading"
+  });
   const [rideDetailStatus, setRideDetailStatus] = useState<RideDetailStatus>({
     state: "idle"
   });
+  const [isUpdatingRideCredit, setIsUpdatingRideCredit] = useState(false);
+  const [rideCreditMessage, setRideCreditMessage] = useState<string | null>(null);
 
   const activeParkSlug = route.view === "park" ? route.slug : null;
 
@@ -178,6 +190,63 @@ function App() {
     };
 
     void loadHealth();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!apiBaseUrl) {
+      setRideCreditsStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadRideCredits = async () => {
+      try {
+        const response = await fetch(
+          new URL("/demo-user/ride-credits", apiBaseUrl),
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          setRideCreditsStatus({
+            state: "error",
+            message: `Ride credits request failed with status ${response.status}.`
+          });
+
+          return;
+        }
+
+        const payload = (await response.json()) as RideCreditsResponse;
+
+        setRideCreditsStatus({
+          state: "success",
+          rideIds: payload.rideIds,
+          userName: payload.user.name
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setRideCreditsStatus({
+          state: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "The ride credits request failed."
+        });
+      }
+    };
+
+    void loadRideCredits();
 
     return () => {
       controller.abort();
@@ -264,17 +333,12 @@ function App() {
   useEffect(() => {
     if (route.view !== "park") {
       setParkDetailStatus({ state: "idle" });
-      setParkRidesStatus({ state: "idle" });
 
       return;
     }
 
     if (!apiBaseUrl) {
       setParkDetailStatus({
-        state: "error",
-        message: "VITE_API_BASE_URL is not configured."
-      });
-      setParkRidesStatus({
         state: "error",
         message: "VITE_API_BASE_URL is not configured."
       });
@@ -331,6 +395,31 @@ function App() {
         });
       }
     };
+
+    void loadPark();
+
+    return () => {
+      controller.abort();
+    };
+  }, [route]);
+
+  useEffect(() => {
+    if (route.view !== "park") {
+      setParkRidesStatus({ state: "idle" });
+
+      return;
+    }
+
+    if (!apiBaseUrl) {
+      setParkRidesStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    const controller = new AbortController();
 
     const loadRides = async () => {
       setParkRidesStatus({ state: "loading" });
@@ -410,12 +499,12 @@ function App() {
       }
     };
 
-    void Promise.all([loadPark(), loadRides()]);
+    void loadRides();
 
     return () => {
       controller.abort();
     };
-  }, [route]);
+  }, [route, rideTypeFilter, manufacturerFilter, parkRideSort]);
 
   useEffect(() => {
     if (route.view !== "ride") {
@@ -489,7 +578,7 @@ function App() {
     return () => {
       controller.abort();
     };
-  }, [route, rideTypeFilter, manufacturerFilter, parkRideSort]);
+  }, [route]);
 
   const navigateToPark = (slug: string) => {
     const nextPath = `/parks/${slug}`;
@@ -518,6 +607,65 @@ function App() {
 
   const navigateBackToPark = (slug: string) => {
     navigateToPark(slug);
+  };
+
+  const updateRiddenRide = (rideId: number, ridden: boolean) => {
+    setRideCreditsStatus((current) => {
+      if (current.state !== "success") {
+        return current;
+      }
+
+      const rideIds = ridden
+        ? current.rideIds.includes(rideId)
+          ? current.rideIds
+          : [...current.rideIds, rideId]
+        : current.rideIds.filter((currentRideId) => currentRideId !== rideId);
+
+      return {
+        ...current,
+        rideIds
+      };
+    });
+  };
+
+  const toggleRideCredit = async (nextRidden: boolean) => {
+    if (!apiBaseUrl || route.view !== "ride" || rideDetailStatus.state !== "success") {
+      return;
+    }
+
+    setIsUpdatingRideCredit(true);
+    setRideCreditMessage(null);
+
+    try {
+      const creditUrl = new URL(
+        `/parks/${route.parkSlug}/rides/${route.rideSlug}/credit`,
+        apiBaseUrl
+      );
+      const response = await fetch(creditUrl, {
+        method: nextRidden ? "PUT" : "DELETE"
+      });
+
+      if (!response.ok) {
+        setRideCreditMessage(
+          `Unable to update ride credit (${response.status}).`
+        );
+
+        return;
+      }
+
+      const payload = (await response.json()) as RideCreditMutationResponse;
+
+      updateRiddenRide(payload.rideId, payload.ridden);
+      setRideCreditMessage(
+        payload.ridden ? "Ride marked as ridden." : "Ride marked as not ridden."
+      );
+    } catch (error) {
+      setRideCreditMessage(
+        error instanceof Error ? error.message : "Unable to update ride credit."
+      );
+    } finally {
+      setIsUpdatingRideCredit(false);
+    }
   };
 
   const normalizedSearchQuery = searchQuery.trim();
@@ -552,9 +700,14 @@ function App() {
   const apiStatusLabel =
     apiStatus.state === "success"
       ? `API ${apiStatus.response.status}`
-        : apiStatus.state === "loading"
-          ? "API loading"
-          : "API issue";
+      : apiStatus.state === "loading"
+        ? "API loading"
+        : "API issue";
+  const riddenRideIds =
+    rideCreditsStatus.state === "success" ? new Set(rideCreditsStatus.rideIds) : null;
+  const isCurrentRideRidden =
+    rideDetailStatus.state === "success" &&
+    riddenRideIds?.has(rideDetailStatus.ride.id) === true;
   const parkRideSortLabel =
     parkRideSort === "name"
       ? "Name"
@@ -850,11 +1003,11 @@ function App() {
                     <strong>
                       {rideTypeFilter || "All ride types"}
                     </strong>
-                    {" · "}
+                    {" | "}
                     <strong>
                       {manufacturerFilter || "All manufacturers"}
                     </strong>
-                    {" · "}
+                    {" | "}
                     <strong>{parkRideSortLabel}</strong>
                   </p>
                   {parkRidesStatus.state === "loading" ? (
@@ -866,7 +1019,10 @@ function App() {
                     parkRidesStatus.rides.length > 0 ? (
                       <div className="rides-list">
                         {parkRidesStatus.rides.map((ride) => (
-                          <article className="ride-card" key={ride.id}>
+                          <article
+                            className={`ride-card${riddenRideIds?.has(ride.id) ? " ride-card-ridden" : ""}`}
+                            key={ride.id}
+                          >
                             <div className="card-header">
                               <a
                                 className="ride-link"
@@ -878,9 +1034,19 @@ function App() {
                               >
                                 <p className="ride-name">{ride.name}</p>
                               </a>
-                              <span className="catalog-chip">{ride.status}</span>
+                              <div className="ride-card-chips">
+                                {riddenRideIds?.has(ride.id) ? (
+                                  <span className="catalog-chip catalog-chip-ridden">
+                                    Ridden
+                                  </span>
+                                ) : null}
+                                <span className="catalog-chip">{ride.status}</span>
+                              </div>
                             </div>
                             <p className="park-meta">Type: {ride.rideType}</p>
+                            {ride.manufacturer ? (
+                              <p className="park-meta">Maker: {ride.manufacturer}</p>
+                            ) : null}
                             <p className="park-location">Inside {parkDetailStatus.park.name}</p>
                             <p className="park-meta">
                               Slug: <code>{ride.slug}</code>
@@ -947,6 +1113,36 @@ function App() {
                     {rideDetailStatus.ride.status}
                   </span>
                 </div>
+
+                <div className="credit-panel">
+                  <div>
+                    <p className="status-label">Demo rider</p>
+                    <p className="credit-copy">
+                      {rideCreditsStatus.state === "success"
+                        ? `${rideCreditsStatus.userName} can track whether this ride has been ridden.`
+                        : rideCreditsStatus.state === "error"
+                          ? rideCreditsStatus.message
+                          : "Ride credit state is loading."}
+                    </p>
+                  </div>
+                  <button
+                    className={`credit-button${isCurrentRideRidden ? " credit-button-active" : ""}`}
+                    type="button"
+                    onClick={() => {
+                      void toggleRideCredit(!isCurrentRideRidden);
+                    }}
+                    disabled={isUpdatingRideCredit || rideCreditsStatus.state !== "success"}
+                  >
+                    {isUpdatingRideCredit
+                      ? "Saving..."
+                      : isCurrentRideRidden
+                        ? "Remove ridden credit"
+                        : "Mark as ridden"}
+                  </button>
+                </div>
+                {rideCreditMessage ? (
+                  <p className="credit-copy">{rideCreditMessage}</p>
+                ) : null}
 
                 <div className="detail-grid">
                   {rideSpecItems.map((item) => (
