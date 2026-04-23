@@ -6,6 +6,7 @@ import type {
   ParkResponse,
   ParksResponse,
   Ride,
+  RideResponse,
   RidesResponse,
   ProjectSurface
 } from "@coasterly/types";
@@ -30,7 +31,10 @@ const surfaces: ProjectSurface[] = [
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
-type Route = { view: "home" } | { view: "park"; slug: string };
+type Route =
+  | { view: "home" }
+  | { view: "park"; slug: string }
+  | { view: "ride"; parkSlug: string; rideSlug: string };
 
 type ApiStatus =
   | { state: "loading" }
@@ -54,7 +58,23 @@ type ParkRidesStatus =
   | { state: "success"; rides: Ride[] }
   | { state: "error"; message: string };
 
+type RideDetailStatus =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "success"; park: Park; ride: Ride }
+  | { state: "error"; message: string };
+
 const getRoute = (pathname: string): Route => {
+  const rideMatch = pathname.match(/^\/parks\/([^/]+)\/rides\/([^/]+)\/?$/);
+
+  if (rideMatch?.[1] && rideMatch[2]) {
+    return {
+      view: "ride",
+      parkSlug: decodeURIComponent(rideMatch[1]),
+      rideSlug: decodeURIComponent(rideMatch[2])
+    };
+  }
+
   const match = pathname.match(/^\/parks\/([^/]+)\/?$/);
 
   if (match?.[1]) {
@@ -77,6 +97,9 @@ function App() {
     state: "idle"
   });
   const [parkRidesStatus, setParkRidesStatus] = useState<ParkRidesStatus>({
+    state: "idle"
+  });
+  const [rideDetailStatus, setRideDetailStatus] = useState<RideDetailStatus>({
     state: "idle"
   });
 
@@ -314,6 +337,80 @@ function App() {
     };
   }, [route]);
 
+  useEffect(() => {
+    if (route.view !== "ride") {
+      setRideDetailStatus({ state: "idle" });
+
+      return;
+    }
+
+    if (!apiBaseUrl) {
+      setRideDetailStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadRide = async () => {
+      setRideDetailStatus({ state: "loading" });
+
+      try {
+        const response = await fetch(
+          new URL(`/parks/${route.parkSlug}/rides/${route.rideSlug}`, apiBaseUrl),
+          { signal: controller.signal }
+        );
+
+        if (response.status === 404) {
+          setRideDetailStatus({
+            state: "error",
+            message: "Ride not found."
+          });
+
+          return;
+        }
+
+        if (!response.ok) {
+          setRideDetailStatus({
+            state: "error",
+            message: `Ride request failed with status ${response.status}.`
+          });
+
+          return;
+        }
+
+        const payload = (await response.json()) as RideResponse;
+
+        setRideDetailStatus({
+          state: "success",
+          park: payload.park,
+          ride: payload.ride
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setRideDetailStatus({
+          state: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "The ride request failed."
+        });
+      }
+    };
+
+    void loadRide();
+
+    return () => {
+      controller.abort();
+    };
+  }, [route]);
+
   const navigateToPark = (slug: string) => {
     const nextPath = `/parks/${slug}`;
 
@@ -323,11 +420,24 @@ function App() {
     }
   };
 
+  const navigateToRide = (parkSlug: string, rideSlug: string) => {
+    const nextPath = `/parks/${parkSlug}/rides/${rideSlug}`;
+
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+      setRoute({ view: "ride", parkSlug, rideSlug });
+    }
+  };
+
   const navigateHome = () => {
     if (window.location.pathname !== "/") {
       window.history.pushState({}, "", "/");
       setRoute({ view: "home" });
     }
+  };
+
+  const navigateBackToPark = (slug: string) => {
+    navigateToPark(slug);
   };
 
   return (
@@ -448,7 +558,16 @@ function App() {
                       <div className="rides-list">
                         {parkRidesStatus.rides.map((ride) => (
                           <article className="ride-card" key={ride.id}>
-                            <p className="ride-name">{ride.name}</p>
+                            <a
+                              className="ride-link"
+                              href={`/parks/${route.slug}/rides/${ride.slug}`}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                navigateToRide(route.slug, ride.slug);
+                              }}
+                            >
+                              <p className="ride-name">{ride.name}</p>
+                            </a>
                             <p className="park-meta">
                               Type: {ride.rideType}
                             </p>
@@ -478,6 +597,46 @@ function App() {
               <div className="status-error">
                 <p>Unable to load this park.</p>
                 <p>{parkDetailStatus.message}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {route.view === "ride" ? (
+          <div className="status-copy">
+            <button
+              className="back-link"
+              type="button"
+              onClick={() => {
+                navigateBackToPark(route.parkSlug);
+              }}
+            >
+              Back to park
+            </button>
+            {rideDetailStatus.state === "loading" ? (
+              <p className="status-loading">Loading ride details...</p>
+            ) : null}
+            {rideDetailStatus.state === "success" ? (
+              <article className="park-detail-card">
+                <p className="status-label">Ride detail</p>
+                <h2 className="park-detail-name">{rideDetailStatus.ride.name}</h2>
+                <p className="park-meta">
+                  Parent park: {rideDetailStatus.park.name}
+                </p>
+                <p className="park-meta">
+                  Ride type: {rideDetailStatus.ride.rideType}
+                </p>
+                <p className="park-meta">
+                  Slug: <code>{rideDetailStatus.ride.slug}</code>
+                </p>
+                <p className="park-status">
+                  Status: {rideDetailStatus.ride.status}
+                </p>
+              </article>
+            ) : null}
+            {rideDetailStatus.state === "error" ? (
+              <div className="status-error">
+                <p>Unable to load this ride.</p>
+                <p>{rideDetailStatus.message}</p>
               </div>
             ) : null}
           </div>
