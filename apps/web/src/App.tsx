@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
-import type { HealthResponse, ProjectSurface } from "@coasterly/types";
+import type {
+  HealthResponse,
+  Park,
+  ParksResponse,
+  ProjectSurface
+} from "@coasterly/types";
 
 const surfaces: ProjectSurface[] = [
   {
@@ -27,12 +32,24 @@ type ApiStatus =
   | { state: "success"; response: HealthResponse }
   | { state: "error"; message: string };
 
+type ParksStatus =
+  | { state: "loading" }
+  | { state: "success"; parks: Park[] }
+  | { state: "error"; message: string };
+
 function App() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "loading" });
+  const [parksStatus, setParksStatus] = useState<ParksStatus>({
+    state: "loading"
+  });
 
   useEffect(() => {
     if (!apiBaseUrl) {
       setApiStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+      setParksStatus({
         state: "error",
         message: "VITE_API_BASE_URL is not configured."
       });
@@ -78,7 +95,44 @@ function App() {
       }
     };
 
+    const loadParks = async () => {
+      try {
+        const response = await fetch(new URL("/parks", apiBaseUrl), {
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          setParksStatus({
+            state: "error",
+            message: `Parks request failed with status ${response.status}.`
+          });
+
+          return;
+        }
+
+        const payload = (await response.json()) as ParksResponse;
+
+        setParksStatus({
+          state: "success",
+          parks: payload.parks
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setParksStatus({
+          state: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "The parks request failed."
+        });
+      }
+    };
+
     void loadHealth();
+    void loadParks();
 
     return () => {
       controller.abort();
@@ -122,6 +176,41 @@ function App() {
           <div className="status-copy status-error">
             <p>Connection failed.</p>
             <p>{apiStatus.message}</p>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="status-panel" aria-live="polite">
+        <p className="status-label">Parks</p>
+        {parksStatus.state === "loading" ? (
+          <p className="status-copy status-loading">Loading parks...</p>
+        ) : null}
+        {parksStatus.state === "success" ? (
+          <div className="status-copy">
+            <p className="parks-summary">
+              Loaded <strong>{parksStatus.parks.length}</strong> parks from the
+              API.
+            </p>
+            <div className="parks-list">
+              {parksStatus.parks.map((park) => (
+                <article className="park-card" key={park.id}>
+                  <p className="park-name">{park.name}</p>
+                  <p className="park-meta">
+                    {park.city}, {park.country}
+                  </p>
+                  <p className="park-meta">
+                    Slug: <code>{park.slug}</code>
+                  </p>
+                  <p className="park-status">Status: {park.status}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {parksStatus.state === "error" ? (
+          <div className="status-copy status-error">
+            <p>Unable to load parks.</p>
+            <p>{parksStatus.message}</p>
           </div>
         ) : null}
       </section>
