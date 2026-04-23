@@ -86,9 +86,12 @@ Document these values in each cloud provider instead of relying on local-only `.
 
 1. Create a Railway project from the same GitHub repository.
 2. Let Railway detect the JavaScript monorepo or connect the repository to a dedicated API service.
-3. Confirm the API service uses workspace-specific commands for `@coasterly/api`.
-4. Add `DATABASE_URL`, `CORS_ORIGIN`, `HOST`, `PORT`, and `NODE_ENV`.
-5. Use a non-production environment for `develop` and preview work before wiring production to `main`.
+3. Keep the service pointed at `apps/api/railway.json` so build, start, and healthcheck settings come from code.
+4. Confirm the API service builds with `pnpm --filter @coasterly/api build`.
+5. Confirm the API service starts with `node apps/api/dist/index.js` so Node receives shutdown signals directly.
+6. Set the healthcheck path to `/health`.
+7. Add `DATABASE_URL`, `CORS_ORIGIN`, `HOST`, `PORT`, and `NODE_ENV`.
+8. Use a non-production environment for `develop` and preview work before wiring production to `main`.
 
 ### Neon
 
