@@ -1,9 +1,18 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 
-import { closeDatabase, initializeDatabase, listParks } from "./db.js";
+import {
+  closeDatabase,
+  getParkBySlug,
+  initializeDatabase,
+  listParks
+} from "./db.js";
 
-import type { HealthResponse, ParksResponse } from "@coasterly/types";
+import type {
+  HealthResponse,
+  ParkResponse,
+  ParksResponse
+} from "@coasterly/types";
 
 const app = Fastify({
   logger: true
@@ -45,6 +54,22 @@ app.get("/health", async () => {
 app.get("/parks", async () => {
   const response: ParksResponse = {
     parks: await listParks()
+  };
+
+  return response;
+});
+
+app.get<{ Params: { slug: string } }>("/parks/:slug", async (request, reply) => {
+  const park = await getParkBySlug(request.params.slug);
+
+  if (!park) {
+    return reply.code(404).send({
+      message: "Park not found."
+    });
+  }
+
+  const response: ParkResponse = {
+    park
   };
 
   return response;

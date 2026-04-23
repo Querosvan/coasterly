@@ -115,6 +115,20 @@ body {
   background: rgba(246, 251, 255, 0.9);
 }
 
+.park-link,
+.back-link {
+  color: #0d6c91;
+}
+
+.park-link {
+  text-decoration: none;
+}
+
+.park-link:hover .park-name,
+.park-link:focus-visible .park-name {
+  text-decoration: underline;
+}
+
 .park-name {
   margin: 0 0 0.5rem;
   font-weight: 700;
@@ -129,6 +143,26 @@ body {
 .park-status {
   margin-top: 0.5rem;
   font-weight: 600;
+}
+
+.back-link {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.park-detail-card {
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(13, 108, 145, 0.12);
+  background: rgba(246, 251, 255, 0.9);
+}
+
+.park-detail-name {
+  margin: 0 0 0.75rem;
 }
 
 .surface-grid {
