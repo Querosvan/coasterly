@@ -55,9 +55,9 @@ app.get("/health", async () => {
   return response;
 });
 
-app.get("/parks", async () => {
+app.get<{ Querystring: { search?: string } }>("/parks", async (request) => {
   const response: ParksResponse = {
-    parks: await listParks()
+    parks: await listParks(request.query.search)
   };
 
   return response;

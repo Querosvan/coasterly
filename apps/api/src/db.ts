@@ -149,14 +149,31 @@ export const initializeDatabase = async () => {
   }
 };
 
-export const listParks = async (): Promise<Park[]> => {
-  const result = await pool.query<Park>(
-    `
-      SELECT id, name, slug, country, city, status
-      FROM parks
-      ORDER BY name ASC
-    `
-  );
+const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, "\\$&");
+
+export const listParks = async (search?: string): Promise<Park[]> => {
+  const normalizedSearch = search?.trim();
+
+  const result = normalizedSearch
+    ? await pool.query<Park>(
+        `
+          SELECT id, name, slug, country, city, status
+          FROM parks
+          WHERE
+            name ILIKE $1 ESCAPE '\\'
+            OR country ILIKE $1 ESCAPE '\\'
+            OR city ILIKE $1 ESCAPE '\\'
+          ORDER BY name ASC
+        `,
+        [`%${escapeLikePattern(normalizedSearch)}%`]
+      )
+    : await pool.query<Park>(
+        `
+          SELECT id, name, slug, country, city, status
+          FROM parks
+          ORDER BY name ASC
+        `
+      );
 
   return result.rows.map((park) => ({
     ...park,
