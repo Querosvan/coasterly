@@ -1,0 +1,93 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top, #d7f3ff 0%, transparent 35%),
+    linear-gradient(180deg, #f6fbff 0%, #eef5f9 100%);
+  color: #15212b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 4rem 0 5rem;
+}
+
+.hero {
+  max-width: 48rem;
+  margin-bottom: 2.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #0d6c91;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 5vw, 4.75rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.intro {
+  margin: 1.25rem 0 0;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: #445764;
+}
+
+.surface-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.surface-card {
+  padding: 1.5rem;
+  border: 1px solid rgba(13, 108, 145, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 16px 50px rgba(23, 58, 77, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.surface-label {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.surface-copy {
+  margin: 0;
+  line-height: 1.6;
+  color: #4a5e6b;
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    width: min(100% - 1.25rem, 1100px);
+    padding-top: 3rem;
+  }
+
+  .hero h1 {
+    line-height: 1.02;
+  }
+}
