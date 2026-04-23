@@ -46,42 +46,78 @@ const seedRides: Array<
     name: "Silver Star",
     slug: "silver-star",
     status: "operating",
-    rideType: "steel coaster"
+    rideType: "steel coaster",
+    manufacturer: "Bolliger & Mabillard",
+    model: "Hyper Coaster",
+    openingYear: 2002,
+    heightM: 73,
+    speedKmh: 130,
+    inversions: 0
   },
   {
     parkSlug: "europa-park",
     name: "Voltron Nevera",
     slug: "voltron-nevera",
     status: "operating",
-    rideType: "launch coaster"
+    rideType: "launch coaster",
+    manufacturer: "Mack Rides",
+    model: "Stryker Coaster",
+    openingYear: 2024,
+    heightM: 32.5,
+    speedKmh: 100,
+    inversions: 7
   },
   {
     parkSlug: "phantasialand",
     name: "Taron",
     slug: "taron",
     status: "operating",
-    rideType: "launch coaster"
+    rideType: "launch coaster",
+    manufacturer: "Intamin",
+    model: "LSM Launch Coaster",
+    openingYear: 2016,
+    heightM: 30,
+    speedKmh: 117,
+    inversions: 0
   },
   {
     parkSlug: "phantasialand",
     name: "F.L.Y.",
     slug: "fly",
     status: "operating",
-    rideType: "flying coaster"
+    rideType: "flying coaster",
+    manufacturer: "Vekoma",
+    model: "Flying Coaster",
+    openingYear: 2020,
+    heightM: 19.5,
+    speedKmh: 78,
+    inversions: 2
   },
   {
     parkSlug: "alton-towers",
     name: "Nemesis Reborn",
     slug: "nemesis-reborn",
     status: "operating",
-    rideType: "inverted coaster"
+    rideType: "inverted coaster",
+    manufacturer: "Bolliger & Mabillard",
+    model: "Inverted Coaster",
+    openingYear: 1994,
+    heightM: 13,
+    speedKmh: 81,
+    inversions: 4
   },
   {
     parkSlug: "alton-towers",
     name: "Wicker Man",
     slug: "wicker-man",
     status: "operating",
-    rideType: "wood coaster"
+    rideType: "wood coaster",
+    manufacturer: "Great Coasters International",
+    model: "Wooden Coaster",
+    openingYear: 2018,
+    heightM: 20,
+    speedKmh: 70,
+    inversions: 0
   }
 ];
 
@@ -108,8 +144,24 @@ export const initializeDatabase = async () => {
         slug TEXT NOT NULL,
         status TEXT NOT NULL CHECK (status IN ('operating', 'closed', 'planned')),
         ride_type TEXT NOT NULL,
+        manufacturer TEXT,
+        model TEXT,
+        opening_year INTEGER,
+        height_m DOUBLE PRECISION,
+        speed_kmh DOUBLE PRECISION,
+        inversions INTEGER,
         UNIQUE (park_id, slug)
       )
+    `);
+
+    await client.query(`
+      ALTER TABLE rides
+      ADD COLUMN IF NOT EXISTS manufacturer TEXT,
+      ADD COLUMN IF NOT EXISTS model TEXT,
+      ADD COLUMN IF NOT EXISTS opening_year INTEGER,
+      ADD COLUMN IF NOT EXISTS height_m DOUBLE PRECISION,
+      ADD COLUMN IF NOT EXISTS speed_kmh DOUBLE PRECISION,
+      ADD COLUMN IF NOT EXISTS inversions INTEGER
     `);
 
     for (const park of seedParks) {
@@ -131,17 +183,47 @@ export const initializeDatabase = async () => {
     for (const ride of seedRides) {
       await client.query(
         `
-          INSERT INTO rides (park_id, name, slug, status, ride_type)
-          SELECT parks.id, $2, $3, $4, $5
+          INSERT INTO rides (
+            park_id,
+            name,
+            slug,
+            status,
+            ride_type,
+            manufacturer,
+            model,
+            opening_year,
+            height_m,
+            speed_kmh,
+            inversions
+          )
+          SELECT parks.id, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
           FROM parks
           WHERE parks.slug = $1
           ON CONFLICT (park_id, slug) DO UPDATE
           SET
             name = EXCLUDED.name,
             status = EXCLUDED.status,
-            ride_type = EXCLUDED.ride_type
+            ride_type = EXCLUDED.ride_type,
+            manufacturer = EXCLUDED.manufacturer,
+            model = EXCLUDED.model,
+            opening_year = EXCLUDED.opening_year,
+            height_m = EXCLUDED.height_m,
+            speed_kmh = EXCLUDED.speed_kmh,
+            inversions = EXCLUDED.inversions
         `,
-        [ride.parkSlug, ride.name, ride.slug, ride.status, ride.rideType]
+        [
+          ride.parkSlug,
+          ride.name,
+          ride.slug,
+          ride.status,
+          ride.rideType,
+          ride.manufacturer ?? null,
+          ride.model ?? null,
+          ride.openingYear ?? null,
+          ride.heightM ?? null,
+          ride.speedKmh ?? null,
+          ride.inversions ?? null
+        ]
       );
     }
   } finally {
@@ -150,6 +232,22 @@ export const initializeDatabase = async () => {
 };
 
 const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, "\\$&");
+
+const toOptionalRideFields = (fields: {
+  manufacturer: string | null;
+  model: string | null;
+  openingYear: number | null;
+  heightM: number | null;
+  speedKmh: number | null;
+  inversions: number | null;
+}) => ({
+  ...(fields.manufacturer !== null ? { manufacturer: fields.manufacturer } : {}),
+  ...(fields.model !== null ? { model: fields.model } : {}),
+  ...(fields.openingYear !== null ? { openingYear: fields.openingYear } : {}),
+  ...(fields.heightM !== null ? { heightM: fields.heightM } : {}),
+  ...(fields.speedKmh !== null ? { speedKmh: fields.speedKmh } : {}),
+  ...(fields.inversions !== null ? { inversions: fields.inversions } : {})
+});
 
 export const listParks = async (search?: string): Promise<Park[]> => {
   const normalizedSearch = search?.trim();
@@ -212,9 +310,27 @@ export const listRidesForPark = async (parkId: number): Promise<Ride[]> => {
     slug: string;
     status: string;
     ride_type: string;
+    manufacturer: string | null;
+    model: string | null;
+    opening_year: number | null;
+    height_m: number | null;
+    speed_kmh: number | null;
+    inversions: number | null;
   }>(
     `
-      SELECT id, park_id, name, slug, status, ride_type
+      SELECT
+        id,
+        park_id,
+        name,
+        slug,
+        status,
+        ride_type,
+        manufacturer,
+        model,
+        opening_year,
+        height_m,
+        speed_kmh,
+        inversions
       FROM rides
       WHERE park_id = $1
       ORDER BY name ASC
@@ -228,7 +344,15 @@ export const listRidesForPark = async (parkId: number): Promise<Ride[]> => {
     name: ride.name,
     slug: ride.slug,
     status: ride.status as RideStatus,
-    rideType: ride.ride_type
+    rideType: ride.ride_type,
+    ...toOptionalRideFields({
+      manufacturer: ride.manufacturer,
+      model: ride.model,
+      openingYear: ride.opening_year,
+      heightM: ride.height_m,
+      speedKmh: ride.speed_kmh,
+      inversions: ride.inversions
+    })
   }));
 };
 
@@ -248,6 +372,12 @@ export const getRideBySlugs = async (
     ride_slug: string;
     ride_status: string;
     ride_type: string;
+    ride_manufacturer: string | null;
+    ride_model: string | null;
+    ride_opening_year: number | null;
+    ride_height_m: number | null;
+    ride_speed_kmh: number | null;
+    ride_inversions: number | null;
   }>(
     `
       SELECT
@@ -261,7 +391,13 @@ export const getRideBySlugs = async (
         rides.name AS ride_name,
         rides.slug AS ride_slug,
         rides.status AS ride_status,
-        rides.ride_type AS ride_type
+        rides.ride_type AS ride_type,
+        rides.manufacturer AS ride_manufacturer,
+        rides.model AS ride_model,
+        rides.opening_year AS ride_opening_year,
+        rides.height_m AS ride_height_m,
+        rides.speed_kmh AS ride_speed_kmh,
+        rides.inversions AS ride_inversions
       FROM rides
       INNER JOIN parks ON parks.id = rides.park_id
       WHERE parks.slug = $1 AND rides.slug = $2
@@ -291,7 +427,15 @@ export const getRideBySlugs = async (
       name: record.ride_name,
       slug: record.ride_slug,
       status: record.ride_status as RideStatus,
-      rideType: record.ride_type
+      rideType: record.ride_type,
+      ...toOptionalRideFields({
+        manufacturer: record.ride_manufacturer,
+        model: record.ride_model,
+        openingYear: record.ride_opening_year,
+        heightM: record.ride_height_m,
+        speedKmh: record.ride_speed_kmh,
+        inversions: record.ride_inversions
+      })
     }
   };
 };
