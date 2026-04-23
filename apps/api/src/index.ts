@@ -4,6 +4,7 @@ import cors from "@fastify/cors";
 import {
   addDemoUserRideCredit,
   closeDatabase,
+  getDemoUserRideStats,
   getParkBySlug,
   getRideBySlugs,
   initializeDatabase,
@@ -14,6 +15,7 @@ import {
 } from "./db.js";
 
 import type {
+  DemoUserStatsResponse,
   HealthResponse,
   ParkResponse,
   ParksResponse,
@@ -124,6 +126,19 @@ app.get("/demo-user/ride-credits", async () => {
   const response: RideCreditsResponse = {
     user: credits.user,
     rideIds: credits.rideIds
+  };
+
+  return response;
+});
+
+app.get("/demo-user/stats", async () => {
+  const stats = await getDemoUserRideStats();
+
+  const response: DemoUserStatsResponse = {
+    user: stats.user,
+    totalRiddenRides: stats.totalRiddenRides,
+    totalParksWithRiddenRides: stats.totalParksWithRiddenRides,
+    parks: stats.parks
   };
 
   return response;

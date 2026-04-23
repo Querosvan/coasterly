@@ -68,6 +68,20 @@ export interface RideCreditMutationResponse {
   ridden: boolean;
 }
 
+export interface DemoUserParkRideStat {
+  parkId: number;
+  parkName: string;
+  parkSlug: string;
+  riddenRideCount: number;
+}
+
+export interface DemoUserStatsResponse {
+  user: DemoUser;
+  totalRiddenRides: number;
+  totalParksWithRiddenRides: number;
+  parks: DemoUserParkRideStat[];
+}
+
 export interface ProjectSurface {
   id: "web" | "api" | "mobile";
   name: string;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type {
+  DemoUserStatsResponse,
   HealthResponse,
   Park,
   ParkResponse,
@@ -62,6 +63,17 @@ type RideCreditsStatus =
   | { state: "success"; rideIds: number[]; userName: string }
   | { state: "error"; message: string };
 
+type DemoUserStatsStatus =
+  | { state: "loading" }
+  | {
+      state: "success";
+      userName: string;
+      totalRiddenRides: number;
+      totalParksWithRiddenRides: number;
+      parks: DemoUserStatsResponse["parks"];
+    }
+  | { state: "error"; message: string };
+
 type RideDetailStatus =
   | { state: "idle" }
   | { state: "loading" }
@@ -121,6 +133,9 @@ function App() {
   const [rideCreditsStatus, setRideCreditsStatus] = useState<RideCreditsStatus>({
     state: "loading"
   });
+  const [demoUserStatsStatus, setDemoUserStatsStatus] = useState<DemoUserStatsStatus>({
+    state: "loading"
+  });
   const [rideDetailStatus, setRideDetailStatus] = useState<RideDetailStatus>({
     state: "idle"
   });
@@ -128,6 +143,56 @@ function App() {
   const [rideCreditMessage, setRideCreditMessage] = useState<string | null>(null);
 
   const activeParkSlug = route.view === "park" ? route.slug : null;
+
+  const loadDemoUserStats = async (signal?: AbortSignal) => {
+    if (!apiBaseUrl) {
+      setDemoUserStatsStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    setDemoUserStatsStatus({ state: "loading" });
+
+    try {
+      const response = await fetch(new URL("/demo-user/stats", apiBaseUrl), {
+        ...(signal ? { signal } : {})
+      });
+
+      if (!response.ok) {
+        setDemoUserStatsStatus({
+          state: "error",
+          message: `Demo user stats request failed with status ${response.status}.`
+        });
+
+        return;
+      }
+
+      const payload = (await response.json()) as DemoUserStatsResponse;
+
+      setDemoUserStatsStatus({
+        state: "success",
+        userName: payload.user.name,
+        totalRiddenRides: payload.totalRiddenRides,
+        totalParksWithRiddenRides: payload.totalParksWithRiddenRides,
+        parks: payload.parks
+      });
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setDemoUserStatsStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The demo user stats request failed."
+      });
+    }
+  };
 
   useEffect(() => {
     const syncRoute = () => {
@@ -247,6 +312,16 @@ function App() {
     };
 
     void loadRideCredits();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void loadDemoUserStats(controller.signal);
 
     return () => {
       controller.abort();
@@ -656,6 +731,7 @@ function App() {
       const payload = (await response.json()) as RideCreditMutationResponse;
 
       updateRiddenRide(payload.rideId, payload.ridden);
+      await loadDemoUserStats();
       setRideCreditMessage(
         payload.ridden ? "Ride marked as ridden." : "Ride marked as not ridden."
       );
@@ -697,6 +773,21 @@ function App() {
     parksStatus.state === "success"
       ? formatCountLabel(parksStatus.parks.length, "park")
       : "Live catalog";
+  const riddenRideCountLabel =
+    demoUserStatsStatus.state === "success"
+      ? formatCountLabel(demoUserStatsStatus.totalRiddenRides, "ridden ride")
+      : demoUserStatsStatus.state === "loading"
+        ? "Loading stats"
+        : "Stats unavailable";
+  const riddenParkCountLabel =
+    demoUserStatsStatus.state === "success"
+      ? formatCountLabel(
+          demoUserStatsStatus.totalParksWithRiddenRides,
+          "park"
+        )
+      : demoUserStatsStatus.state === "loading"
+        ? "Loading stats"
+        : "Stats unavailable";
   const apiStatusLabel =
     apiStatus.state === "success"
       ? `API ${apiStatus.response.status}`
@@ -804,8 +895,12 @@ function App() {
             <strong>{heroCountLabel}</strong>
           </div>
           <div className="intro-stat">
-            <span className="intro-stat-label">Coverage</span>
-            <strong>Parks and rides</strong>
+            <span className="intro-stat-label">Ridden rides</span>
+            <strong>{riddenRideCountLabel}</strong>
+          </div>
+          <div className="intro-stat">
+            <span className="intro-stat-label">Parks ridden</span>
+            <strong>{riddenParkCountLabel}</strong>
           </div>
         </div>
       </section>
@@ -848,6 +943,67 @@ function App() {
             {parksStatus.parks.length > 0 ? (
               <>
                 <p className="parks-summary">{homeSummary}</p>
+                {demoUserStatsStatus.state === "success" ? (
+                  <section className="stats-panel" aria-label="Demo user stats">
+                    <div className="section-row">
+                      <div>
+                        <p className="status-label">Demo rider stats</p>
+                        <p className="section-copy">
+                          {demoUserStatsStatus.userName}'s current progress based on ride credits.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="stats-grid">
+                      <article className="stats-card">
+                        <span className="stats-card-label">Ridden rides</span>
+                        <strong className="stats-card-value">
+                          {demoUserStatsStatus.totalRiddenRides}
+                        </strong>
+                      </article>
+                      <article className="stats-card">
+                        <span className="stats-card-label">Parks ridden</span>
+                        <strong className="stats-card-value">
+                          {demoUserStatsStatus.totalParksWithRiddenRides}
+                        </strong>
+                      </article>
+                    </div>
+                    {demoUserStatsStatus.parks.length > 0 ? (
+                      <div className="stats-breakdown">
+                        {demoUserStatsStatus.parks.map((park) => (
+                          <button
+                            className="stats-park-card"
+                            key={park.parkId}
+                            type="button"
+                            onClick={() => {
+                              navigateToPark(park.parkSlug);
+                            }}
+                          >
+                            <span className="stats-park-name">{park.parkName}</span>
+                            <span className="stats-park-value">
+                              {formatCountLabel(park.riddenRideCount, "ridden ride")}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="state-message state-message-empty">
+                        <p>No ridden rides yet.</p>
+                        <p>Open a ride and mark it as ridden to start tracking progress.</p>
+                      </div>
+                    )}
+                  </section>
+                ) : null}
+                {demoUserStatsStatus.state === "loading" ? (
+                  <div className="state-message state-message-loading">
+                    <p>Loading demo user stats...</p>
+                  </div>
+                ) : null}
+                {demoUserStatsStatus.state === "error" ? (
+                  <div className="state-message state-message-error">
+                    <p>Unable to load demo user stats.</p>
+                    <p>{demoUserStatsStatus.message}</p>
+                  </div>
+                ) : null}
                 <div className="parks-list">
                   {parksStatus.parks.map((park) => (
                     <article className="park-card" key={park.id}>

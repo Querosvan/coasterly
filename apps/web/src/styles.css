@@ -253,6 +253,77 @@ code {
   gap: 1rem;
 }
 
+.stats-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 22px;
+  border: 1px solid rgba(20, 34, 41, 0.08);
+  background: linear-gradient(180deg, rgba(248, 249, 245, 0.94), rgba(242, 245, 241, 0.9));
+}
+
+.stats-grid,
+.stats-breakdown {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.stats-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stats-card {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(20, 34, 41, 0.07);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.stats-card-label {
+  color: #6a7c84;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stats-card-value {
+  font-size: 1.9rem;
+  line-height: 1;
+}
+
+.stats-breakdown {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.stats-park-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(20, 34, 41, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.stats-park-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(13, 108, 145, 0.2);
+  box-shadow: 0 16px 32px rgba(20, 34, 41, 0.06);
+}
+
+.stats-park-name {
+  font-weight: 700;
+}
+
+.stats-park-value {
+  color: #5a6c75;
+}
+
 .ride-toolbar {
   display: grid;
   gap: 0.8rem;
@@ -346,6 +417,7 @@ code {
 .ride-link:focus-visible,
 .brand-link:focus-visible,
 .back-link:focus-visible,
+.stats-park-card:focus-visible,
 .search-input:focus-visible,
 .toolbar-select:focus-visible {
   outline: 2px solid rgba(13, 108, 145, 0.24);
@@ -574,6 +646,10 @@ code {
 
   .ride-toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
   }
 
   .credit-panel {

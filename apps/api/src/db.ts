@@ -2,6 +2,7 @@ import { Pool } from "pg";
 
 import type {
   DemoUser,
+  DemoUserParkRideStat,
   Park,
   ParkStatus,
   Ride,
@@ -569,6 +570,53 @@ export const listDemoUserRideCredits = async (): Promise<{
   return {
     user,
     rideIds: result.rows.map((row) => row.ride_id)
+  };
+};
+
+export const getDemoUserRideStats = async (): Promise<{
+  user: DemoUser;
+  totalRiddenRides: number;
+  totalParksWithRiddenRides: number;
+  parks: DemoUserParkRideStat[];
+}> => {
+  const user = await getDemoUser();
+  const result = await pool.query<{
+    park_id: number;
+    park_name: string;
+    park_slug: string;
+    ridden_ride_count: string;
+  }>(
+    `
+      SELECT
+        parks.id AS park_id,
+        parks.name AS park_name,
+        parks.slug AS park_slug,
+        COUNT(user_ride_credits.ride_id)::text AS ridden_ride_count
+      FROM user_ride_credits
+      INNER JOIN rides ON rides.id = user_ride_credits.ride_id
+      INNER JOIN parks ON parks.id = rides.park_id
+      WHERE user_ride_credits.user_id = $1
+      GROUP BY parks.id, parks.name, parks.slug
+      ORDER BY COUNT(user_ride_credits.ride_id) DESC, parks.name ASC
+    `,
+    [user.id]
+  );
+
+  const parks = result.rows.map((row) => ({
+    parkId: row.park_id,
+    parkName: row.park_name,
+    parkSlug: row.park_slug,
+    riddenRideCount: Number(row.ridden_ride_count)
+  }));
+
+  return {
+    user,
+    totalRiddenRides: parks.reduce(
+      (total, park) => total + park.riddenRideCount,
+      0
+    ),
+    totalParksWithRiddenRides: parks.length,
+    parks
   };
 };
 
