@@ -31,6 +31,12 @@ const surfaces: ProjectSurface[] = [
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
+const formatCountLabel = (
+  count: number,
+  singular: string,
+  plural = `${singular}s`
+) => `${count} ${count === 1 ? singular : plural}`;
+
 type Route =
   | { view: "home" }
   | { view: "park"; slug: string }
@@ -467,178 +473,274 @@ function App() {
     navigateToPark(slug);
   };
 
+  const normalizedSearchQuery = searchQuery.trim();
+  const catalogEyebrow =
+    route.view === "home"
+      ? "Public catalog"
+      : route.view === "park"
+        ? "Park profile"
+        : "Ride profile";
+  const catalogTitle =
+    route.view === "home"
+      ? "Browse parks"
+      : route.view === "park"
+        ? "Park detail"
+        : "Ride detail";
+  const catalogCopy =
+    route.view === "home"
+      ? "Search the live park catalog by park name, country, or city."
+      : route.view === "park"
+        ? "Review the selected park and the rides currently tracked inside it."
+        : "Review the selected ride with its parent park context.";
+  const homeSummary =
+    parksStatus.state === "success"
+      ? normalizedSearchQuery
+        ? `Showing ${formatCountLabel(parksStatus.parks.length, "result")} for "${normalizedSearchQuery}".`
+        : `Loaded ${formatCountLabel(parksStatus.parks.length, "park")} from the API.`
+      : null;
+  const heroCountLabel =
+    parksStatus.state === "success"
+      ? formatCountLabel(parksStatus.parks.length, "park")
+      : "Live catalog";
+
   return (
     <main className="app-shell">
-      <section className="hero">
-        <p className="eyebrow">Coasterly starter</p>
-        <h1>Community-first theme park tracking starts here.</h1>
-        <p className="intro">
-          This monorepo is intentionally small: a web app, an API, shared
-          types, and documentation that make the project easy to grow without
-          overengineering it.
-        </p>
-      </section>
+      <header className="topbar">
+        <button className="brand-link" type="button" onClick={navigateHome}>
+          Coasterly
+        </button>
+        <p className="topbar-copy">Parks and rides catalog preview</p>
+      </header>
 
-      <section className="status-panel" aria-live="polite">
-        <p className="status-label">API connectivity</p>
-        <p className="status-target">
-          Target: <code>{apiBaseUrl || "Missing VITE_API_BASE_URL"}</code>
-        </p>
-        {apiStatus.state === "loading" ? (
-          <p className="status-copy status-loading">
-            Checking <code>/health</code>...
+      <section className="hero-shell">
+        <div className="hero-copy">
+          <p className="eyebrow">Coasterly starter</p>
+          <h1>Theme park tracking with a cleaner public catalog foundation.</h1>
+          <p className="intro">
+            Browse parks, inspect the first ride pages, and validate the
+            live API connection through a frontend that stays simple,
+            responsive, and production-friendly.
           </p>
-        ) : null}
-        {apiStatus.state === "success" ? (
-          <div className="status-copy status-success">
-            <p>Connected successfully.</p>
-            <p>
-              API status: <strong>{apiStatus.response.status}</strong>
-            </p>
-            <p>
-              Timestamp: <code>{apiStatus.response.timestamp}</code>
-            </p>
+
+          <div className="hero-metrics" aria-label="Catalog summary">
+            <div className="hero-metric">
+              <span className="hero-metric-label">Catalog</span>
+              <strong>{heroCountLabel}</strong>
+            </div>
+            <div className="hero-metric">
+              <span className="hero-metric-label">Coverage</span>
+              <strong>Parks and rides</strong>
+            </div>
           </div>
-        ) : null}
-        {apiStatus.state === "error" ? (
-          <div className="status-copy status-error">
-            <p>Connection failed.</p>
-            <p>{apiStatus.message}</p>
+        </div>
+
+        <aside className="status-panel api-panel" aria-live="polite">
+          <div className="panel-header">
+            <div>
+              <p className="status-label">API connectivity</p>
+              <p className="panel-title">Environment status</p>
+            </div>
+            <span className={`status-chip status-chip-${apiStatus.state}`}>
+              {apiStatus.state}
+            </span>
           </div>
-        ) : null}
+
+          <p className="status-target">
+            Target: <code>{apiBaseUrl || "Missing VITE_API_BASE_URL"}</code>
+          </p>
+          {apiStatus.state === "loading" ? (
+            <div className="state-message state-message-loading">
+              <p>Checking <code>/health</code>...</p>
+            </div>
+          ) : null}
+          {apiStatus.state === "success" ? (
+            <div className="state-message state-message-success">
+              <p>Connected successfully.</p>
+              <p>
+                API status: <strong>{apiStatus.response.status}</strong>
+              </p>
+              <p>
+                Timestamp: <code>{apiStatus.response.timestamp}</code>
+              </p>
+            </div>
+          ) : null}
+          {apiStatus.state === "error" ? (
+            <div className="state-message state-message-error">
+              <p>Connection failed.</p>
+              <p>{apiStatus.message}</p>
+            </div>
+          ) : null}
+        </aside>
       </section>
 
-      <section className="status-panel" aria-live="polite">
-        <p className="status-label">Parks</p>
-        {route.view === "home" ? (
-          <div className="search-controls">
-            <label className="search-label" htmlFor="park-search">
-              Search by park name, country, or city
-            </label>
-            <input
-              id="park-search"
-              className="search-input"
-              type="search"
-              name="park-search"
-              value={searchQuery}
-              onChange={(event) => {
-                setSearchQuery(event.target.value);
-              }}
-              placeholder="Search parks"
-            />
+      <section className="status-panel catalog-panel" aria-live="polite">
+        <div className="catalog-header">
+          <div className="catalog-copy">
+            <p className="status-label">{catalogEyebrow}</p>
+            <h2 className="section-title">{catalogTitle}</h2>
+            <p className="section-copy">{catalogCopy}</p>
           </div>
-        ) : null}
+
+          {route.view === "home" ? (
+            <div className="search-controls">
+              <label className="search-label" htmlFor="park-search">
+                Search by park name, country, or city
+              </label>
+              <input
+                id="park-search"
+                className="search-input"
+                type="search"
+                name="park-search"
+                value={searchQuery}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+                }}
+                placeholder="Search parks"
+              />
+            </div>
+          ) : null}
+        </div>
+
         {route.view === "home" && parksStatus.state === "loading" ? (
-          <p className="status-copy status-loading">Loading parks...</p>
+          <div className="state-message state-message-loading">
+            <p>Loading parks...</p>
+          </div>
         ) : null}
         {route.view === "home" && parksStatus.state === "success" ? (
-          <div className="status-copy">
+          <div className="catalog-content">
             {parksStatus.parks.length > 0 ? (
               <>
-                <p className="parks-summary">
-                  Loaded <strong>{parksStatus.parks.length}</strong> parks from
-                  the API.
-                </p>
+                <p className="parks-summary">{homeSummary}</p>
                 <div className="parks-list">
                   {parksStatus.parks.map((park) => (
                     <article className="park-card" key={park.id}>
-                      <a
-                        className="park-link"
-                        href={`/parks/${park.slug}`}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          navigateToPark(park.slug);
-                        }}
-                      >
-                        <p className="park-name">{park.name}</p>
-                      </a>
-                      <p className="park-meta">
+                      <div className="card-header">
+                        <a
+                          className="park-link"
+                          href={`/parks/${park.slug}`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            navigateToPark(park.slug);
+                          }}
+                        >
+                          <p className="park-name">{park.name}</p>
+                        </a>
+                        <span className="catalog-chip">{park.status}</span>
+                      </div>
+                      <p className="park-location">
                         {park.city}, {park.country}
                       </p>
                       <p className="park-meta">
                         Slug: <code>{park.slug}</code>
                       </p>
-                      <p className="park-status">Status: {park.status}</p>
                     </article>
                   ))}
                 </div>
               </>
             ) : (
-              <div className="status-copy status-loading">
+              <div className="state-message state-message-empty">
                 <p>No parks match this search yet.</p>
+                <p>Try a broader park name, city, or country query.</p>
               </div>
             )}
           </div>
         ) : null}
         {route.view === "home" && parksStatus.state === "error" ? (
-          <div className="status-copy status-error">
+          <div className="state-message state-message-error">
             <p>Unable to load parks.</p>
             <p>{parksStatus.message}</p>
           </div>
         ) : null}
         {route.view === "park" ? (
-          <div className="status-copy">
+          <div className="detail-layout">
             <button className="back-link" type="button" onClick={navigateHome}>
               Back to parks
             </button>
             {parkDetailStatus.state === "loading" ? (
-              <p className="status-loading">Loading park details...</p>
+              <div className="state-message state-message-loading">
+                <p>Loading park details...</p>
+              </div>
             ) : null}
             {parkDetailStatus.state === "success" ? (
-              <article className="park-detail-card">
-                <p className="status-label">Park detail</p>
-                <h2 className="park-detail-name">{parkDetailStatus.park.name}</h2>
-                <p className="park-meta">
-                  City: {parkDetailStatus.park.city}
-                </p>
-                <p className="park-meta">
-                  Country: {parkDetailStatus.park.country}
-                </p>
-                <p className="park-meta">
-                  Slug: <code>{parkDetailStatus.park.slug}</code>
-                </p>
-                <p className="park-status">
-                  Status: {parkDetailStatus.park.status}
-                </p>
+              <article className="detail-card">
+                <div className="detail-header">
+                  <div>
+                    <p className="status-label">Park detail</p>
+                    <h3 className="detail-title">{parkDetailStatus.park.name}</h3>
+                  </div>
+                  <span className="catalog-chip">
+                    {parkDetailStatus.park.status}
+                  </span>
+                </div>
+
+                <div className="detail-grid">
+                  <div className="detail-item">
+                    <span className="detail-item-label">City</span>
+                    <p>{parkDetailStatus.park.city}</p>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-item-label">Country</span>
+                    <p>{parkDetailStatus.park.country}</p>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-item-label">Slug</span>
+                    <p><code>{parkDetailStatus.park.slug}</code></p>
+                  </div>
+                </div>
 
                 <div className="rides-section">
-                  <p className="status-label">Rides</p>
+                  <div className="section-row">
+                    <div>
+                      <p className="status-label">Rides</p>
+                      <p className="section-copy">
+                        Current rides tracked for this park.
+                      </p>
+                    </div>
+                    {parkRidesStatus.state === "success" ? (
+                      <span className="catalog-chip">
+                        {formatCountLabel(parkRidesStatus.rides.length, "ride")}
+                      </span>
+                    ) : null}
+                  </div>
                   {parkRidesStatus.state === "loading" ? (
-                    <p className="status-loading">Loading rides...</p>
+                    <div className="state-message state-message-loading">
+                      <p>Loading rides...</p>
+                    </div>
                   ) : null}
                   {parkRidesStatus.state === "success" ? (
                     parkRidesStatus.rides.length > 0 ? (
                       <div className="rides-list">
                         {parkRidesStatus.rides.map((ride) => (
                           <article className="ride-card" key={ride.id}>
-                            <a
-                              className="ride-link"
-                              href={`/parks/${route.slug}/rides/${ride.slug}`}
-                              onClick={(event) => {
-                                event.preventDefault();
-                                navigateToRide(route.slug, ride.slug);
-                              }}
-                            >
-                              <p className="ride-name">{ride.name}</p>
-                            </a>
-                            <p className="park-meta">
-                              Type: {ride.rideType}
-                            </p>
+                            <div className="card-header">
+                              <a
+                                className="ride-link"
+                                href={`/parks/${route.slug}/rides/${ride.slug}`}
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  navigateToRide(route.slug, ride.slug);
+                                }}
+                              >
+                                <p className="ride-name">{ride.name}</p>
+                              </a>
+                              <span className="catalog-chip">{ride.status}</span>
+                            </div>
+                            <p className="park-meta">Type: {ride.rideType}</p>
                             <p className="park-meta">
                               Slug: <code>{ride.slug}</code>
-                            </p>
-                            <p className="park-status">
-                              Status: {ride.status}
                             </p>
                           </article>
                         ))}
                       </div>
                     ) : (
-                      <p className="park-meta">No rides available yet.</p>
+                      <div className="state-message state-message-empty">
+                        <p>No rides available yet.</p>
+                        <p>This park has no seeded rides in the current catalog.</p>
+                      </div>
                     )
                   ) : null}
                   {parkRidesStatus.state === "error" ? (
-                    <div className="status-error">
+                    <div className="state-message state-message-error">
                       <p>Unable to load rides.</p>
                       <p>{parkRidesStatus.message}</p>
                     </div>
@@ -647,7 +749,7 @@ function App() {
               </article>
             ) : null}
             {parkDetailStatus.state === "error" ? (
-              <div className="status-error">
+              <div className="state-message state-message-error">
                 <p>Unable to load this park.</p>
                 <p>{parkDetailStatus.message}</p>
               </div>
@@ -655,7 +757,7 @@ function App() {
           </div>
         ) : null}
         {route.view === "ride" ? (
-          <div className="status-copy">
+          <div className="detail-layout">
             <button
               className="back-link"
               type="button"
@@ -666,28 +768,40 @@ function App() {
               Back to park
             </button>
             {rideDetailStatus.state === "loading" ? (
-              <p className="status-loading">Loading ride details...</p>
+              <div className="state-message state-message-loading">
+                <p>Loading ride details...</p>
+              </div>
             ) : null}
             {rideDetailStatus.state === "success" ? (
-              <article className="park-detail-card">
-                <p className="status-label">Ride detail</p>
-                <h2 className="park-detail-name">{rideDetailStatus.ride.name}</h2>
-                <p className="park-meta">
-                  Parent park: {rideDetailStatus.park.name}
-                </p>
-                <p className="park-meta">
-                  Ride type: {rideDetailStatus.ride.rideType}
-                </p>
-                <p className="park-meta">
-                  Slug: <code>{rideDetailStatus.ride.slug}</code>
-                </p>
-                <p className="park-status">
-                  Status: {rideDetailStatus.ride.status}
-                </p>
+              <article className="detail-card">
+                <div className="detail-header">
+                  <div>
+                    <p className="status-label">Ride detail</p>
+                    <h3 className="detail-title">{rideDetailStatus.ride.name}</h3>
+                  </div>
+                  <span className="catalog-chip">
+                    {rideDetailStatus.ride.status}
+                  </span>
+                </div>
+
+                <div className="detail-grid">
+                  <div className="detail-item detail-item-wide">
+                    <span className="detail-item-label">Parent park</span>
+                    <p>{rideDetailStatus.park.name}</p>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-item-label">Ride type</span>
+                    <p>{rideDetailStatus.ride.rideType}</p>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-item-label">Slug</span>
+                    <p><code>{rideDetailStatus.ride.slug}</code></p>
+                  </div>
+                </div>
               </article>
             ) : null}
             {rideDetailStatus.state === "error" ? (
-              <div className="status-error">
+              <div className="state-message state-message-error">
                 <p>Unable to load this ride.</p>
                 <p>{rideDetailStatus.message}</p>
               </div>
@@ -696,13 +810,22 @@ function App() {
         ) : null}
       </section>
 
-      <section className="surface-grid" aria-label="Project surfaces">
-        {surfaces.map((surface) => (
-          <article className="surface-card" key={surface.id}>
-            <p className="surface-label">{surface.name}</p>
-            <p className="surface-copy">{surface.responsibility}</p>
-          </article>
-        ))}
+      <section className="surface-section" aria-label="Project surfaces">
+        <div className="section-row">
+          <div>
+            <p className="status-label">Project surfaces</p>
+            <h2 className="section-title">Monorepo structure</h2>
+          </div>
+        </div>
+
+        <div className="surface-grid">
+          {surfaces.map((surface) => (
+            <article className="surface-card" key={surface.id}>
+              <p className="surface-label">{surface.name}</p>
+              <p className="surface-copy">{surface.responsibility}</p>
+            </article>
+          ))}
+        </div>
       </section>
     </main>
   );
