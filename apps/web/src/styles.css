@@ -1,9 +1,14 @@
 :root {
   color-scheme: light;
   font-family: "Avenir Next", "Segoe UI", sans-serif;
+  --brand-navy: #13253b;
+  --brand-navy-strong: #0d1c2e;
+  --brand-navy-soft: rgba(19, 37, 59, 0.12);
+  --brand-orange: #f58220;
+  --brand-orange-strong: #dc6f16;
   background:
-    radial-gradient(circle at top left, rgba(62, 142, 174, 0.18) 0%, transparent 28%),
-    radial-gradient(circle at 85% 8%, rgba(241, 191, 81, 0.16) 0%, transparent 22%),
+    radial-gradient(circle at top left, rgba(19, 37, 59, 0.14) 0%, transparent 28%),
+    radial-gradient(circle at 85% 8%, rgba(245, 130, 32, 0.16) 0%, transparent 22%),
     linear-gradient(180deg, #f6f6f1 0%, #eef1ee 100%);
   color: #142229;
 }
@@ -126,7 +131,7 @@ code {
 .eyebrow,
 .status-label {
   margin: 0 0 0.5rem;
-  color: #0d6c91;
+  color: var(--brand-navy);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -241,8 +246,8 @@ code {
 
 .search-input:focus {
   outline: none;
-  border-color: #0d6c91;
-  box-shadow: 0 0 0 4px rgba(13, 108, 145, 0.1);
+  border-color: var(--brand-navy);
+  box-shadow: 0 0 0 4px rgba(19, 37, 59, 0.1);
   transform: translateY(-1px);
 }
 
@@ -312,7 +317,7 @@ code {
 
 .stats-park-card:hover {
   transform: translateY(-1px);
-  border-color: rgba(13, 108, 145, 0.2);
+  border-color: rgba(19, 37, 59, 0.2);
   box-shadow: 0 16px 32px rgba(20, 34, 41, 0.06);
 }
 
@@ -347,8 +352,8 @@ code {
 
 .toolbar-select:focus {
   outline: none;
-  border-color: #0d6c91;
-  box-shadow: 0 0 0 4px rgba(13, 108, 145, 0.1);
+  border-color: var(--brand-navy);
+  box-shadow: 0 0 0 4px rgba(19, 37, 59, 0.1);
 }
 
 .parks-summary {
@@ -387,7 +392,7 @@ code {
   inset: 0 auto auto 0;
   width: 100%;
   height: 4px;
-  background: linear-gradient(90deg, #0d6c91 0%, #f0b24f 100%);
+  background: linear-gradient(90deg, var(--brand-navy) 0%, var(--brand-orange) 100%);
   opacity: 0.9;
 }
 
@@ -395,7 +400,30 @@ code {
 .ride-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 22px 46px rgba(20, 34, 41, 0.08);
-  border-color: rgba(13, 108, 145, 0.16);
+  border-color: rgba(19, 37, 59, 0.16);
+}
+
+.media-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(19, 37, 59, 0.14), rgba(245, 130, 32, 0.12));
+}
+
+.media-frame-park {
+  margin-bottom: 1rem;
+  aspect-ratio: 16 / 9;
+}
+
+.media-frame-detail {
+  aspect-ratio: 16 / 9;
+}
+
+.media-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .park-link,
@@ -410,7 +438,7 @@ code {
 .park-link:focus-visible .park-name,
 .ride-link:hover .ride-name,
 .ride-link:focus-visible .ride-name {
-  color: #0d6c91;
+  color: var(--brand-navy);
 }
 
 .park-link:focus-visible,
@@ -420,7 +448,7 @@ code {
 .stats-park-card:focus-visible,
 .search-input:focus-visible,
 .toolbar-select:focus-visible {
-  outline: 2px solid rgba(13, 108, 145, 0.24);
+  outline: 2px solid rgba(19, 37, 59, 0.24);
   outline-offset: 4px;
   border-radius: 12px;
 }
@@ -456,8 +484,8 @@ code {
 
 .status-chip-loading,
 .catalog-chip {
-  background: rgba(13, 108, 145, 0.1);
-  color: #0d678a;
+  background: var(--brand-navy-soft);
+  color: var(--brand-navy);
 }
 
 .status-chip-success {
@@ -482,7 +510,7 @@ code {
 
 .back-link:hover {
   transform: translateY(-1px);
-  border-color: rgba(13, 108, 145, 0.2);
+  border-color: rgba(19, 37, 59, 0.2);
   background: rgba(248, 251, 252, 0.98);
 }
 
@@ -491,6 +519,59 @@ code {
   gap: 1.25rem;
   padding: 1.35rem;
   border-radius: 26px;
+}
+
+.detail-overview {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+}
+
+.progress-card,
+.park-progress {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.progress-card {
+  padding: 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(20, 34, 41, 0.06);
+  background: rgba(244, 245, 241, 0.88);
+}
+
+.progress-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.progress-label {
+  color: #5b6c73;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.progress-value {
+  color: var(--brand-navy-strong);
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.progress-rail {
+  width: 100%;
+  height: 0.7rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(19, 37, 59, 0.08);
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand-orange) 0%, var(--brand-orange-strong) 100%);
 }
 
 .ride-card-ridden {
@@ -506,8 +587,8 @@ code {
 }
 
 .catalog-chip-ridden {
-  background: rgba(29, 124, 84, 0.12);
-  color: #176245;
+  background: rgba(245, 130, 32, 0.14);
+  color: var(--brand-orange-strong);
 }
 
 .credit-panel {
@@ -530,17 +611,17 @@ code {
 .credit-button {
   width: fit-content;
   padding: 0.78rem 1rem;
-  border: 1px solid rgba(13, 108, 145, 0.18);
+  border: 1px solid rgba(19, 37, 59, 0.18);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.96);
-  color: #14303c;
+  color: var(--brand-navy-strong);
   cursor: pointer;
   transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease;
 }
 
 .credit-button:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: rgba(13, 108, 145, 0.3);
+  border-color: rgba(19, 37, 59, 0.3);
 }
 
 .credit-button:disabled {
@@ -549,9 +630,9 @@ code {
 }
 
 .credit-button-active {
-  border-color: rgba(29, 124, 84, 0.24);
-  background: rgba(232, 244, 236, 0.96);
-  color: #176245;
+  border-color: rgba(245, 130, 32, 0.28);
+  background: rgba(255, 243, 232, 0.96);
+  color: var(--brand-orange-strong);
 }
 
 .detail-grid {
@@ -646,6 +727,10 @@ code {
 
   .ride-toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-overview {
+    grid-template-columns: 1fr;
   }
 
   .stats-grid {

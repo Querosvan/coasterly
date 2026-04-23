@@ -58,3 +58,27 @@ As Coasterly expands, add complexity only when it solves a real problem:
 3. Add tests when behavior becomes meaningful enough to protect
 4. Add `apps/mobile` when the product is ready for native experiences
 5. Add deployment and CI once the repository needs release automation
+
+## Current Catalog Foundations
+
+The current API bootstrap now seeds a broader European park and ride catalog directly in `apps/api/src/db.ts`.
+
+- Parks and rides remain PostgreSQL-backed and are inserted or updated on startup
+- Demo-user park progress is derived from `user_ride_credits`, not stored as a separate table
+- Park progress uses:
+  - total rides
+  - ridden rides
+  - completion percentage
+
+This keeps the first progress model small and avoids denormalized state.
+
+## Seeded Media Approach
+
+Park and ride records now support optional `image_url` fields in PostgreSQL.
+
+- Media is stored as remote image URLs, not repo-hosted binary assets
+- The seeded catalog currently uses deterministic `placehold.co` image URLs
+- This avoids introducing copyrighted assets or an upload pipeline in the current phase
+- The placeholder URLs already follow the intended Coasterly brand direction with dark navy and vivid orange tones
+
+This is intentionally a foundation step. A later phase can replace seeded placeholder URLs with curated licensed imagery or a managed media pipeline without changing the domain model again.
