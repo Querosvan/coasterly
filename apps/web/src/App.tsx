@@ -14,6 +14,8 @@ import type {
 } from "@coasterly/types";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const brandLogoDark = "/brand/coasterly-logo-horizontal-dark.png";
+const brandIconDark = "/brand/coasterly-logo-icon-dark.png";
 
 const formatCountLabel = (
   count: number,
@@ -745,24 +747,6 @@ function App() {
   };
 
   const normalizedSearchQuery = searchQuery.trim();
-  const catalogEyebrow =
-    route.view === "home"
-      ? "Public catalog"
-      : route.view === "park"
-        ? "Park profile"
-        : "Ride profile";
-  const catalogTitle =
-    route.view === "home"
-      ? "Browse parks"
-      : route.view === "park"
-        ? "Park detail"
-        : "Ride detail";
-  const catalogCopy =
-    route.view === "home"
-      ? "Search the live park catalog by park name, country, or city."
-      : route.view === "park"
-        ? "Review the selected park and the rides currently tracked inside it."
-        : "Review the selected ride with its parent park context.";
   const homeSummary =
     parksStatus.state === "success"
       ? normalizedSearchQuery
@@ -813,6 +797,24 @@ function App() {
       : parkRideSort === "opening_year"
         ? "Opening year"
         : "Top speed";
+  const featuredParks =
+    parksStatus.state === "success" ? parksStatus.parks.slice(0, 4) : [];
+  const spotlightPark = featuredParks[0];
+  const spotlightProgress = spotlightPark
+    ? parkProgressBySlug?.get(spotlightPark.slug)
+    : undefined;
+  const secondaryFeaturedParks = featuredParks.slice(1, 4);
+  const rankedProgressParks =
+    demoUserStatsStatus.state === "success"
+      ? [...demoUserStatsStatus.parks]
+          .sort(
+            (left, right) =>
+              right.completionPercentage - left.completionPercentage ||
+              right.riddenRides - left.riddenRides ||
+              left.parkName.localeCompare(right.parkName)
+          )
+          .slice(0, 4)
+      : [];
   const rideSpecItems: RideSpecItem[] = [];
 
   if (rideDetailStatus.state === "success") {
@@ -878,216 +880,335 @@ function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div className="brand-block">
-          <button className="brand-link" type="button" onClick={navigateHome}>
-            Coasterly
-          </button>
-          <p className="topbar-copy">Track parks and rides in one clean public catalog.</p>
+        <button className="brand-link brand-link-image" type="button" onClick={navigateHome}>
+          <img className="brand-logo" src={brandLogoDark} alt="Coasterly" />
+        </button>
+        <div className="topbar-actions">
+          <div className="brand-block">
+            <span className="product-pill">Enthusiast catalog</span>
+            <p className="topbar-copy">
+              Parks, lineups, ride credits, and progress in one modern tracker.
+            </p>
+          </div>
+          <div className="status-cluster" aria-live="polite">
+            <span className={`status-chip status-chip-${apiStatus.state}`}>
+              {apiStatusLabel}
+            </span>
+            {demoUserStatsStatus.state === "success" ? (
+              <span className="catalog-chip">
+                {demoUserStatsStatus.totalRiddenRides} ridden
+              </span>
+            ) : null}
+          </div>
         </div>
-        <span className="product-pill">Public catalog</span>
       </header>
 
-      <section className="intro-strip">
-        <div className="intro-copy">
-          <p className="eyebrow">Theme park tracker</p>
-          <h1>Find parks faster and move deeper into each lineup.</h1>
-          <p className="intro">
-            Coasterly is shaping into a public catalog for parks and rides.
-            Search the live catalog, open a park, and move into each tracked ride.
-          </p>
-        </div>
-
-        <div className="intro-stats" aria-label="Catalog summary">
-          <div className="intro-stat">
-            <span className="intro-stat-label">Catalog</span>
-            <strong>{heroCountLabel}</strong>
-          </div>
-          <div className="intro-stat">
-            <span className="intro-stat-label">Ridden rides</span>
-            <strong>{riddenRideCountLabel}</strong>
-          </div>
-          <div className="intro-stat">
-            <span className="intro-stat-label">Parks ridden</span>
-            <strong>{riddenParkCountLabel}</strong>
-          </div>
-        </div>
-      </section>
-
-      <section className="catalog-panel" aria-live="polite">
-        <div className="catalog-header">
-          <div className="catalog-copy">
-            <p className="status-label">{catalogEyebrow}</p>
-            <h2 className="section-title">{catalogTitle}</h2>
-            <p className="section-copy">{catalogCopy}</p>
-          </div>
-
-          {route.view === "home" ? (
-            <div className="search-controls">
-              <label className="search-label" htmlFor="park-search">
-                Search by park name, country, or city
-              </label>
-              <input
-                id="park-search"
-                className="search-input"
-                type="search"
-                name="park-search"
-                value={searchQuery}
-                onChange={(event) => {
-                  setSearchQuery(event.target.value);
-                }}
-                placeholder="Search parks"
-              />
+      {route.view === "home" ? (
+        <>
+          <section className="hero-panel">
+            <div className="hero-copy">
+              <div className="hero-brand">
+                <img className="hero-mark" src={brandIconDark} alt="" />
+                <p className="eyebrow">Coasterly public catalog</p>
+              </div>
+              <h1>Plan the next park day around rides that actually matter.</h1>
+              <p className="hero-text">
+                Browse Europe&apos;s major parks, move through headline lineups,
+                and turn ride credits into visible progress built for enthusiasts.
+              </p>
+              <div className="hero-search">
+                <label className="search-label" htmlFor="park-search">
+                  Search by park name, country, or city
+                </label>
+                <div className="hero-search-row">
+                  <input
+                    id="park-search"
+                    className="search-input search-input-hero"
+                    type="search"
+                    name="park-search"
+                    value={searchQuery}
+                    onChange={(event) => {
+                      setSearchQuery(event.target.value);
+                    }}
+                    placeholder="Search the catalog"
+                  />
+                  {searchQuery ? (
+                    <button
+                      className="ghost-button"
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                      }}
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="hero-stats" aria-label="Catalog summary">
+                <div className="hero-stat">
+                  <span className="hero-stat-label">Catalog</span>
+                  <strong>{heroCountLabel}</strong>
+                </div>
+                <div className="hero-stat">
+                  <span className="hero-stat-label">Ridden rides</span>
+                  <strong>{riddenRideCountLabel}</strong>
+                </div>
+                <div className="hero-stat">
+                  <span className="hero-stat-label">Parks ridden</span>
+                  <strong>{riddenParkCountLabel}</strong>
+                </div>
+              </div>
             </div>
-          ) : null}
-        </div>
-
-        {route.view === "home" && parksStatus.state === "loading" ? (
-          <div className="state-message state-message-loading">
-            <p>Loading parks...</p>
-          </div>
-        ) : null}
-        {route.view === "home" && parksStatus.state === "success" ? (
-          <div className="catalog-content">
-            {parksStatus.parks.length > 0 ? (
-              <>
-                <p className="parks-summary">{homeSummary}</p>
-                {demoUserStatsStatus.state === "success" ? (
-                  <section className="stats-panel" aria-label="Demo user stats">
-                    <div className="section-row">
-                      <div>
-                        <p className="status-label">Demo rider stats</p>
-                        <p className="section-copy">
-                          {demoUserStatsStatus.userName}'s current progress based on ride credits.
-                        </p>
-                      </div>
+            <div className="hero-visual">
+              {spotlightPark ? (
+                <button
+                  className="spotlight-card"
+                  type="button"
+                  onClick={() => {
+                    navigateToPark(spotlightPark.slug);
+                  }}
+                >
+                  {spotlightPark.imageUrl ? (
+                    <img
+                      className="spotlight-image"
+                      src={spotlightPark.imageUrl}
+                      alt={`${spotlightPark.name} park view`}
+                    />
+                  ) : null}
+                  <div className="spotlight-overlay" />
+                  <div className="spotlight-copy">
+                    <div className="spotlight-row">
+                      <span className="catalog-chip">{spotlightPark.status}</span>
+                      {spotlightProgress ? (
+                        <span className="catalog-chip catalog-chip-ridden">
+                          {spotlightProgress.completionPercentage}% complete
+                        </span>
+                      ) : null}
                     </div>
-                    <div className="stats-grid">
-                      <article className="stats-card">
-                        <span className="stats-card-label">Ridden rides</span>
-                        <strong className="stats-card-value">
-                          {demoUserStatsStatus.totalRiddenRides}
-                        </strong>
-                      </article>
-                      <article className="stats-card">
-                        <span className="stats-card-label">Parks ridden</span>
-                        <strong className="stats-card-value">
-                          {demoUserStatsStatus.totalParksWithRiddenRides}
-                        </strong>
-                      </article>
-                    </div>
-                    {demoUserStatsStatus.parks.length > 0 ? (
-                      <div className="stats-breakdown">
-                        {demoUserStatsStatus.parks.map((park) => (
-                          <button
-                            className="stats-park-card"
-                            key={park.parkId}
-                            type="button"
-                            onClick={() => {
-                              navigateToPark(park.parkSlug);
-                            }}
-                          >
-                            <span className="stats-park-name">{park.parkName}</span>
-                            <span className="stats-park-value">
-                              {`${park.riddenRides}/${park.totalRides} ridden | ${park.completionPercentage}% complete`}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="state-message state-message-empty">
-                        <p>No ridden rides yet.</p>
-                        <p>Open a ride and mark it as ridden to start tracking progress.</p>
-                      </div>
-                    )}
-                  </section>
-                ) : null}
-                {demoUserStatsStatus.state === "loading" ? (
-                  <div className="state-message state-message-loading">
-                    <p>Loading demo user stats...</p>
+                    <p className="eyebrow">Featured park</p>
+                    <h2>{spotlightPark.name}</h2>
+                    <p>
+                      {spotlightPark.city}, {spotlightPark.country}
+                    </p>
                   </div>
-                ) : null}
-                {demoUserStatsStatus.state === "error" ? (
-                  <div className="state-message state-message-error">
-                    <p>Unable to load demo user stats.</p>
-                    <p>{demoUserStatsStatus.message}</p>
+                </button>
+              ) : (
+                <div className="spotlight-card spotlight-card-empty">
+                  <div className="spotlight-copy">
+                    <p className="eyebrow">Featured park</p>
+                    <h2>Catalog loading</h2>
+                    <p>The latest parks will appear here once the API responds.</p>
                   </div>
-                ) : null}
-                <div className="parks-list">
-                  {parksStatus.parks.map((park) => {
-                    const parkProgress = parkProgressBySlug?.get(park.slug);
+                </div>
+              )}
+              {secondaryFeaturedParks.length > 0 ? (
+                <div className="spotlight-stack">
+                  {secondaryFeaturedParks.map((park) => (
+                    <button
+                      className="stack-card"
+                      key={park.slug}
+                      type="button"
+                      onClick={() => {
+                        navigateToPark(park.slug);
+                      }}
+                    >
+                      {park.imageUrl ? (
+                        <img
+                          className="stack-card-image"
+                          src={park.imageUrl}
+                          alt=""
+                        />
+                      ) : null}
+                      <div className="stack-card-copy">
+                        <span className="stack-card-label">{park.country}</span>
+                        <strong>{park.name}</strong>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </section>
 
-                    return (
-                      <article className="park-card" key={park.id}>
-                        {park.imageUrl ? (
-                          <div className="media-frame media-frame-park">
-                            <img
-                              className="media-image"
-                              src={park.imageUrl}
-                              alt={`${park.name} park view`}
-                              loading="lazy"
-                            />
-                          </div>
-                        ) : null}
-                        <div className="card-header">
-                          <a
-                            className="park-link"
-                            href={`/parks/${park.slug}`}
-                            onClick={(event) => {
-                              event.preventDefault();
-                              navigateToPark(park.slug);
-                            }}
-                          >
-                            <p className="park-name">{park.name}</p>
-                          </a>
-                          <span className="catalog-chip">{park.status}</span>
-                        </div>
-                        <p className="park-location">
-                          {park.city}, {park.country}
-                        </p>
-                        <p className="park-meta">
-                          Slug: <code>{park.slug}</code>
-                        </p>
-                        {parkProgress ? (
-                          <div className="park-progress">
-                            <div className="progress-copy">
-                              <span className="progress-label">Demo progress</span>
-                              <strong className="progress-value">
-                                {parkProgress.completionPercentage}%
-                              </strong>
-                            </div>
-                            <div className="progress-rail" aria-hidden="true">
-                              <span
-                                className="progress-fill"
-                                style={{
-                                  width: `${parkProgress.completionPercentage}%`
-                                }}
-                              />
-                            </div>
-                            <p className="park-meta">
-                              {`${parkProgress.riddenRides} of ${parkProgress.totalRides} rides ridden`}
+          <section className="catalog-panel" aria-live="polite">
+            <div className="catalog-header catalog-header-home">
+              <div className="catalog-copy">
+                <p className="status-label">Park catalog</p>
+                <h2 className="section-title">A stronger catalog for planning, tracking, and repeat visits.</h2>
+                <p className="section-copy">
+                  Images, progress, and lineup context stay in view so the catalog feels closer to a real product than a raw data browser.
+                </p>
+              </div>
+              <div className="catalog-support">
+                <p className="catalog-note">{homeSummary}</p>
+                <p className="catalog-note">
+                  Search updates the live API and keeps the focus on the parks worth opening next.
+                </p>
+              </div>
+            </div>
+
+            {parksStatus.state === "loading" ? (
+              <div className="state-message state-message-loading">
+                <p>Loading parks...</p>
+                <p>Pulling the current catalog and progress surfaces from the API.</p>
+              </div>
+            ) : null}
+            {parksStatus.state === "success" ? (
+              <div className="catalog-content">
+                {parksStatus.parks.length > 0 ? (
+                  <>
+                    {demoUserStatsStatus.state === "success" ? (
+                      <section className="stats-panel" aria-label="Demo user stats">
+                        <div className="section-row">
+                          <div>
+                            <p className="status-label">Demo rider progress</p>
+                            <p className="section-copy">
+                              {demoUserStatsStatus.userName}&apos;s current ride-credit footprint across the catalog.
                             </p>
                           </div>
-                        ) : null}
-                      </article>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <div className="state-message state-message-empty">
-                <p>No parks match this search yet.</p>
-                <p>Try a broader park name, city, or country query.</p>
+                          <img className="stats-mark" src={brandIconDark} alt="" />
+                        </div>
+                        <div className="stats-grid">
+                          <article className="stats-card">
+                            <span className="stats-card-label">Ridden rides</span>
+                            <strong className="stats-card-value">
+                              {demoUserStatsStatus.totalRiddenRides}
+                            </strong>
+                          </article>
+                          <article className="stats-card">
+                            <span className="stats-card-label">Parks ridden</span>
+                            <strong className="stats-card-value">
+                              {demoUserStatsStatus.totalParksWithRiddenRides}
+                            </strong>
+                          </article>
+                        </div>
+                        {rankedProgressParks.length > 0 ? (
+                          <div className="stats-breakdown">
+                            {rankedProgressParks.map((park) => (
+                              <button
+                                className="stats-park-card"
+                                key={park.parkId}
+                                type="button"
+                                onClick={() => {
+                                  navigateToPark(park.parkSlug);
+                                }}
+                              >
+                                <span className="stats-park-name">{park.parkName}</span>
+                                <span className="stats-park-value">
+                                  {`${park.riddenRides}/${park.totalRides} ridden`}
+                                </span>
+                                <div className="progress-rail" aria-hidden="true">
+                                  <span
+                                    className="progress-fill"
+                                    style={{
+                                      width: `${park.completionPercentage}%`
+                                    }}
+                                  />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="state-message state-message-empty">
+                            <p>No ridden rides yet.</p>
+                            <p>Open a ride and mark it as ridden to start building momentum.</p>
+                          </div>
+                        )}
+                      </section>
+                    ) : null}
+                    {demoUserStatsStatus.state === "loading" ? (
+                      <div className="state-message state-message-loading">
+                        <p>Loading demo user stats...</p>
+                      </div>
+                    ) : null}
+                    {demoUserStatsStatus.state === "error" ? (
+                      <div className="state-message state-message-error">
+                        <p>Unable to load demo user stats.</p>
+                        <p>{demoUserStatsStatus.message}</p>
+                      </div>
+                    ) : null}
+                    <div className="parks-list">
+                      {parksStatus.parks.map((park) => {
+                        const parkProgress = parkProgressBySlug?.get(park.slug);
+
+                        return (
+                          <article className="park-card" key={park.id}>
+                            {park.imageUrl ? (
+                              <div className="media-frame media-frame-park">
+                                <img
+                                  className="media-image"
+                                  src={park.imageUrl}
+                                  alt={`${park.name} park view`}
+                                  loading="lazy"
+                                />
+                              </div>
+                            ) : null}
+                            <div className="card-header">
+                              <a
+                                className="park-link"
+                                href={`/parks/${park.slug}`}
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  navigateToPark(park.slug);
+                                }}
+                              >
+                                <p className="park-name">{park.name}</p>
+                              </a>
+                              <span className="catalog-chip">{park.status}</span>
+                            </div>
+                            <p className="park-location">
+                              {park.city}, {park.country}
+                            </p>
+                            <p className="park-meta">
+                              Open the lineup, media, and progress for <code>{park.slug}</code>.
+                            </p>
+                            {parkProgress ? (
+                              <div className="park-progress">
+                                <div className="progress-copy">
+                                  <span className="progress-label">Demo progress</span>
+                                  <strong className="progress-value">
+                                    {parkProgress.completionPercentage}%
+                                  </strong>
+                                </div>
+                                <div className="progress-rail" aria-hidden="true">
+                                  <span
+                                    className="progress-fill"
+                                    style={{
+                                      width: `${parkProgress.completionPercentage}%`
+                                    }}
+                                  />
+                                </div>
+                                <p className="park-meta">
+                                  {`${parkProgress.riddenRides} of ${parkProgress.totalRides} rides ridden`}
+                                </p>
+                              </div>
+                            ) : null}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="state-message state-message-empty">
+                    <p>No parks match this search yet.</p>
+                    <p>Try a broader park name, city, or country query.</p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        ) : null}
-        {route.view === "home" && parksStatus.state === "error" ? (
-          <div className="state-message state-message-error">
-            <p>Unable to load parks.</p>
-            <p>{parksStatus.message}</p>
-          </div>
-        ) : null}
-        {route.view === "park" ? (
+            ) : null}
+            {parksStatus.state === "error" ? (
+              <div className="state-message state-message-error">
+                <p>Unable to load parks.</p>
+                <p>{parksStatus.message}</p>
+              </div>
+            ) : null}
+          </section>
+        </>
+      ) : null}
+
+      {route.view === "park" ? (
+        <section className="catalog-panel detail-surface" aria-live="polite">
           <div className="detail-layout">
             <button className="back-link" type="button" onClick={navigateHome}>
               Back to parks
@@ -1095,18 +1216,27 @@ function App() {
             {parkDetailStatus.state === "loading" ? (
               <div className="state-message state-message-loading">
                 <p>Loading park details...</p>
+                <p>Pulling the park profile, progress, and lineup from the API.</p>
               </div>
             ) : null}
             {parkDetailStatus.state === "success" ? (
-              <article className="detail-card">
-                <div className="detail-header">
+              <article className="detail-card detail-card-park">
+                <div className="detail-header detail-header-feature">
                   <div>
-                    <p className="status-label">Park detail</p>
-                    <h3 className="detail-title">{parkDetailStatus.park.name}</h3>
+                    <p className="status-label">Park profile</p>
+                    <h2 className="detail-title">{parkDetailStatus.park.name}</h2>
+                    <p className="section-copy detail-summary">
+                      {parkDetailStatus.park.city}, {parkDetailStatus.park.country}. Review the lineup, filter rides quickly, and keep progress visible while browsing.
+                    </p>
                   </div>
-                  <span className="catalog-chip">
-                    {parkDetailStatus.park.status}
-                  </span>
+                  <div className="detail-chip-row">
+                    <span className="catalog-chip">{parkDetailStatus.park.status}</span>
+                    {activeParkProgress ? (
+                      <span className="catalog-chip catalog-chip-ridden">
+                        {activeParkProgress.completionPercentage}% complete
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
 
                 {parkDetailStatus.park.imageUrl || activeParkProgress ? (
@@ -1163,9 +1293,9 @@ function App() {
                 <div className="rides-section">
                   <div className="section-row">
                     <div>
-                      <p className="status-label">Rides</p>
+                      <p className="status-label">Ride lineup</p>
                       <p className="section-copy">
-                        Current rides tracked for this park.
+                        Filter and sort the tracked rides without losing progress context.
                       </p>
                     </div>
                     {parkRidesStatus.state === "success" ? (
@@ -1174,77 +1304,74 @@ function App() {
                       </span>
                     ) : null}
                   </div>
-                  <div className="ride-toolbar" aria-label="Ride filters and sorting">
-                    <div className="toolbar-field">
-                      <label className="search-label" htmlFor="ride-type-filter">
-                        Ride type
-                      </label>
-                      <select
-                        id="ride-type-filter"
-                        className="toolbar-select"
-                        value={rideTypeFilter}
-                        onChange={(event) => {
-                          setRideTypeFilter(event.target.value);
-                        }}
-                      >
-                        <option value="">All ride types</option>
-                        {parkRideOptions.rideTypes.map((rideType) => (
-                          <option key={rideType} value={rideType}>
-                            {rideType}
-                          </option>
-                        ))}
-                      </select>
+                  <div className="toolbar-panel">
+                    <div className="ride-toolbar" aria-label="Ride filters and sorting">
+                      <div className="toolbar-field">
+                        <label className="search-label" htmlFor="ride-type-filter">
+                          Ride type
+                        </label>
+                        <select
+                          id="ride-type-filter"
+                          className="toolbar-select"
+                          value={rideTypeFilter}
+                          onChange={(event) => {
+                            setRideTypeFilter(event.target.value);
+                          }}
+                        >
+                          <option value="">All ride types</option>
+                          {parkRideOptions.rideTypes.map((rideType) => (
+                            <option key={rideType} value={rideType}>
+                              {rideType}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="toolbar-field">
+                        <label className="search-label" htmlFor="manufacturer-filter">
+                          Manufacturer
+                        </label>
+                        <select
+                          id="manufacturer-filter"
+                          className="toolbar-select"
+                          value={manufacturerFilter}
+                          onChange={(event) => {
+                            setManufacturerFilter(event.target.value);
+                          }}
+                        >
+                          <option value="">All manufacturers</option>
+                          {parkRideOptions.manufacturers.map((manufacturer) => (
+                            <option key={manufacturer} value={manufacturer}>
+                              {manufacturer}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="toolbar-field">
+                        <label className="search-label" htmlFor="ride-sort">
+                          Sort by
+                        </label>
+                        <select
+                          id="ride-sort"
+                          className="toolbar-select"
+                          value={parkRideSort}
+                          onChange={(event) => {
+                            setParkRideSort(event.target.value as ParkRideSort);
+                          }}
+                        >
+                          <option value="name">Name</option>
+                          <option value="opening_year">Opening year</option>
+                          <option value="speed_kmh">Top speed</option>
+                        </select>
+                      </div>
                     </div>
-                    <div className="toolbar-field">
-                      <label className="search-label" htmlFor="manufacturer-filter">
-                        Manufacturer
-                      </label>
-                      <select
-                        id="manufacturer-filter"
-                        className="toolbar-select"
-                        value={manufacturerFilter}
-                        onChange={(event) => {
-                          setManufacturerFilter(event.target.value);
-                        }}
-                      >
-                        <option value="">All manufacturers</option>
-                        {parkRideOptions.manufacturers.map((manufacturer) => (
-                          <option key={manufacturer} value={manufacturer}>
-                            {manufacturer}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="toolbar-field">
-                      <label className="search-label" htmlFor="ride-sort">
-                        Sort by
-                      </label>
-                      <select
-                        id="ride-sort"
-                        className="toolbar-select"
-                        value={parkRideSort}
-                        onChange={(event) => {
-                          setParkRideSort(event.target.value as ParkRideSort);
-                        }}
-                      >
-                        <option value="name">Name</option>
-                        <option value="opening_year">Opening year</option>
-                        <option value="speed_kmh">Top speed</option>
-                      </select>
-                    </div>
+                    <p className="parks-summary">
+                      Filters: <strong>{rideTypeFilter || "All ride types"}</strong>
+                      {" | "}
+                      <strong>{manufacturerFilter || "All manufacturers"}</strong>
+                      {" | "}
+                      <strong>{parkRideSortLabel}</strong>
+                    </p>
                   </div>
-                  <p className="parks-summary">
-                    Filters:{" "}
-                    <strong>
-                      {rideTypeFilter || "All ride types"}
-                    </strong>
-                    {" | "}
-                    <strong>
-                      {manufacturerFilter || "All manufacturers"}
-                    </strong>
-                    {" | "}
-                    <strong>{parkRideSortLabel}</strong>
-                  </p>
                   {parkRidesStatus.state === "loading" ? (
                     <div className="state-message state-message-loading">
                       <p>Loading rides...</p>
@@ -1258,6 +1385,16 @@ function App() {
                             className={`ride-card${riddenRideIds?.has(ride.id) ? " ride-card-ridden" : ""}`}
                             key={ride.id}
                           >
+                            {ride.imageUrl ? (
+                              <div className="media-frame media-frame-ride-card">
+                                <img
+                                  className="media-image"
+                                  src={ride.imageUrl}
+                                  alt=""
+                                  loading="lazy"
+                                />
+                              </div>
+                            ) : null}
                             <div className="card-header">
                               <a
                                 className="ride-link"
@@ -1282,9 +1419,8 @@ function App() {
                             {ride.manufacturer ? (
                               <p className="park-meta">Maker: {ride.manufacturer}</p>
                             ) : null}
-                            <p className="park-location">Inside {parkDetailStatus.park.name}</p>
                             <p className="park-meta">
-                              Slug: <code>{ride.slug}</code>
+                              Open the ride sheet for specs, imagery, and ride credit controls.
                             </p>
                           </article>
                         ))}
@@ -1320,8 +1456,11 @@ function App() {
               </div>
             ) : null}
           </div>
-        ) : null}
-        {route.view === "ride" ? (
+        </section>
+      ) : null}
+
+      {route.view === "ride" ? (
+        <section className="catalog-panel detail-surface" aria-live="polite">
           <div className="detail-layout">
             <button
               className="back-link"
@@ -1335,18 +1474,25 @@ function App() {
             {rideDetailStatus.state === "loading" ? (
               <div className="state-message state-message-loading">
                 <p>Loading ride details...</p>
+                <p>Pulling the ride profile, media, and credit state from the API.</p>
               </div>
             ) : null}
             {rideDetailStatus.state === "success" ? (
-              <article className="detail-card">
-                <div className="detail-header">
+              <article className="detail-card detail-card-ride">
+                <div className="detail-header detail-header-feature">
                   <div>
-                    <p className="status-label">Ride detail</p>
-                    <h3 className="detail-title">{rideDetailStatus.ride.name}</h3>
+                    <p className="status-label">Ride profile</p>
+                    <h2 className="detail-title">{rideDetailStatus.ride.name}</h2>
+                    <p className="section-copy detail-summary">
+                      Inside {rideDetailStatus.park.name}. Review the core ride specs and keep ride credits close to the content.
+                    </p>
                   </div>
-                  <span className="catalog-chip">
-                    {rideDetailStatus.ride.status}
-                  </span>
+                  <div className="detail-chip-row">
+                    <span className="catalog-chip">{rideDetailStatus.ride.status}</span>
+                    {isCurrentRideRidden ? (
+                      <span className="catalog-chip catalog-chip-ridden">Ridden</span>
+                    ) : null}
+                  </div>
                 </div>
 
                 {rideDetailStatus.ride.imageUrl ? (
@@ -1409,8 +1555,8 @@ function App() {
               </div>
             ) : null}
           </div>
-        ) : null}
-      </section>
+        </section>
+      ) : null}
 
       <footer className="developer-footer" aria-live="polite">
         <div className="developer-status">
@@ -1426,7 +1572,7 @@ function App() {
           </p>
         </div>
         <p className="developer-copy">
-          Source: <code>{apiBaseUrl || "Missing VITE_API_BASE_URL"}</code>
+          API source: <code>{apiBaseUrl || "Missing VITE_API_BASE_URL"}</code>
         </p>
       </footer>
     </main>
