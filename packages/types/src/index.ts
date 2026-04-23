@@ -40,6 +40,11 @@ export interface RidesResponse {
   rides: Ride[];
 }
 
+export interface RideResponse {
+  ride: Ride;
+  park: Park;
+}
+
 export interface ProjectSurface {
   id: "web" | "api" | "mobile";
   name: string;

@@ -4,6 +4,7 @@ import cors from "@fastify/cors";
 import {
   closeDatabase,
   getParkBySlug,
+  getRideBySlugs,
   initializeDatabase,
   listParks,
   listRidesForPark
@@ -13,6 +14,7 @@ import type {
   HealthResponse,
   ParkResponse,
   ParksResponse,
+  RideResponse,
   RidesResponse
 } from "@coasterly/types";
 
@@ -90,6 +92,29 @@ app.get<{ Params: { slug: string } }>(
 
     const response: RidesResponse = {
       rides: await listRidesForPark(park.id)
+    };
+
+    return response;
+  }
+);
+
+app.get<{ Params: { slug: string; rideSlug: string } }>(
+  "/parks/:slug/rides/:rideSlug",
+  async (request, reply) => {
+    const rideRecord = await getRideBySlugs(
+      request.params.slug,
+      request.params.rideSlug
+    );
+
+    if (!rideRecord) {
+      return reply.code(404).send({
+        message: "Ride not found."
+      });
+    }
+
+    const response: RideResponse = {
+      park: rideRecord.park,
+      ride: rideRecord.ride
     };
 
     return response;

@@ -215,6 +215,70 @@ export const listRidesForPark = async (parkId: number): Promise<Ride[]> => {
   }));
 };
 
+export const getRideBySlugs = async (
+  parkSlug: string,
+  rideSlug: string
+): Promise<{ park: Park; ride: Ride } | null> => {
+  const result = await pool.query<{
+    park_id: number;
+    park_name: string;
+    park_slug: string;
+    park_country: string;
+    park_city: string;
+    park_status: string;
+    ride_id: number;
+    ride_name: string;
+    ride_slug: string;
+    ride_status: string;
+    ride_type: string;
+  }>(
+    `
+      SELECT
+        parks.id AS park_id,
+        parks.name AS park_name,
+        parks.slug AS park_slug,
+        parks.country AS park_country,
+        parks.city AS park_city,
+        parks.status AS park_status,
+        rides.id AS ride_id,
+        rides.name AS ride_name,
+        rides.slug AS ride_slug,
+        rides.status AS ride_status,
+        rides.ride_type AS ride_type
+      FROM rides
+      INNER JOIN parks ON parks.id = rides.park_id
+      WHERE parks.slug = $1 AND rides.slug = $2
+      LIMIT 1
+    `,
+    [parkSlug, rideSlug]
+  );
+
+  const record = result.rows[0];
+
+  if (!record) {
+    return null;
+  }
+
+  return {
+    park: {
+      id: record.park_id,
+      name: record.park_name,
+      slug: record.park_slug,
+      country: record.park_country,
+      city: record.park_city,
+      status: record.park_status as ParkStatus
+    },
+    ride: {
+      id: record.ride_id,
+      parkId: record.park_id,
+      name: record.ride_name,
+      slug: record.ride_slug,
+      status: record.ride_status as RideStatus,
+      rideType: record.ride_type
+    }
+  };
+};
+
 export const closeDatabase = async () => {
   await pool.end();
 };

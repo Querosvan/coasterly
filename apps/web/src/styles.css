@@ -116,16 +116,20 @@ body {
 }
 
 .park-link,
+.ride-link,
 .back-link {
   color: #0d6c91;
 }
 
-.park-link {
+.park-link,
+.ride-link {
   text-decoration: none;
 }
 
 .park-link:hover .park-name,
-.park-link:focus-visible .park-name {
+.park-link:focus-visible .park-name,
+.ride-link:hover .ride-name,
+.ride-link:focus-visible .ride-name {
   text-decoration: underline;
 }
 
