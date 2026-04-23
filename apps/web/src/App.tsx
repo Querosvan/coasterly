@@ -5,6 +5,8 @@ import type {
   Park,
   ParkResponse,
   ParksResponse,
+  Ride,
+  RidesResponse,
   ProjectSurface
 } from "@coasterly/types";
 
@@ -46,6 +48,12 @@ type ParkDetailStatus =
   | { state: "success"; park: Park }
   | { state: "error"; message: string };
 
+type ParkRidesStatus =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "success"; rides: Ride[] }
+  | { state: "error"; message: string };
+
 const getRoute = (pathname: string): Route => {
   const match = pathname.match(/^\/parks\/([^/]+)\/?$/);
 
@@ -66,6 +74,9 @@ function App() {
     state: "loading"
   });
   const [parkDetailStatus, setParkDetailStatus] = useState<ParkDetailStatus>({
+    state: "idle"
+  });
+  const [parkRidesStatus, setParkRidesStatus] = useState<ParkRidesStatus>({
     state: "idle"
   });
 
@@ -180,12 +191,17 @@ function App() {
   useEffect(() => {
     if (route.view !== "park") {
       setParkDetailStatus({ state: "idle" });
+      setParkRidesStatus({ state: "idle" });
 
       return;
     }
 
     if (!apiBaseUrl) {
       setParkDetailStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+      setParkRidesStatus({
         state: "error",
         message: "VITE_API_BASE_URL is not configured."
       });
@@ -243,7 +259,55 @@ function App() {
       }
     };
 
-    void loadPark();
+    const loadRides = async () => {
+      setParkRidesStatus({ state: "loading" });
+
+      try {
+        const response = await fetch(
+          new URL(`/parks/${route.slug}/rides`, apiBaseUrl),
+          { signal: controller.signal }
+        );
+
+        if (response.status === 404) {
+          setParkRidesStatus({
+            state: "error",
+            message: "Park not found."
+          });
+
+          return;
+        }
+
+        if (!response.ok) {
+          setParkRidesStatus({
+            state: "error",
+            message: `Rides request failed with status ${response.status}.`
+          });
+
+          return;
+        }
+
+        const payload = (await response.json()) as RidesResponse;
+
+        setParkRidesStatus({
+          state: "success",
+          rides: payload.rides
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setParkRidesStatus({
+          state: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "The rides request failed."
+        });
+      }
+    };
+
+    void Promise.all([loadPark(), loadRides()]);
 
     return () => {
       controller.abort();
@@ -373,6 +437,41 @@ function App() {
                 <p className="park-status">
                   Status: {parkDetailStatus.park.status}
                 </p>
+
+                <div className="rides-section">
+                  <p className="status-label">Rides</p>
+                  {parkRidesStatus.state === "loading" ? (
+                    <p className="status-loading">Loading rides...</p>
+                  ) : null}
+                  {parkRidesStatus.state === "success" ? (
+                    parkRidesStatus.rides.length > 0 ? (
+                      <div className="rides-list">
+                        {parkRidesStatus.rides.map((ride) => (
+                          <article className="ride-card" key={ride.id}>
+                            <p className="ride-name">{ride.name}</p>
+                            <p className="park-meta">
+                              Type: {ride.rideType}
+                            </p>
+                            <p className="park-meta">
+                              Slug: <code>{ride.slug}</code>
+                            </p>
+                            <p className="park-status">
+                              Status: {ride.status}
+                            </p>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="park-meta">No rides available yet.</p>
+                    )
+                  ) : null}
+                  {parkRidesStatus.state === "error" ? (
+                    <div className="status-error">
+                      <p>Unable to load rides.</p>
+                      <p>{parkRidesStatus.message}</p>
+                    </div>
+                  ) : null}
+                </div>
               </article>
             ) : null}
             {parkDetailStatus.state === "error" ? (
