@@ -48,6 +48,13 @@ type ParkRidesStatus =
   | { state: "success"; rides: Ride[] }
   | { state: "error"; message: string };
 
+type ParkRideSort = "name" | "opening_year" | "speed_kmh";
+
+type ParkRideOptions = {
+  rideTypes: string[];
+  manufacturers: string[];
+};
+
 type RideDetailStatus =
   | { state: "idle" }
   | { state: "loading" }
@@ -97,9 +104,18 @@ function App() {
   const [parkRidesStatus, setParkRidesStatus] = useState<ParkRidesStatus>({
     state: "idle"
   });
+  const [parkRideOptions, setParkRideOptions] = useState<ParkRideOptions>({
+    rideTypes: [],
+    manufacturers: []
+  });
+  const [rideTypeFilter, setRideTypeFilter] = useState("");
+  const [manufacturerFilter, setManufacturerFilter] = useState("");
+  const [parkRideSort, setParkRideSort] = useState<ParkRideSort>("name");
   const [rideDetailStatus, setRideDetailStatus] = useState<RideDetailStatus>({
     state: "idle"
   });
+
+  const activeParkSlug = route.view === "park" ? route.slug : null;
 
   useEffect(() => {
     const syncRoute = () => {
@@ -236,6 +252,16 @@ function App() {
   }, [searchQuery]);
 
   useEffect(() => {
+    setRideTypeFilter("");
+    setManufacturerFilter("");
+    setParkRideSort("name");
+    setParkRideOptions({
+      rideTypes: [],
+      manufacturers: []
+    });
+  }, [activeParkSlug]);
+
+  useEffect(() => {
     if (route.view !== "park") {
       setParkDetailStatus({ state: "idle" });
       setParkRidesStatus({ state: "idle" });
@@ -310,10 +336,19 @@ function App() {
       setParkRidesStatus({ state: "loading" });
 
       try {
-        const response = await fetch(
-          new URL(`/parks/${route.slug}/rides`, apiBaseUrl),
-          { signal: controller.signal }
-        );
+        const ridesUrl = new URL(`/parks/${route.slug}/rides`, apiBaseUrl);
+
+        if (rideTypeFilter) {
+          ridesUrl.searchParams.set("rideType", rideTypeFilter);
+        }
+
+        if (manufacturerFilter) {
+          ridesUrl.searchParams.set("manufacturer", manufacturerFilter);
+        }
+
+        ridesUrl.searchParams.set("sort", parkRideSort);
+
+        const response = await fetch(ridesUrl, { signal: controller.signal });
 
         if (response.status === 404) {
           setParkRidesStatus({
@@ -339,6 +374,27 @@ function App() {
           state: "success",
           rides: payload.rides
         });
+
+        if (!rideTypeFilter && !manufacturerFilter) {
+          const rideTypes = Array.from(
+            new Set(payload.rides.map((ride) => ride.rideType))
+          );
+          rideTypes.sort((left, right) => left.localeCompare(right));
+
+          const manufacturers = Array.from(
+            new Set(
+              payload.rides
+                .map((ride) => ride.manufacturer)
+                .filter((manufacturer): manufacturer is string => Boolean(manufacturer))
+            )
+          );
+          manufacturers.sort((left, right) => left.localeCompare(right));
+
+          setParkRideOptions({
+            rideTypes,
+            manufacturers
+          });
+        }
       } catch (error) {
         if (controller.signal.aborted) {
           return;
@@ -433,7 +489,7 @@ function App() {
     return () => {
       controller.abort();
     };
-  }, [route]);
+  }, [route, rideTypeFilter, manufacturerFilter, parkRideSort]);
 
   const navigateToPark = (slug: string) => {
     const nextPath = `/parks/${slug}`;
@@ -496,9 +552,15 @@ function App() {
   const apiStatusLabel =
     apiStatus.state === "success"
       ? `API ${apiStatus.response.status}`
-      : apiStatus.state === "loading"
-        ? "API loading"
-        : "API issue";
+        : apiStatus.state === "loading"
+          ? "API loading"
+          : "API issue";
+  const parkRideSortLabel =
+    parkRideSort === "name"
+      ? "Name"
+      : parkRideSort === "opening_year"
+        ? "Opening year"
+        : "Top speed";
   const rideSpecItems: RideSpecItem[] = [];
 
   if (rideDetailStatus.state === "success") {
@@ -724,6 +786,77 @@ function App() {
                       </span>
                     ) : null}
                   </div>
+                  <div className="ride-toolbar" aria-label="Ride filters and sorting">
+                    <div className="toolbar-field">
+                      <label className="search-label" htmlFor="ride-type-filter">
+                        Ride type
+                      </label>
+                      <select
+                        id="ride-type-filter"
+                        className="toolbar-select"
+                        value={rideTypeFilter}
+                        onChange={(event) => {
+                          setRideTypeFilter(event.target.value);
+                        }}
+                      >
+                        <option value="">All ride types</option>
+                        {parkRideOptions.rideTypes.map((rideType) => (
+                          <option key={rideType} value={rideType}>
+                            {rideType}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="toolbar-field">
+                      <label className="search-label" htmlFor="manufacturer-filter">
+                        Manufacturer
+                      </label>
+                      <select
+                        id="manufacturer-filter"
+                        className="toolbar-select"
+                        value={manufacturerFilter}
+                        onChange={(event) => {
+                          setManufacturerFilter(event.target.value);
+                        }}
+                      >
+                        <option value="">All manufacturers</option>
+                        {parkRideOptions.manufacturers.map((manufacturer) => (
+                          <option key={manufacturer} value={manufacturer}>
+                            {manufacturer}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="toolbar-field">
+                      <label className="search-label" htmlFor="ride-sort">
+                        Sort by
+                      </label>
+                      <select
+                        id="ride-sort"
+                        className="toolbar-select"
+                        value={parkRideSort}
+                        onChange={(event) => {
+                          setParkRideSort(event.target.value as ParkRideSort);
+                        }}
+                      >
+                        <option value="name">Name</option>
+                        <option value="opening_year">Opening year</option>
+                        <option value="speed_kmh">Top speed</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p className="parks-summary">
+                    Filters:{" "}
+                    <strong>
+                      {rideTypeFilter || "All ride types"}
+                    </strong>
+                    {" · "}
+                    <strong>
+                      {manufacturerFilter || "All manufacturers"}
+                    </strong>
+                    {" · "}
+                    <strong>{parkRideSortLabel}</strong>
+                  </p>
                   {parkRidesStatus.state === "loading" ? (
                     <div className="state-message state-message-loading">
                       <p>Loading rides...</p>
@@ -757,8 +890,16 @@ function App() {
                       </div>
                     ) : (
                       <div className="state-message state-message-empty">
-                        <p>No rides available yet.</p>
-                        <p>This park has no seeded rides in the current catalog.</p>
+                        <p>
+                          {rideTypeFilter || manufacturerFilter
+                            ? "No rides match the current filters."
+                            : "No rides available yet."}
+                        </p>
+                        <p>
+                          {rideTypeFilter || manufacturerFilter
+                            ? "Try clearing one filter or switching the sort order."
+                            : "This park has no seeded rides in the current catalog."}
+                        </p>
                       </div>
                     )
                   ) : null}

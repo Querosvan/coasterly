@@ -249,6 +249,12 @@ const toOptionalRideFields = (fields: {
   ...(fields.inversions !== null ? { inversions: fields.inversions } : {})
 });
 
+type RideListOptions = {
+  rideType?: string;
+  manufacturer?: string;
+  sort?: string;
+};
+
 export const listParks = async (search?: string): Promise<Park[]> => {
   const normalizedSearch = search?.trim();
 
@@ -302,7 +308,39 @@ export const getParkBySlug = async (slug: string): Promise<Park | null> => {
   };
 };
 
-export const listRidesForPark = async (parkId: number): Promise<Ride[]> => {
+export const listRidesForPark = async (
+  parkId: number,
+  options: RideListOptions = {}
+): Promise<Ride[]> => {
+  const normalizedRideType = options.rideType?.trim();
+  const normalizedManufacturer = options.manufacturer?.trim();
+  const sortColumnMap = {
+    name: "name",
+    opening_year: "opening_year",
+    speed_kmh: "speed_kmh"
+  } as const;
+  const sortColumn =
+    options.sort && options.sort in sortColumnMap
+      ? sortColumnMap[options.sort as keyof typeof sortColumnMap]
+      : sortColumnMap.name;
+  const filters = ["park_id = $1"];
+  const values: Array<number | string> = [parkId];
+
+  if (normalizedRideType) {
+    values.push(normalizedRideType);
+    filters.push(`ride_type = $${values.length}`);
+  }
+
+  if (normalizedManufacturer) {
+    values.push(normalizedManufacturer);
+    filters.push(`manufacturer = $${values.length}`);
+  }
+
+  const orderBy =
+    sortColumn === "name"
+      ? "name ASC"
+      : `${sortColumn} DESC NULLS LAST, name ASC`;
+
   const result = await pool.query<{
     id: number;
     park_id: number;
@@ -332,10 +370,10 @@ export const listRidesForPark = async (parkId: number): Promise<Ride[]> => {
         speed_kmh,
         inversions
       FROM rides
-      WHERE park_id = $1
-      ORDER BY name ASC
+      WHERE ${filters.join(" AND ")}
+      ORDER BY ${orderBy}
     `,
-    [parkId]
+    values
   );
 
   return result.rows.map((ride) => ({

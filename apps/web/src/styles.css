@@ -253,6 +253,33 @@ code {
   gap: 1rem;
 }
 
+.ride-toolbar {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.toolbar-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.toolbar-select {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid rgba(20, 34, 41, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  color: inherit;
+}
+
+.toolbar-select:focus {
+  outline: none;
+  border-color: #0d6c91;
+  box-shadow: 0 0 0 4px rgba(13, 108, 145, 0.1);
+}
+
 .parks-summary {
   margin: 0;
   color: #54666e;
@@ -319,7 +346,8 @@ code {
 .ride-link:focus-visible,
 .brand-link:focus-visible,
 .back-link:focus-visible,
-.search-input:focus-visible {
+.search-input:focus-visible,
+.toolbar-select:focus-visible {
   outline: 2px solid rgba(13, 108, 145, 0.24);
   outline-offset: 4px;
   border-radius: 12px;
@@ -483,6 +511,10 @@ code {
     width: 100%;
   }
 
+  .ride-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -517,7 +549,8 @@ code {
   }
 
   .parks-list,
-  .detail-grid {
+  .detail-grid,
+  .ride-toolbar {
     grid-template-columns: 1fr;
   }
 
