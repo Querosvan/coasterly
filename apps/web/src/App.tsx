@@ -1,4 +1,6 @@
-import type { ProjectSurface } from "@coasterly/types";
+import { useEffect, useState } from "react";
+
+import type { HealthResponse, ProjectSurface } from "@coasterly/types";
 
 const surfaces: ProjectSurface[] = [
   {
@@ -18,7 +20,71 @@ const surfaces: ProjectSurface[] = [
   }
 ];
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+
+type ApiStatus =
+  | { state: "loading" }
+  | { state: "success"; response: HealthResponse }
+  | { state: "error"; message: string };
+
 function App() {
+  const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "loading" });
+
+  useEffect(() => {
+    if (!apiBaseUrl) {
+      setApiStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadHealth = async () => {
+      try {
+        const response = await fetch(new URL("/health", apiBaseUrl), {
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          setApiStatus({
+            state: "error",
+            message: `Health check failed with status ${response.status}.`
+          });
+
+          return;
+        }
+
+        const payload = (await response.json()) as HealthResponse;
+
+        setApiStatus({
+          state: "success",
+          response: payload
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setApiStatus({
+          state: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "The API health check failed."
+        });
+      }
+    };
+
+    void loadHealth();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
   return (
     <main className="app-shell">
       <section className="hero">
@@ -29,6 +95,35 @@ function App() {
           types, and documentation that make the project easy to grow without
           overengineering it.
         </p>
+      </section>
+
+      <section className="status-panel" aria-live="polite">
+        <p className="status-label">API connectivity</p>
+        <p className="status-target">
+          Target: <code>{apiBaseUrl || "Missing VITE_API_BASE_URL"}</code>
+        </p>
+        {apiStatus.state === "loading" ? (
+          <p className="status-copy status-loading">
+            Checking <code>/health</code>...
+          </p>
+        ) : null}
+        {apiStatus.state === "success" ? (
+          <div className="status-copy status-success">
+            <p>Connected successfully.</p>
+            <p>
+              API status: <strong>{apiStatus.response.status}</strong>
+            </p>
+            <p>
+              Timestamp: <code>{apiStatus.response.timestamp}</code>
+            </p>
+          </div>
+        ) : null}
+        {apiStatus.state === "error" ? (
+          <div className="status-copy status-error">
+            <p>Connection failed.</p>
+            <p>{apiStatus.message}</p>
+          </div>
+        ) : null}
       </section>
 
       <section className="surface-grid" aria-label="Project surfaces">
