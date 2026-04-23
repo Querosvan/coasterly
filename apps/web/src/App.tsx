@@ -7,27 +7,8 @@ import type {
   ParksResponse,
   Ride,
   RideResponse,
-  RidesResponse,
-  ProjectSurface
+  RidesResponse
 } from "@coasterly/types";
-
-const surfaces: ProjectSurface[] = [
-  {
-    id: "web",
-    name: "Web app",
-    responsibility: "Home for the browser experience and future user-facing features."
-  },
-  {
-    id: "api",
-    name: "Backend API",
-    responsibility: "HTTP layer for platform logic, integrations, and future persistence."
-  },
-  {
-    id: "mobile",
-    name: "Future mobile app",
-    responsibility: "Reserved space for a later native or cross-platform client."
-  }
-];
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
@@ -502,78 +483,48 @@ function App() {
     parksStatus.state === "success"
       ? formatCountLabel(parksStatus.parks.length, "park")
       : "Live catalog";
+  const apiStatusLabel =
+    apiStatus.state === "success"
+      ? `API ${apiStatus.response.status}`
+      : apiStatus.state === "loading"
+        ? "API loading"
+        : "API issue";
 
   return (
     <main className="app-shell">
       <header className="topbar">
-        <button className="brand-link" type="button" onClick={navigateHome}>
-          Coasterly
-        </button>
-        <p className="topbar-copy">Parks and rides catalog preview</p>
+        <div className="brand-block">
+          <button className="brand-link" type="button" onClick={navigateHome}>
+            Coasterly
+          </button>
+          <p className="topbar-copy">Track parks and rides in one clean public catalog.</p>
+        </div>
+        <span className="product-pill">Public catalog</span>
       </header>
 
-      <section className="hero-shell">
-        <div className="hero-copy">
-          <p className="eyebrow">Coasterly starter</p>
-          <h1>Theme park tracking with a cleaner public catalog foundation.</h1>
+      <section className="intro-strip">
+        <div className="intro-copy">
+          <p className="eyebrow">Theme park tracker</p>
+          <h1>Find parks faster and move deeper into each lineup.</h1>
           <p className="intro">
-            Browse parks, inspect the first ride pages, and validate the
-            live API connection through a frontend that stays simple,
-            responsive, and production-friendly.
+            Coasterly is shaping into a public catalog for parks and rides.
+            Search the live catalog, open a park, and move into each tracked ride.
           </p>
-
-          <div className="hero-metrics" aria-label="Catalog summary">
-            <div className="hero-metric">
-              <span className="hero-metric-label">Catalog</span>
-              <strong>{heroCountLabel}</strong>
-            </div>
-            <div className="hero-metric">
-              <span className="hero-metric-label">Coverage</span>
-              <strong>Parks and rides</strong>
-            </div>
-          </div>
         </div>
 
-        <aside className="status-panel api-panel" aria-live="polite">
-          <div className="panel-header">
-            <div>
-              <p className="status-label">API connectivity</p>
-              <p className="panel-title">Environment status</p>
-            </div>
-            <span className={`status-chip status-chip-${apiStatus.state}`}>
-              {apiStatus.state}
-            </span>
+        <div className="intro-stats" aria-label="Catalog summary">
+          <div className="intro-stat">
+            <span className="intro-stat-label">Catalog</span>
+            <strong>{heroCountLabel}</strong>
           </div>
-
-          <p className="status-target">
-            Target: <code>{apiBaseUrl || "Missing VITE_API_BASE_URL"}</code>
-          </p>
-          {apiStatus.state === "loading" ? (
-            <div className="state-message state-message-loading">
-              <p>Checking <code>/health</code>...</p>
-            </div>
-          ) : null}
-          {apiStatus.state === "success" ? (
-            <div className="state-message state-message-success">
-              <p>Connected successfully.</p>
-              <p>
-                API status: <strong>{apiStatus.response.status}</strong>
-              </p>
-              <p>
-                Timestamp: <code>{apiStatus.response.timestamp}</code>
-              </p>
-            </div>
-          ) : null}
-          {apiStatus.state === "error" ? (
-            <div className="state-message state-message-error">
-              <p>Connection failed.</p>
-              <p>{apiStatus.message}</p>
-            </div>
-          ) : null}
-        </aside>
+          <div className="intro-stat">
+            <span className="intro-stat-label">Coverage</span>
+            <strong>Parks and rides</strong>
+          </div>
+        </div>
       </section>
 
-      <section className="status-panel catalog-panel" aria-live="polite">
+      <section className="catalog-panel" aria-live="polite">
         <div className="catalog-header">
           <div className="catalog-copy">
             <p className="status-label">{catalogEyebrow}</p>
@@ -726,6 +677,7 @@ function App() {
                               <span className="catalog-chip">{ride.status}</span>
                             </div>
                             <p className="park-meta">Type: {ride.rideType}</p>
+                            <p className="park-location">Inside {parkDetailStatus.park.name}</p>
                             <p className="park-meta">
                               Slug: <code>{ride.slug}</code>
                             </p>
@@ -810,23 +762,23 @@ function App() {
         ) : null}
       </section>
 
-      <section className="surface-section" aria-label="Project surfaces">
-        <div className="section-row">
-          <div>
-            <p className="status-label">Project surfaces</p>
-            <h2 className="section-title">Monorepo structure</h2>
-          </div>
+      <footer className="developer-footer" aria-live="polite">
+        <div className="developer-status">
+          <span className={`status-chip status-chip-${apiStatus.state}`}>
+            {apiStatusLabel}
+          </span>
+          <p className="developer-copy">
+            {apiStatus.state === "success"
+              ? `Updated ${apiStatus.response.timestamp}`
+              : apiStatus.state === "loading"
+                ? "Checking /health"
+                : apiStatus.message}
+          </p>
         </div>
-
-        <div className="surface-grid">
-          {surfaces.map((surface) => (
-            <article className="surface-card" key={surface.id}>
-              <p className="surface-label">{surface.name}</p>
-              <p className="surface-copy">{surface.responsibility}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+        <p className="developer-copy">
+          Source: <code>{apiBaseUrl || "Missing VITE_API_BASE_URL"}</code>
+        </p>
+      </footer>
     </main>
   );
 }
