@@ -21,6 +21,10 @@ export interface ParksResponse {
   parks: Park[];
 }
 
+export interface ParkResponse {
+  park: Park;
+}
+
 export interface ProjectSurface {
   id: "web" | "api" | "mobile";
   name: string;

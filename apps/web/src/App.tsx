@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type {
   HealthResponse,
   Park,
+  ParkResponse,
   ParksResponse,
   ProjectSurface
 } from "@coasterly/types";
@@ -27,6 +28,8 @@ const surfaces: ProjectSurface[] = [
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
+type Route = { view: "home" } | { view: "park"; slug: string };
+
 type ApiStatus =
   | { state: "loading" }
   | { state: "success"; response: HealthResponse }
@@ -37,11 +40,46 @@ type ParksStatus =
   | { state: "success"; parks: Park[] }
   | { state: "error"; message: string };
 
+type ParkDetailStatus =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "success"; park: Park }
+  | { state: "error"; message: string };
+
+const getRoute = (pathname: string): Route => {
+  const match = pathname.match(/^\/parks\/([^/]+)\/?$/);
+
+  if (match?.[1]) {
+    return {
+      view: "park",
+      slug: decodeURIComponent(match[1])
+    };
+  }
+
+  return { view: "home" };
+};
+
 function App() {
+  const [route, setRoute] = useState<Route>(() => getRoute(window.location.pathname));
   const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "loading" });
   const [parksStatus, setParksStatus] = useState<ParksStatus>({
     state: "loading"
   });
+  const [parkDetailStatus, setParkDetailStatus] = useState<ParkDetailStatus>({
+    state: "idle"
+  });
+
+  useEffect(() => {
+    const syncRoute = () => {
+      setRoute(getRoute(window.location.pathname));
+    };
+
+    window.addEventListener("popstate", syncRoute);
+
+    return () => {
+      window.removeEventListener("popstate", syncRoute);
+    };
+  }, []);
 
   useEffect(() => {
     if (!apiBaseUrl) {
@@ -139,6 +177,95 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (route.view !== "park") {
+      setParkDetailStatus({ state: "idle" });
+
+      return;
+    }
+
+    if (!apiBaseUrl) {
+      setParkDetailStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadPark = async () => {
+      setParkDetailStatus({ state: "loading" });
+
+      try {
+        const response = await fetch(
+          new URL(`/parks/${route.slug}`, apiBaseUrl),
+          { signal: controller.signal }
+        );
+
+        if (response.status === 404) {
+          setParkDetailStatus({
+            state: "error",
+            message: "Park not found."
+          });
+
+          return;
+        }
+
+        if (!response.ok) {
+          setParkDetailStatus({
+            state: "error",
+            message: `Park request failed with status ${response.status}.`
+          });
+
+          return;
+        }
+
+        const payload = (await response.json()) as ParkResponse;
+
+        setParkDetailStatus({
+          state: "success",
+          park: payload.park
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setParkDetailStatus({
+          state: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "The park request failed."
+        });
+      }
+    };
+
+    void loadPark();
+
+    return () => {
+      controller.abort();
+    };
+  }, [route]);
+
+  const navigateToPark = (slug: string) => {
+    const nextPath = `/parks/${slug}`;
+
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+      setRoute({ view: "park", slug });
+    }
+  };
+
+  const navigateHome = () => {
+    if (window.location.pathname !== "/") {
+      window.history.pushState({}, "", "/");
+      setRoute({ view: "home" });
+    }
+  };
+
   return (
     <main className="app-shell">
       <section className="hero">
@@ -182,10 +309,10 @@ function App() {
 
       <section className="status-panel" aria-live="polite">
         <p className="status-label">Parks</p>
-        {parksStatus.state === "loading" ? (
+        {route.view === "home" && parksStatus.state === "loading" ? (
           <p className="status-copy status-loading">Loading parks...</p>
         ) : null}
-        {parksStatus.state === "success" ? (
+        {route.view === "home" && parksStatus.state === "success" ? (
           <div className="status-copy">
             <p className="parks-summary">
               Loaded <strong>{parksStatus.parks.length}</strong> parks from the
@@ -194,7 +321,16 @@ function App() {
             <div className="parks-list">
               {parksStatus.parks.map((park) => (
                 <article className="park-card" key={park.id}>
-                  <p className="park-name">{park.name}</p>
+                  <a
+                    className="park-link"
+                    href={`/parks/${park.slug}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      navigateToPark(park.slug);
+                    }}
+                  >
+                    <p className="park-name">{park.name}</p>
+                  </a>
                   <p className="park-meta">
                     {park.city}, {park.country}
                   </p>
@@ -207,10 +343,44 @@ function App() {
             </div>
           </div>
         ) : null}
-        {parksStatus.state === "error" ? (
+        {route.view === "home" && parksStatus.state === "error" ? (
           <div className="status-copy status-error">
             <p>Unable to load parks.</p>
             <p>{parksStatus.message}</p>
+          </div>
+        ) : null}
+        {route.view === "park" ? (
+          <div className="status-copy">
+            <button className="back-link" type="button" onClick={navigateHome}>
+              Back to parks
+            </button>
+            {parkDetailStatus.state === "loading" ? (
+              <p className="status-loading">Loading park details...</p>
+            ) : null}
+            {parkDetailStatus.state === "success" ? (
+              <article className="park-detail-card">
+                <p className="status-label">Park detail</p>
+                <h2 className="park-detail-name">{parkDetailStatus.park.name}</h2>
+                <p className="park-meta">
+                  City: {parkDetailStatus.park.city}
+                </p>
+                <p className="park-meta">
+                  Country: {parkDetailStatus.park.country}
+                </p>
+                <p className="park-meta">
+                  Slug: <code>{parkDetailStatus.park.slug}</code>
+                </p>
+                <p className="park-status">
+                  Status: {parkDetailStatus.park.status}
+                </p>
+              </article>
+            ) : null}
+            {parkDetailStatus.state === "error" ? (
+              <div className="status-error">
+                <p>Unable to load this park.</p>
+                <p>{parkDetailStatus.message}</p>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </section>

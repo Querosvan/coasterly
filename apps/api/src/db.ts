@@ -86,6 +86,29 @@ export const listParks = async (): Promise<Park[]> => {
   }));
 };
 
+export const getParkBySlug = async (slug: string): Promise<Park | null> => {
+  const result = await pool.query<Park>(
+    `
+      SELECT id, name, slug, country, city, status
+      FROM parks
+      WHERE slug = $1
+      LIMIT 1
+    `,
+    [slug]
+  );
+
+  const park = result.rows[0];
+
+  if (!park) {
+    return null;
+  }
+
+  return {
+    ...park,
+    status: park.status as ParkStatus
+  };
+};
+
 export const closeDatabase = async () => {
   await pool.end();
 };
