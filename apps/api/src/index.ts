@@ -1,7 +1,9 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 
-import type { HealthResponse } from "@coasterly/types";
+import { closeDatabase, initializeDatabase, listParks } from "./db.js";
+
+import type { HealthResponse, ParksResponse } from "@coasterly/types";
 
 const app = Fastify({
   logger: true
@@ -26,6 +28,10 @@ await app.register(cors, {
   ...corsOptions
 });
 
+app.addHook("onClose", async () => {
+  await closeDatabase();
+});
+
 app.get("/health", async () => {
   const response: HealthResponse = {
     service: "api",
@@ -36,11 +42,20 @@ app.get("/health", async () => {
   return response;
 });
 
+app.get("/parks", async () => {
+  const response: ParksResponse = {
+    parks: await listParks()
+  };
+
+  return response;
+});
+
 const port = Number(process.env.PORT ?? 4000);
 const host = process.env.HOST ?? "0.0.0.0";
 
 const start = async () => {
   try {
+    await initializeDatabase();
     await app.listen({ port, host });
   } catch (error) {
     app.log.error(error);

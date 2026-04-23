@@ -98,6 +98,39 @@ body {
   color: #9b2b2b;
 }
 
+.parks-summary {
+  color: #445764;
+}
+
+.parks-list {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.park-card {
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(13, 108, 145, 0.12);
+  background: rgba(246, 251, 255, 0.9);
+}
+
+.park-name {
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+}
+
+.park-meta,
+.park-status {
+  margin: 0;
+  color: #445764;
+}
+
+.park-status {
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
 .surface-grid {
   display: grid;
   gap: 1rem;

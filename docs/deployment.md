@@ -63,6 +63,7 @@ Document these values in Railway instead of relying on local-only `.env` usage.
   - Port assigned by the Railway runtime.
 - `DATABASE_URL`
   - PostgreSQL connection string from Railway PostgreSQL.
+  - The API bootstraps the `parks` table and seed parks on first start.
 - `CORS_ORIGIN`
   - Allowed origin for the web app.
   - Set this to the Railway web domain and any approved preview domains.
@@ -91,6 +92,7 @@ Document these values in Railway instead of relying on local-only `.env` usage.
 5. Start with `node apps/api/dist/index.js`.
 6. Set the healthcheck path to `/health`.
 7. Add `DATABASE_URL`, `CORS_ORIGIN`, `HOST`, `PORT`, and `NODE_ENV`.
+8. After first deploy, verify `GET /parks` returns the seeded parks from PostgreSQL.
 
 ### Railway PostgreSQL
 
