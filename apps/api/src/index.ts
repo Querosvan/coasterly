@@ -79,7 +79,14 @@ app.get<{ Params: { slug: string } }>("/parks/:slug", async (request, reply) => 
   return response;
 });
 
-app.get<{ Params: { slug: string } }>(
+app.get<{
+  Params: { slug: string };
+  Querystring: {
+    rideType?: string;
+    manufacturer?: string;
+    sort?: string;
+  };
+}>(
   "/parks/:slug/rides",
   async (request, reply) => {
     const park = await getParkBySlug(request.params.slug);
@@ -91,7 +98,15 @@ app.get<{ Params: { slug: string } }>(
     }
 
     const response: RidesResponse = {
-      rides: await listRidesForPark(park.id)
+      rides: await listRidesForPark(park.id, {
+        ...(request.query.rideType
+          ? { rideType: request.query.rideType }
+          : {}),
+        ...(request.query.manufacturer
+          ? { manufacturer: request.query.manufacturer }
+          : {}),
+        ...(request.query.sort ? { sort: request.query.sort } : {})
+      })
     };
 
     return response;
