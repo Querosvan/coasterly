@@ -15,6 +15,7 @@ export interface Park {
   country: string;
   city: string;
   status: ParkStatus;
+  imageUrl?: string;
 }
 
 export interface ParksResponse {
@@ -34,6 +35,7 @@ export interface Ride {
   slug: string;
   status: RideStatus;
   rideType: string;
+  imageUrl?: string;
   manufacturer?: string;
   model?: string;
   openingYear?: number;
@@ -68,18 +70,20 @@ export interface RideCreditMutationResponse {
   ridden: boolean;
 }
 
-export interface DemoUserParkRideStat {
+export interface DemoUserParkProgress {
   parkId: number;
   parkName: string;
   parkSlug: string;
-  riddenRideCount: number;
+  totalRides: number;
+  riddenRides: number;
+  completionPercentage: number;
 }
 
 export interface DemoUserStatsResponse {
   user: DemoUser;
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
-  parks: DemoUserParkRideStat[];
+  parks: DemoUserParkProgress[];
 }
 
 export interface ProjectSurface {

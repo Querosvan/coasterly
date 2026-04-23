@@ -794,6 +794,14 @@ function App() {
       : apiStatus.state === "loading"
         ? "API loading"
         : "API issue";
+  const parkProgressBySlug =
+    demoUserStatsStatus.state === "success"
+      ? new Map(
+          demoUserStatsStatus.parks.map((park) => [park.parkSlug, park])
+        )
+      : null;
+  const activeParkProgress =
+    route.view === "park" ? parkProgressBySlug?.get(route.slug) : undefined;
   const riddenRideIds =
     rideCreditsStatus.state === "success" ? new Set(rideCreditsStatus.rideIds) : null;
   const isCurrentRideRidden =
@@ -980,7 +988,7 @@ function App() {
                           >
                             <span className="stats-park-name">{park.parkName}</span>
                             <span className="stats-park-value">
-                              {formatCountLabel(park.riddenRideCount, "ridden ride")}
+                              {`${park.riddenRides}/${park.totalRides} ridden | ${park.completionPercentage}% complete`}
                             </span>
                           </button>
                         ))}
@@ -1005,29 +1013,64 @@ function App() {
                   </div>
                 ) : null}
                 <div className="parks-list">
-                  {parksStatus.parks.map((park) => (
-                    <article className="park-card" key={park.id}>
-                      <div className="card-header">
-                        <a
-                          className="park-link"
-                          href={`/parks/${park.slug}`}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            navigateToPark(park.slug);
-                          }}
-                        >
-                          <p className="park-name">{park.name}</p>
-                        </a>
-                        <span className="catalog-chip">{park.status}</span>
-                      </div>
-                      <p className="park-location">
-                        {park.city}, {park.country}
-                      </p>
-                      <p className="park-meta">
-                        Slug: <code>{park.slug}</code>
-                      </p>
-                    </article>
-                  ))}
+                  {parksStatus.parks.map((park) => {
+                    const parkProgress = parkProgressBySlug?.get(park.slug);
+
+                    return (
+                      <article className="park-card" key={park.id}>
+                        {park.imageUrl ? (
+                          <div className="media-frame media-frame-park">
+                            <img
+                              className="media-image"
+                              src={park.imageUrl}
+                              alt={`${park.name} park view`}
+                              loading="lazy"
+                            />
+                          </div>
+                        ) : null}
+                        <div className="card-header">
+                          <a
+                            className="park-link"
+                            href={`/parks/${park.slug}`}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              navigateToPark(park.slug);
+                            }}
+                          >
+                            <p className="park-name">{park.name}</p>
+                          </a>
+                          <span className="catalog-chip">{park.status}</span>
+                        </div>
+                        <p className="park-location">
+                          {park.city}, {park.country}
+                        </p>
+                        <p className="park-meta">
+                          Slug: <code>{park.slug}</code>
+                        </p>
+                        {parkProgress ? (
+                          <div className="park-progress">
+                            <div className="progress-copy">
+                              <span className="progress-label">Demo progress</span>
+                              <strong className="progress-value">
+                                {parkProgress.completionPercentage}%
+                              </strong>
+                            </div>
+                            <div className="progress-rail" aria-hidden="true">
+                              <span
+                                className="progress-fill"
+                                style={{
+                                  width: `${parkProgress.completionPercentage}%`
+                                }}
+                              />
+                            </div>
+                            <p className="park-meta">
+                              {`${parkProgress.riddenRides} of ${parkProgress.totalRides} rides ridden`}
+                            </p>
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  })}
                 </div>
               </>
             ) : (
@@ -1065,6 +1108,42 @@ function App() {
                     {parkDetailStatus.park.status}
                   </span>
                 </div>
+
+                {parkDetailStatus.park.imageUrl || activeParkProgress ? (
+                  <div className="detail-overview">
+                    {parkDetailStatus.park.imageUrl ? (
+                      <div className="media-frame media-frame-detail">
+                        <img
+                          className="media-image"
+                          src={parkDetailStatus.park.imageUrl}
+                          alt={`${parkDetailStatus.park.name} park view`}
+                        />
+                      </div>
+                    ) : null}
+                    {activeParkProgress ? (
+                      <div className="progress-card">
+                        <p className="status-label">Demo rider progress</p>
+                        <div className="progress-copy">
+                          <span className="progress-label">Completion</span>
+                          <strong className="progress-value">
+                            {activeParkProgress.completionPercentage}%
+                          </strong>
+                        </div>
+                        <div className="progress-rail" aria-hidden="true">
+                          <span
+                            className="progress-fill"
+                            style={{
+                              width: `${activeParkProgress.completionPercentage}%`
+                            }}
+                          />
+                        </div>
+                        <p className="credit-copy">
+                          {`${activeParkProgress.riddenRides} of ${activeParkProgress.totalRides} rides ridden in this park.`}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="detail-grid">
                   <div className="detail-item">
@@ -1269,6 +1348,16 @@ function App() {
                     {rideDetailStatus.ride.status}
                   </span>
                 </div>
+
+                {rideDetailStatus.ride.imageUrl ? (
+                  <div className="media-frame media-frame-detail">
+                    <img
+                      className="media-image"
+                      src={rideDetailStatus.ride.imageUrl}
+                      alt={`${rideDetailStatus.ride.name} ride view`}
+                    />
+                  </div>
+                ) : null}
 
                 <div className="credit-panel">
                   <div>

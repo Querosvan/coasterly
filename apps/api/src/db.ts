@@ -2,7 +2,7 @@ import { Pool } from "pg";
 
 import type {
   DemoUser,
-  DemoUserParkRideStat,
+  DemoUserParkProgress,
   Park,
   ParkStatus,
   Ride,
@@ -24,27 +24,99 @@ const demoUserSeed = {
   name: "Demo User"
 } as const;
 
+const createSeedImageUrl = (kind: "park" | "ride", name: string) =>
+  `https://placehold.co/${
+    kind === "park" ? "1600x900" : "1400x900"
+  }/13253b/f58220/png?text=${encodeURIComponent(name)}`;
+
 const seedParks: Omit<Park, "id">[] = [
   {
     name: "Europa-Park",
     slug: "europa-park",
     country: "Germany",
     city: "Rust",
-    status: "operating"
+    status: "operating",
+    imageUrl: createSeedImageUrl("park", "Europa-Park")
   },
   {
     name: "Phantasialand",
     slug: "phantasialand",
     country: "Germany",
-    city: "Bruehl",
-    status: "operating"
+    city: "Bruhl",
+    status: "operating",
+    imageUrl: createSeedImageUrl("park", "Phantasialand")
   },
   {
     name: "Alton Towers",
     slug: "alton-towers",
     country: "United Kingdom",
     city: "Alton",
-    status: "operating"
+    status: "operating",
+    imageUrl: createSeedImageUrl("park", "Alton Towers")
+  },
+  {
+    name: "Disneyland Park",
+    slug: "disneyland-park",
+    country: "France",
+    city: "Chessy",
+    status: "operating",
+    imageUrl: createSeedImageUrl("park", "Disneyland Park")
+  },
+  {
+    name: "Parc Asterix",
+    slug: "parc-asterix",
+    country: "France",
+    city: "Plailly",
+    status: "operating",
+    imageUrl: createSeedImageUrl("park", "Parc Asterix")
+  },
+  {
+    name: "Efteling",
+    slug: "efteling",
+    country: "Netherlands",
+    city: "Kaatsheuvel",
+    status: "operating",
+    imageUrl: createSeedImageUrl("park", "Efteling")
+  },
+  {
+    name: "Walibi Holland",
+    slug: "walibi-holland",
+    country: "Netherlands",
+    city: "Biddinghuizen",
+    status: "operating",
+    imageUrl: createSeedImageUrl("park", "Walibi Holland")
+  },
+  {
+    name: "PortAventura Park",
+    slug: "portaventura-park",
+    country: "Spain",
+    city: "Salou",
+    status: "operating",
+    imageUrl: createSeedImageUrl("park", "PortAventura Park")
+  },
+  {
+    name: "Gardaland",
+    slug: "gardaland",
+    country: "Italy",
+    city: "Castelnuovo del Garda",
+    status: "operating",
+    imageUrl: createSeedImageUrl("park", "Gardaland")
+  },
+  {
+    name: "Energylandia",
+    slug: "energylandia",
+    country: "Poland",
+    city: "Zator",
+    status: "operating",
+    imageUrl: createSeedImageUrl("park", "Energylandia")
+  },
+  {
+    name: "Liseberg",
+    slug: "liseberg",
+    country: "Sweden",
+    city: "Gothenburg",
+    status: "operating",
+    imageUrl: createSeedImageUrl("park", "Liseberg")
   }
 ];
 
@@ -59,6 +131,7 @@ const seedRides: Array<
     slug: "silver-star",
     status: "operating",
     rideType: "steel coaster",
+    imageUrl: createSeedImageUrl("ride", "Silver Star"),
     manufacturer: "Bolliger & Mabillard",
     model: "Hyper Coaster",
     openingYear: 2002,
@@ -72,6 +145,7 @@ const seedRides: Array<
     slug: "voltron-nevera",
     status: "operating",
     rideType: "launch coaster",
+    imageUrl: createSeedImageUrl("ride", "Voltron Nevera"),
     manufacturer: "Mack Rides",
     model: "Stryker Coaster",
     openingYear: 2024,
@@ -85,6 +159,7 @@ const seedRides: Array<
     slug: "taron",
     status: "operating",
     rideType: "launch coaster",
+    imageUrl: createSeedImageUrl("ride", "Taron"),
     manufacturer: "Intamin",
     model: "LSM Launch Coaster",
     openingYear: 2016,
@@ -98,6 +173,7 @@ const seedRides: Array<
     slug: "fly",
     status: "operating",
     rideType: "flying coaster",
+    imageUrl: createSeedImageUrl("ride", "F.L.Y."),
     manufacturer: "Vekoma",
     model: "Flying Coaster",
     openingYear: 2020,
@@ -111,6 +187,7 @@ const seedRides: Array<
     slug: "nemesis-reborn",
     status: "operating",
     rideType: "inverted coaster",
+    imageUrl: createSeedImageUrl("ride", "Nemesis Reborn"),
     manufacturer: "Bolliger & Mabillard",
     model: "Inverted Coaster",
     openingYear: 1994,
@@ -124,12 +201,207 @@ const seedRides: Array<
     slug: "wicker-man",
     status: "operating",
     rideType: "wood coaster",
+    imageUrl: createSeedImageUrl("ride", "Wicker Man"),
     manufacturer: "Great Coasters International",
     model: "Wooden Coaster",
     openingYear: 2018,
     heightM: 20,
     speedKmh: 70,
     inversions: 0
+  },
+  {
+    parkSlug: "disneyland-park",
+    name: "Big Thunder Mountain",
+    slug: "big-thunder-mountain",
+    status: "operating",
+    rideType: "mine train coaster",
+    imageUrl: createSeedImageUrl("ride", "Big Thunder Mountain"),
+    manufacturer: "Vekoma",
+    openingYear: 1992
+  },
+  {
+    parkSlug: "disneyland-park",
+    name: "Star Wars Hyperspace Mountain",
+    slug: "star-wars-hyperspace-mountain",
+    status: "operating",
+    rideType: "indoor coaster",
+    imageUrl: createSeedImageUrl("ride", "Star Wars Hyperspace Mountain"),
+    openingYear: 1995,
+    inversions: 3
+  },
+  {
+    parkSlug: "parc-asterix",
+    name: "Toutatis",
+    slug: "toutatis",
+    status: "operating",
+    rideType: "launch coaster",
+    imageUrl: createSeedImageUrl("ride", "Toutatis"),
+    manufacturer: "Intamin",
+    openingYear: 2023,
+    heightM: 51,
+    speedKmh: 110
+  },
+  {
+    parkSlug: "parc-asterix",
+    name: "OzIris",
+    slug: "oziris",
+    status: "operating",
+    rideType: "inverted coaster",
+    imageUrl: createSeedImageUrl("ride", "OzIris"),
+    manufacturer: "Bolliger & Mabillard",
+    openingYear: 2012,
+    heightM: 40,
+    speedKmh: 90,
+    inversions: 5
+  },
+  {
+    parkSlug: "efteling",
+    name: "Baron 1898",
+    slug: "baron-1898",
+    status: "operating",
+    rideType: "dive coaster",
+    imageUrl: createSeedImageUrl("ride", "Baron 1898"),
+    manufacturer: "Bolliger & Mabillard",
+    openingYear: 2015,
+    heightM: 37.5,
+    speedKmh: 90,
+    inversions: 2
+  },
+  {
+    parkSlug: "efteling",
+    name: "Joris en de Draak",
+    slug: "joris-en-de-draak",
+    status: "operating",
+    rideType: "wood coaster",
+    imageUrl: createSeedImageUrl("ride", "Joris en de Draak"),
+    manufacturer: "Great Coasters International",
+    openingYear: 2010,
+    speedKmh: 75
+  },
+  {
+    parkSlug: "walibi-holland",
+    name: "Untamed",
+    slug: "untamed",
+    status: "operating",
+    rideType: "hybrid coaster",
+    imageUrl: createSeedImageUrl("ride", "Untamed"),
+    manufacturer: "Rocky Mountain Construction",
+    openingYear: 2019,
+    heightM: 36.5,
+    speedKmh: 92,
+    inversions: 5
+  },
+  {
+    parkSlug: "walibi-holland",
+    name: "Goliath",
+    slug: "goliath",
+    status: "operating",
+    rideType: "mega coaster",
+    imageUrl: createSeedImageUrl("ride", "Goliath"),
+    manufacturer: "Intamin",
+    openingYear: 2002,
+    heightM: 46.8,
+    speedKmh: 106
+  },
+  {
+    parkSlug: "portaventura-park",
+    name: "Shambhala",
+    slug: "shambhala",
+    status: "operating",
+    rideType: "hyper coaster",
+    imageUrl: createSeedImageUrl("ride", "Shambhala"),
+    manufacturer: "Bolliger & Mabillard",
+    model: "Hyper Coaster",
+    openingYear: 2012,
+    heightM: 76,
+    speedKmh: 134
+  },
+  {
+    parkSlug: "portaventura-park",
+    name: "Dragon Khan",
+    slug: "dragon-khan",
+    status: "operating",
+    rideType: "sit-down coaster",
+    imageUrl: createSeedImageUrl("ride", "Dragon Khan"),
+    manufacturer: "Bolliger & Mabillard",
+    openingYear: 1995,
+    heightM: 45,
+    speedKmh: 110,
+    inversions: 8
+  },
+  {
+    parkSlug: "gardaland",
+    name: "Raptor",
+    slug: "raptor",
+    status: "operating",
+    rideType: "wing coaster",
+    imageUrl: createSeedImageUrl("ride", "Raptor"),
+    manufacturer: "Bolliger & Mabillard",
+    openingYear: 2011,
+    heightM: 33,
+    speedKmh: 90,
+    inversions: 3
+  },
+  {
+    parkSlug: "gardaland",
+    name: "Oblivion: The Black Hole",
+    slug: "oblivion-the-black-hole",
+    status: "operating",
+    rideType: "dive coaster",
+    imageUrl: createSeedImageUrl("ride", "Oblivion The Black Hole"),
+    manufacturer: "Bolliger & Mabillard",
+    openingYear: 2015,
+    heightM: 42.5,
+    speedKmh: 100
+  },
+  {
+    parkSlug: "energylandia",
+    name: "Hyperion",
+    slug: "hyperion",
+    status: "operating",
+    rideType: "hyper coaster",
+    imageUrl: createSeedImageUrl("ride", "Hyperion"),
+    manufacturer: "Intamin",
+    openingYear: 2018,
+    heightM: 77,
+    speedKmh: 142
+  },
+  {
+    parkSlug: "energylandia",
+    name: "Zadra",
+    slug: "zadra",
+    status: "operating",
+    rideType: "hybrid coaster",
+    imageUrl: createSeedImageUrl("ride", "Zadra"),
+    manufacturer: "Rocky Mountain Construction",
+    openingYear: 2019,
+    heightM: 63.8,
+    speedKmh: 121
+  },
+  {
+    parkSlug: "liseberg",
+    name: "Helix",
+    slug: "helix",
+    status: "operating",
+    rideType: "launch coaster",
+    imageUrl: createSeedImageUrl("ride", "Helix"),
+    manufacturer: "Mack Rides",
+    openingYear: 2014,
+    heightM: 41,
+    speedKmh: 100,
+    inversions: 7
+  },
+  {
+    parkSlug: "liseberg",
+    name: "Balder",
+    slug: "balder",
+    status: "operating",
+    rideType: "wood coaster",
+    imageUrl: createSeedImageUrl("ride", "Balder"),
+    manufacturer: "Intamin",
+    openingYear: 2003,
+    heightM: 36,
+    speedKmh: 90
   }
 ];
 
@@ -152,8 +424,14 @@ export const initializeDatabase = async () => {
         slug TEXT NOT NULL UNIQUE,
         country TEXT NOT NULL,
         city TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('operating', 'closed', 'planned'))
+        status TEXT NOT NULL CHECK (status IN ('operating', 'closed', 'planned')),
+        image_url TEXT
       )
+    `);
+
+    await client.query(`
+      ALTER TABLE parks
+      ADD COLUMN IF NOT EXISTS image_url TEXT
     `);
 
     await client.query(`
@@ -164,6 +442,7 @@ export const initializeDatabase = async () => {
         slug TEXT NOT NULL,
         status TEXT NOT NULL CHECK (status IN ('operating', 'closed', 'planned')),
         ride_type TEXT NOT NULL,
+        image_url TEXT,
         manufacturer TEXT,
         model TEXT,
         opening_year INTEGER,
@@ -176,6 +455,7 @@ export const initializeDatabase = async () => {
 
     await client.query(`
       ALTER TABLE rides
+      ADD COLUMN IF NOT EXISTS image_url TEXT,
       ADD COLUMN IF NOT EXISTS manufacturer TEXT,
       ADD COLUMN IF NOT EXISTS model TEXT,
       ADD COLUMN IF NOT EXISTS opening_year INTEGER,
@@ -206,16 +486,24 @@ export const initializeDatabase = async () => {
     for (const park of seedParks) {
       await client.query(
         `
-          INSERT INTO parks (name, slug, country, city, status)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO parks (name, slug, country, city, status, image_url)
+          VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT (slug) DO UPDATE
           SET
             name = EXCLUDED.name,
             country = EXCLUDED.country,
             city = EXCLUDED.city,
-            status = EXCLUDED.status
+            status = EXCLUDED.status,
+            image_url = EXCLUDED.image_url
         `,
-        [park.name, park.slug, park.country, park.city, park.status]
+        [
+          park.name,
+          park.slug,
+          park.country,
+          park.city,
+          park.status,
+          park.imageUrl ?? null
+        ]
       );
     }
 
@@ -228,6 +516,7 @@ export const initializeDatabase = async () => {
             slug,
             status,
             ride_type,
+            image_url,
             manufacturer,
             model,
             opening_year,
@@ -235,7 +524,7 @@ export const initializeDatabase = async () => {
             speed_kmh,
             inversions
           )
-          SELECT parks.id, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+          SELECT parks.id, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
           FROM parks
           WHERE parks.slug = $1
           ON CONFLICT (park_id, slug) DO UPDATE
@@ -243,6 +532,7 @@ export const initializeDatabase = async () => {
             name = EXCLUDED.name,
             status = EXCLUDED.status,
             ride_type = EXCLUDED.ride_type,
+            image_url = EXCLUDED.image_url,
             manufacturer = EXCLUDED.manufacturer,
             model = EXCLUDED.model,
             opening_year = EXCLUDED.opening_year,
@@ -256,6 +546,7 @@ export const initializeDatabase = async () => {
           ride.slug,
           ride.status,
           ride.rideType,
+          ride.imageUrl ?? null,
           ride.manufacturer ?? null,
           ride.model ?? null,
           ride.openingYear ?? null,
@@ -273,6 +564,7 @@ export const initializeDatabase = async () => {
 const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, "\\$&");
 
 const toOptionalRideFields = (fields: {
+  imageUrl: string | null;
   manufacturer: string | null;
   model: string | null;
   openingYear: number | null;
@@ -280,6 +572,7 @@ const toOptionalRideFields = (fields: {
   speedKmh: number | null;
   inversions: number | null;
 }) => ({
+  ...(fields.imageUrl !== null ? { imageUrl: fields.imageUrl } : {}),
   ...(fields.manufacturer !== null ? { manufacturer: fields.manufacturer } : {}),
   ...(fields.model !== null ? { model: fields.model } : {}),
   ...(fields.openingYear !== null ? { openingYear: fields.openingYear } : {}),
@@ -333,9 +626,17 @@ export const listParks = async (search?: string): Promise<Park[]> => {
   const normalizedSearch = search?.trim();
 
   const result = normalizedSearch
-    ? await pool.query<Park>(
+    ? await pool.query<{
+        id: number;
+        name: string;
+        slug: string;
+        country: string;
+        city: string;
+        status: string;
+        image_url: string | null;
+      }>(
         `
-          SELECT id, name, slug, country, city, status
+          SELECT id, name, slug, country, city, status, image_url
           FROM parks
           WHERE
             name ILIKE $1 ESCAPE '\\'
@@ -345,9 +646,17 @@ export const listParks = async (search?: string): Promise<Park[]> => {
         `,
         [`%${escapeLikePattern(normalizedSearch)}%`]
       )
-    : await pool.query<Park>(
+    : await pool.query<{
+        id: number;
+        name: string;
+        slug: string;
+        country: string;
+        city: string;
+        status: string;
+        image_url: string | null;
+      }>(
         `
-          SELECT id, name, slug, country, city, status
+          SELECT id, name, slug, country, city, status, image_url
           FROM parks
           ORDER BY name ASC
         `
@@ -355,14 +664,23 @@ export const listParks = async (search?: string): Promise<Park[]> => {
 
   return result.rows.map((park) => ({
     ...park,
-    status: park.status as ParkStatus
+    status: park.status as ParkStatus,
+    ...(park.image_url ? { imageUrl: park.image_url } : {})
   }));
 };
 
 export const getParkBySlug = async (slug: string): Promise<Park | null> => {
-  const result = await pool.query<Park>(
+  const result = await pool.query<{
+    id: number;
+    name: string;
+    slug: string;
+    country: string;
+    city: string;
+    status: string;
+    image_url: string | null;
+  }>(
     `
-      SELECT id, name, slug, country, city, status
+      SELECT id, name, slug, country, city, status, image_url
       FROM parks
       WHERE slug = $1
       LIMIT 1
@@ -378,7 +696,8 @@ export const getParkBySlug = async (slug: string): Promise<Park | null> => {
 
   return {
     ...park,
-    status: park.status as ParkStatus
+    status: park.status as ParkStatus,
+    ...(park.image_url ? { imageUrl: park.image_url } : {})
   };
 };
 
@@ -422,6 +741,7 @@ export const listRidesForPark = async (
     slug: string;
     status: string;
     ride_type: string;
+    image_url: string | null;
     manufacturer: string | null;
     model: string | null;
     opening_year: number | null;
@@ -437,6 +757,7 @@ export const listRidesForPark = async (
         slug,
         status,
         ride_type,
+        image_url,
         manufacturer,
         model,
         opening_year,
@@ -458,6 +779,7 @@ export const listRidesForPark = async (
     status: ride.status as RideStatus,
     rideType: ride.ride_type,
     ...toOptionalRideFields({
+      imageUrl: ride.image_url,
       manufacturer: ride.manufacturer,
       model: ride.model,
       openingYear: ride.opening_year,
@@ -479,11 +801,13 @@ export const getRideBySlugs = async (
     park_country: string;
     park_city: string;
     park_status: string;
+    park_image_url: string | null;
     ride_id: number;
     ride_name: string;
     ride_slug: string;
     ride_status: string;
     ride_type: string;
+    ride_image_url: string | null;
     ride_manufacturer: string | null;
     ride_model: string | null;
     ride_opening_year: number | null;
@@ -499,11 +823,13 @@ export const getRideBySlugs = async (
         parks.country AS park_country,
         parks.city AS park_city,
         parks.status AS park_status,
+        parks.image_url AS park_image_url,
         rides.id AS ride_id,
         rides.name AS ride_name,
         rides.slug AS ride_slug,
         rides.status AS ride_status,
         rides.ride_type AS ride_type,
+        rides.image_url AS ride_image_url,
         rides.manufacturer AS ride_manufacturer,
         rides.model AS ride_model,
         rides.opening_year AS ride_opening_year,
@@ -531,7 +857,8 @@ export const getRideBySlugs = async (
       slug: record.park_slug,
       country: record.park_country,
       city: record.park_city,
-      status: record.park_status as ParkStatus
+      status: record.park_status as ParkStatus,
+      ...(record.park_image_url ? { imageUrl: record.park_image_url } : {})
     },
     ride: {
       id: record.ride_id,
@@ -541,6 +868,7 @@ export const getRideBySlugs = async (
       status: record.ride_status as RideStatus,
       rideType: record.ride_type,
       ...toOptionalRideFields({
+        imageUrl: record.ride_image_url,
         manufacturer: record.ride_manufacturer,
         model: record.ride_model,
         openingYear: record.ride_opening_year,
@@ -577,27 +905,31 @@ export const getDemoUserRideStats = async (): Promise<{
   user: DemoUser;
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
-  parks: DemoUserParkRideStat[];
+  parks: DemoUserParkProgress[];
 }> => {
   const user = await getDemoUser();
   const result = await pool.query<{
     park_id: number;
     park_name: string;
     park_slug: string;
-    ridden_ride_count: string;
+    total_rides: string;
+    ridden_rides: string;
   }>(
     `
       SELECT
         parks.id AS park_id,
         parks.name AS park_name,
         parks.slug AS park_slug,
-        COUNT(user_ride_credits.ride_id)::text AS ridden_ride_count
-      FROM user_ride_credits
-      INNER JOIN rides ON rides.id = user_ride_credits.ride_id
-      INNER JOIN parks ON parks.id = rides.park_id
-      WHERE user_ride_credits.user_id = $1
+        COUNT(rides.id)::text AS total_rides,
+        COUNT(user_ride_credits.ride_id)::text AS ridden_rides
+      FROM parks
+      LEFT JOIN rides ON rides.park_id = parks.id
+      LEFT JOIN user_ride_credits
+        ON user_ride_credits.ride_id = rides.id
+        AND user_ride_credits.user_id = $1
       GROUP BY parks.id, parks.name, parks.slug
-      ORDER BY COUNT(user_ride_credits.ride_id) DESC, parks.name ASC
+      HAVING COUNT(rides.id) > 0
+      ORDER BY parks.name ASC
     `,
     [user.id]
   );
@@ -606,16 +938,21 @@ export const getDemoUserRideStats = async (): Promise<{
     parkId: row.park_id,
     parkName: row.park_name,
     parkSlug: row.park_slug,
-    riddenRideCount: Number(row.ridden_ride_count)
+    totalRides: Number(row.total_rides),
+    riddenRides: Number(row.ridden_rides),
+    completionPercentage:
+      Number(row.total_rides) > 0
+        ? Math.round((Number(row.ridden_rides) / Number(row.total_rides)) * 100)
+        : 0
   }));
 
   return {
     user,
     totalRiddenRides: parks.reduce(
-      (total, park) => total + park.riddenRideCount,
+      (total, park) => total + park.riddenRides,
       0
     ),
-    totalParksWithRiddenRides: parks.length,
+    totalParksWithRiddenRides: parks.filter((park) => park.riddenRides > 0).length,
     parks
   };
 };
