@@ -54,6 +54,50 @@ body {
   color: #445764;
 }
 
+.status-panel {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(13, 108, 145, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 50px rgba(23, 58, 77, 0.08);
+}
+
+.status-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #0d6c91;
+}
+
+.status-target {
+  margin: 0 0 1rem;
+  color: #445764;
+}
+
+.status-copy {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.status-copy p {
+  margin: 0;
+}
+
+.status-loading {
+  color: #445764;
+}
+
+.status-success {
+  color: #13533c;
+}
+
+.status-error {
+  color: #9b2b2b;
+}
+
 .surface-grid {
   display: grid;
   gap: 1rem;
