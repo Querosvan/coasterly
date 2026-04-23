@@ -90,6 +90,7 @@ const getRoute = (pathname: string): Route => {
 function App() {
   const [route, setRoute] = useState<Route>(() => getRoute(window.location.pathname));
   const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "loading" });
+  const [searchQuery, setSearchQuery] = useState("");
   const [parksStatus, setParksStatus] = useState<ParksStatus>({
     state: "loading"
   });
@@ -118,10 +119,6 @@ function App() {
   useEffect(() => {
     if (!apiBaseUrl) {
       setApiStatus({
-        state: "error",
-        message: "VITE_API_BASE_URL is not configured."
-      });
-      setParksStatus({
         state: "error",
         message: "VITE_API_BASE_URL is not configured."
       });
@@ -167,49 +164,79 @@ function App() {
       }
     };
 
-    const loadParks = async () => {
-      try {
-        const response = await fetch(new URL("/parks", apiBaseUrl), {
-          signal: controller.signal
-        });
-
-        if (!response.ok) {
-          setParksStatus({
-            state: "error",
-            message: `Parks request failed with status ${response.status}.`
-          });
-
-          return;
-        }
-
-        const payload = (await response.json()) as ParksResponse;
-
-        setParksStatus({
-          state: "success",
-          parks: payload.parks
-        });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setParksStatus({
-          state: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "The parks request failed."
-        });
-      }
-    };
-
     void loadHealth();
-    void loadParks();
 
     return () => {
       controller.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!apiBaseUrl) {
+      setParksStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    const controller = new AbortController();
+    const normalizedSearchQuery = searchQuery.trim();
+
+    setParksStatus({ state: "loading" });
+
+    const timeoutId = window.setTimeout(() => {
+      const loadParks = async () => {
+        try {
+          const parksUrl = new URL("/parks", apiBaseUrl);
+
+          if (normalizedSearchQuery) {
+            parksUrl.searchParams.set("search", normalizedSearchQuery);
+          }
+
+          const response = await fetch(parksUrl, {
+            signal: controller.signal
+          });
+
+          if (!response.ok) {
+            setParksStatus({
+              state: "error",
+              message: `Parks request failed with status ${response.status}.`
+            });
+
+            return;
+          }
+
+          const payload = (await response.json()) as ParksResponse;
+
+          setParksStatus({
+            state: "success",
+            parks: payload.parks
+          });
+        } catch (error) {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          setParksStatus({
+            state: "error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "The parks request failed."
+          });
+        }
+      };
+
+      void loadParks();
+    }, normalizedSearchQuery ? 250 : 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [searchQuery]);
 
   useEffect(() => {
     if (route.view !== "park") {
@@ -483,38 +510,64 @@ function App() {
 
       <section className="status-panel" aria-live="polite">
         <p className="status-label">Parks</p>
+        {route.view === "home" ? (
+          <div className="search-controls">
+            <label className="search-label" htmlFor="park-search">
+              Search by park name, country, or city
+            </label>
+            <input
+              id="park-search"
+              className="search-input"
+              type="search"
+              name="park-search"
+              value={searchQuery}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+              }}
+              placeholder="Search parks"
+            />
+          </div>
+        ) : null}
         {route.view === "home" && parksStatus.state === "loading" ? (
           <p className="status-copy status-loading">Loading parks...</p>
         ) : null}
         {route.view === "home" && parksStatus.state === "success" ? (
           <div className="status-copy">
-            <p className="parks-summary">
-              Loaded <strong>{parksStatus.parks.length}</strong> parks from the
-              API.
-            </p>
-            <div className="parks-list">
-              {parksStatus.parks.map((park) => (
-                <article className="park-card" key={park.id}>
-                  <a
-                    className="park-link"
-                    href={`/parks/${park.slug}`}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      navigateToPark(park.slug);
-                    }}
-                  >
-                    <p className="park-name">{park.name}</p>
-                  </a>
-                  <p className="park-meta">
-                    {park.city}, {park.country}
-                  </p>
-                  <p className="park-meta">
-                    Slug: <code>{park.slug}</code>
-                  </p>
-                  <p className="park-status">Status: {park.status}</p>
-                </article>
-              ))}
-            </div>
+            {parksStatus.parks.length > 0 ? (
+              <>
+                <p className="parks-summary">
+                  Loaded <strong>{parksStatus.parks.length}</strong> parks from
+                  the API.
+                </p>
+                <div className="parks-list">
+                  {parksStatus.parks.map((park) => (
+                    <article className="park-card" key={park.id}>
+                      <a
+                        className="park-link"
+                        href={`/parks/${park.slug}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          navigateToPark(park.slug);
+                        }}
+                      >
+                        <p className="park-name">{park.name}</p>
+                      </a>
+                      <p className="park-meta">
+                        {park.city}, {park.country}
+                      </p>
+                      <p className="park-meta">
+                        Slug: <code>{park.slug}</code>
+                      </p>
+                      <p className="park-status">Status: {park.status}</p>
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="status-copy status-loading">
+                <p>No parks match this search yet.</p>
+              </div>
+            )}
           </div>
         ) : null}
         {route.view === "home" && parksStatus.state === "error" ? (
