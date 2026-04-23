@@ -25,6 +25,21 @@ export interface ParkResponse {
   park: Park;
 }
 
+export type RideStatus = "operating" | "closed" | "planned";
+
+export interface Ride {
+  id: number;
+  parkId: number;
+  name: string;
+  slug: string;
+  status: RideStatus;
+  rideType: string;
+}
+
+export interface RidesResponse {
+  rides: Ride[];
+}
+
 export interface ProjectSurface {
   id: "web" | "api" | "mobile";
   name: string;

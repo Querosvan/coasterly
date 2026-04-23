@@ -5,13 +5,15 @@ import {
   closeDatabase,
   getParkBySlug,
   initializeDatabase,
-  listParks
+  listParks,
+  listRidesForPark
 } from "./db.js";
 
 import type {
   HealthResponse,
   ParkResponse,
-  ParksResponse
+  ParksResponse,
+  RidesResponse
 } from "@coasterly/types";
 
 const app = Fastify({
@@ -74,6 +76,25 @@ app.get<{ Params: { slug: string } }>("/parks/:slug", async (request, reply) => 
 
   return response;
 });
+
+app.get<{ Params: { slug: string } }>(
+  "/parks/:slug/rides",
+  async (request, reply) => {
+    const park = await getParkBySlug(request.params.slug);
+
+    if (!park) {
+      return reply.code(404).send({
+        message: "Park not found."
+      });
+    }
+
+    const response: RidesResponse = {
+      rides: await listRidesForPark(park.id)
+    };
+
+    return response;
+  }
+);
 
 const port = Number(process.env.PORT ?? 4000);
 const host = process.env.HOST ?? "0.0.0.0";

@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 
-import type { Park, ParkStatus } from "@coasterly/types";
+import type { Park, ParkStatus, Ride, RideStatus } from "@coasterly/types";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -36,6 +36,55 @@ const seedParks: Omit<Park, "id">[] = [
   }
 ];
 
+const seedRides: Array<
+  Omit<Ride, "id" | "parkId"> & {
+    parkSlug: string;
+  }
+> = [
+  {
+    parkSlug: "europa-park",
+    name: "Silver Star",
+    slug: "silver-star",
+    status: "operating",
+    rideType: "steel coaster"
+  },
+  {
+    parkSlug: "europa-park",
+    name: "Voltron Nevera",
+    slug: "voltron-nevera",
+    status: "operating",
+    rideType: "launch coaster"
+  },
+  {
+    parkSlug: "phantasialand",
+    name: "Taron",
+    slug: "taron",
+    status: "operating",
+    rideType: "launch coaster"
+  },
+  {
+    parkSlug: "phantasialand",
+    name: "F.L.Y.",
+    slug: "fly",
+    status: "operating",
+    rideType: "flying coaster"
+  },
+  {
+    parkSlug: "alton-towers",
+    name: "Nemesis Reborn",
+    slug: "nemesis-reborn",
+    status: "operating",
+    rideType: "inverted coaster"
+  },
+  {
+    parkSlug: "alton-towers",
+    name: "Wicker Man",
+    slug: "wicker-man",
+    status: "operating",
+    rideType: "wood coaster"
+  }
+];
+
 export const initializeDatabase = async () => {
   const client = await pool.connect();
 
@@ -48,6 +97,18 @@ export const initializeDatabase = async () => {
         country TEXT NOT NULL,
         city TEXT NOT NULL,
         status TEXT NOT NULL CHECK (status IN ('operating', 'closed', 'planned'))
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS rides (
+        id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        park_id INTEGER NOT NULL REFERENCES parks (id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('operating', 'closed', 'planned')),
+        ride_type TEXT NOT NULL,
+        UNIQUE (park_id, slug)
       )
     `);
 
@@ -64,6 +125,23 @@ export const initializeDatabase = async () => {
             status = EXCLUDED.status
         `,
         [park.name, park.slug, park.country, park.city, park.status]
+      );
+    }
+
+    for (const ride of seedRides) {
+      await client.query(
+        `
+          INSERT INTO rides (park_id, name, slug, status, ride_type)
+          SELECT parks.id, $2, $3, $4, $5
+          FROM parks
+          WHERE parks.slug = $1
+          ON CONFLICT (park_id, slug) DO UPDATE
+          SET
+            name = EXCLUDED.name,
+            status = EXCLUDED.status,
+            ride_type = EXCLUDED.ride_type
+        `,
+        [ride.parkSlug, ride.name, ride.slug, ride.status, ride.rideType]
       );
     }
   } finally {
@@ -107,6 +185,34 @@ export const getParkBySlug = async (slug: string): Promise<Park | null> => {
     ...park,
     status: park.status as ParkStatus
   };
+};
+
+export const listRidesForPark = async (parkId: number): Promise<Ride[]> => {
+  const result = await pool.query<{
+    id: number;
+    park_id: number;
+    name: string;
+    slug: string;
+    status: string;
+    ride_type: string;
+  }>(
+    `
+      SELECT id, park_id, name, slug, status, ride_type
+      FROM rides
+      WHERE park_id = $1
+      ORDER BY name ASC
+    `,
+    [parkId]
+  );
+
+  return result.rows.map((ride) => ({
+    id: ride.id,
+    parkId: ride.park_id,
+    name: ride.name,
+    slug: ride.slug,
+    status: ride.status as RideStatus,
+    rideType: ride.ride_type
+  }));
 };
 
 export const closeDatabase = async () => {
