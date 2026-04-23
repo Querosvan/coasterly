@@ -18,6 +18,9 @@ const formatCountLabel = (
   plural = `${singular}s`
 ) => `${count} ${count === 1 ? singular : plural}`;
 
+const formatDecimalValue = (value: number) =>
+  Number.isInteger(value) ? String(value) : value.toFixed(1);
+
 type Route =
   | { view: "home" }
   | { view: "park"; slug: string }
@@ -50,6 +53,13 @@ type RideDetailStatus =
   | { state: "loading" }
   | { state: "success"; park: Park; ride: Ride }
   | { state: "error"; message: string };
+
+type RideSpecItem = {
+  label: string;
+  value: string;
+  wide?: true;
+  code?: true;
+};
 
 const getRoute = (pathname: string): Route => {
   const rideMatch = pathname.match(/^\/parks\/([^/]+)\/rides\/([^/]+)\/?$/);
@@ -489,6 +499,67 @@ function App() {
       : apiStatus.state === "loading"
         ? "API loading"
         : "API issue";
+  const rideSpecItems: RideSpecItem[] = [];
+
+  if (rideDetailStatus.state === "success") {
+    rideSpecItems.push({
+      label: "Parent park",
+      value: rideDetailStatus.park.name,
+      wide: true
+    });
+    rideSpecItems.push({
+      label: "Ride type",
+      value: rideDetailStatus.ride.rideType
+    });
+
+    if (rideDetailStatus.ride.manufacturer) {
+      rideSpecItems.push({
+        label: "Manufacturer",
+        value: rideDetailStatus.ride.manufacturer
+      });
+    }
+
+    if (rideDetailStatus.ride.model) {
+      rideSpecItems.push({
+        label: "Model",
+        value: rideDetailStatus.ride.model
+      });
+    }
+
+    if (rideDetailStatus.ride.openingYear !== undefined) {
+      rideSpecItems.push({
+        label: "Opening year",
+        value: String(rideDetailStatus.ride.openingYear)
+      });
+    }
+
+    if (rideDetailStatus.ride.heightM !== undefined) {
+      rideSpecItems.push({
+        label: "Height",
+        value: `${formatDecimalValue(rideDetailStatus.ride.heightM)} m`
+      });
+    }
+
+    if (rideDetailStatus.ride.speedKmh !== undefined) {
+      rideSpecItems.push({
+        label: "Top speed",
+        value: `${formatDecimalValue(rideDetailStatus.ride.speedKmh)} km/h`
+      });
+    }
+
+    if (rideDetailStatus.ride.inversions !== undefined) {
+      rideSpecItems.push({
+        label: "Inversions",
+        value: String(rideDetailStatus.ride.inversions)
+      });
+    }
+
+    rideSpecItems.push({
+      label: "Slug",
+      value: rideDetailStatus.ride.slug,
+      code: true
+    });
+  }
 
   return (
     <main className="app-shell">
@@ -737,18 +808,15 @@ function App() {
                 </div>
 
                 <div className="detail-grid">
-                  <div className="detail-item detail-item-wide">
-                    <span className="detail-item-label">Parent park</span>
-                    <p>{rideDetailStatus.park.name}</p>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-item-label">Ride type</span>
-                    <p>{rideDetailStatus.ride.rideType}</p>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-item-label">Slug</span>
-                    <p><code>{rideDetailStatus.ride.slug}</code></p>
-                  </div>
+                  {rideSpecItems.map((item) => (
+                    <div
+                      className={`detail-item${item.wide ? " detail-item-wide" : ""}`}
+                      key={item.label}
+                    >
+                      <span className="detail-item-label">{item.label}</span>
+                      <p>{item.code ? <code>{item.value}</code> : item.value}</p>
+                    </div>
+                  ))}
                 </div>
               </article>
             ) : null}

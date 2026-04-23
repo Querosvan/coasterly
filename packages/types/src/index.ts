@@ -34,6 +34,12 @@ export interface Ride {
   slug: string;
   status: RideStatus;
   rideType: string;
+  manufacturer?: string;
+  model?: string;
+  openingYear?: number;
+  heightM?: number;
+  speedKmh?: number;
+  inversions?: number;
 }
 
 export interface RidesResponse {
