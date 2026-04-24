@@ -10,7 +10,21 @@ const queueTimesBaseUrl =
 const officialQueueTimesParkUrl = (externalParkId: string) =>
   `${QUEUE_TIMES_ATTRIBUTION_URL}parks/${externalParkId}/queue_times`;
 
-export const queueTimesParkSeedMappings = [
+export type QueueTimesParkSeedMapping = {
+  parkSlug: string;
+  externalId: string;
+  externalUrl: string;
+  notes?: string;
+};
+
+export type QueueTimesRideSeedMapping = {
+  parkSlug: string;
+  rideSlug: string;
+  externalId: string;
+  notes?: string;
+};
+
+export const queueTimesParkSeedMappings: QueueTimesParkSeedMapping[] = [
   {
     parkSlug: "europa-park",
     externalId: "51",
@@ -67,9 +81,9 @@ export const queueTimesParkSeedMappings = [
     externalId: "11",
     externalUrl: officialQueueTimesParkUrl("11")
   }
-] as const;
+];
 
-export const queueTimesRideSeedMappings = [
+export const queueTimesRideSeedMappings: QueueTimesRideSeedMapping[] = [
   {
     parkSlug: "europa-park",
     rideSlug: "silver-star",
@@ -185,7 +199,7 @@ export const queueTimesRideSeedMappings = [
     rideSlug: "balder",
     externalId: "472"
   }
-] as const;
+];
 
 type QueueTimesRideRecord = {
   id: number;
