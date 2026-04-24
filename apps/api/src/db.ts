@@ -3,11 +3,19 @@ import { Pool } from "pg";
 import type {
   DemoUser,
   DemoUserParkProgress,
+  ExternalEntityType,
+  ExternalSourceName,
   Park,
   ParkStatus,
   Ride,
   RideStatus
 } from "@coasterly/types";
+
+import {
+  QUEUE_TIMES_SOURCE_NAME,
+  queueTimesParkSeedMappings,
+  queueTimesRideSeedMappings
+} from "./integrations/queue-times.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -405,6 +413,37 @@ const seedRides: Array<
   }
 ];
 
+export type ExternalSourceMappingRecord = {
+  id: number;
+  sourceName: ExternalSourceName;
+  entityType: ExternalEntityType;
+  internalEntityId: number;
+  externalId: string;
+  externalUrl?: string;
+  lastVerifiedAt?: string;
+  notes?: string;
+};
+
+export type ParkSourceMappingRecord = ExternalSourceMappingRecord & {
+  parkSlug: string;
+};
+
+export type RideSourceMappingRecord = ExternalSourceMappingRecord & {
+  ride: Ride;
+};
+
+export type WaitTimeSnapshotInput = {
+  mappingId: number;
+  sourceName: ExternalSourceName;
+  entityType: ExternalEntityType;
+  internalEntityId: number;
+  externalId: string;
+  waitTimeMinutes: number | null;
+  isOpen: boolean | null;
+  rideStatus: string | null;
+  recordedAt: string;
+};
+
 export const initializeDatabase = async () => {
   const client = await pool.connect();
 
@@ -471,6 +510,52 @@ export const initializeDatabase = async () => {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         PRIMARY KEY (user_id, ride_id)
       )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS external_source_mappings (
+        id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        source_name TEXT NOT NULL,
+        entity_type TEXT NOT NULL CHECK (entity_type IN ('park', 'ride')),
+        internal_entity_id INTEGER NOT NULL,
+        external_id TEXT NOT NULL,
+        external_url TEXT,
+        last_verified_at TIMESTAMPTZ,
+        notes TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (source_name, entity_type, internal_entity_id),
+        UNIQUE (source_name, entity_type, external_id)
+      )
+    `);
+
+    await client.query(`
+      ALTER TABLE external_source_mappings
+      ADD COLUMN IF NOT EXISTS external_url TEXT,
+      ADD COLUMN IF NOT EXISTS last_verified_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS notes TEXT,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS wait_time_snapshots (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        external_source_mapping_id INTEGER NOT NULL REFERENCES external_source_mappings (id) ON DELETE CASCADE,
+        source_name TEXT NOT NULL,
+        entity_type TEXT NOT NULL CHECK (entity_type IN ('park', 'ride')),
+        internal_entity_id INTEGER NOT NULL,
+        external_id TEXT NOT NULL,
+        wait_time_minutes INTEGER,
+        is_open BOOLEAN,
+        ride_status TEXT,
+        recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS wait_time_snapshots_mapping_recorded_at_idx
+      ON wait_time_snapshots (external_source_mapping_id, recorded_at DESC)
     `);
 
     await client.query(
@@ -553,6 +638,75 @@ export const initializeDatabase = async () => {
           ride.heightM ?? null,
           ride.speedKmh ?? null,
           ride.inversions ?? null
+        ]
+      );
+    }
+
+    for (const mapping of queueTimesParkSeedMappings) {
+      await client.query(
+        `
+          INSERT INTO external_source_mappings (
+            source_name,
+            entity_type,
+            internal_entity_id,
+            external_id,
+            external_url,
+            last_verified_at,
+            notes,
+            updated_at
+          )
+          SELECT $2, 'park', parks.id, $3, $4, NOW(), $5, NOW()
+          FROM parks
+          WHERE parks.slug = $1
+          ON CONFLICT (source_name, entity_type, internal_entity_id) DO UPDATE
+          SET
+            external_id = EXCLUDED.external_id,
+            external_url = EXCLUDED.external_url,
+            last_verified_at = EXCLUDED.last_verified_at,
+            notes = EXCLUDED.notes,
+            updated_at = NOW()
+        `,
+        [
+          mapping.parkSlug,
+          QUEUE_TIMES_SOURCE_NAME,
+          mapping.externalId,
+          mapping.externalUrl,
+          mapping.notes ?? null
+        ]
+      );
+    }
+
+    for (const mapping of queueTimesRideSeedMappings) {
+      await client.query(
+        `
+          INSERT INTO external_source_mappings (
+            source_name,
+            entity_type,
+            internal_entity_id,
+            external_id,
+            external_url,
+            last_verified_at,
+            notes,
+            updated_at
+          )
+          SELECT $3, 'ride', rides.id, $4, NULL, NOW(), $5, NOW()
+          FROM rides
+          INNER JOIN parks ON parks.id = rides.park_id
+          WHERE parks.slug = $1 AND rides.slug = $2
+          ON CONFLICT (source_name, entity_type, internal_entity_id) DO UPDATE
+          SET
+            external_id = EXCLUDED.external_id,
+            external_url = EXCLUDED.external_url,
+            last_verified_at = EXCLUDED.last_verified_at,
+            notes = EXCLUDED.notes,
+            updated_at = NOW()
+        `,
+        [
+          mapping.parkSlug,
+          mapping.rideSlug,
+          QUEUE_TIMES_SOURCE_NAME,
+          mapping.externalId,
+          mapping.notes ?? null
         ]
       );
     }
@@ -1010,6 +1164,248 @@ export const removeDemoUserRideCredit = async (
     user,
     rideId: ride.id
   };
+};
+
+export const getExternalSourceMapping = async (
+  sourceName: ExternalSourceName,
+  entityType: ExternalEntityType,
+  internalEntityId: number
+): Promise<ExternalSourceMappingRecord | null> => {
+  const result = await pool.query<{
+    id: number;
+    source_name: string;
+    entity_type: string;
+    internal_entity_id: number;
+    external_id: string;
+    external_url: string | null;
+    last_verified_at: string | null;
+    notes: string | null;
+  }>(
+    `
+      SELECT
+        id,
+        source_name,
+        entity_type,
+        internal_entity_id,
+        external_id,
+        external_url,
+        last_verified_at,
+        notes
+      FROM external_source_mappings
+      WHERE
+        source_name = $1
+        AND entity_type = $2
+        AND internal_entity_id = $3
+      LIMIT 1
+    `,
+    [sourceName, entityType, internalEntityId]
+  );
+
+  const mapping = result.rows[0];
+
+  if (!mapping) {
+    return null;
+  }
+
+  return {
+    id: mapping.id,
+    sourceName: mapping.source_name as ExternalSourceName,
+    entityType: mapping.entity_type as ExternalEntityType,
+    internalEntityId: mapping.internal_entity_id,
+    externalId: mapping.external_id,
+    ...(mapping.external_url ? { externalUrl: mapping.external_url } : {}),
+    ...(mapping.last_verified_at
+      ? { lastVerifiedAt: mapping.last_verified_at }
+      : {}),
+    ...(mapping.notes ? { notes: mapping.notes } : {})
+  };
+};
+
+export const listParkSourceMappingsBySource = async (
+  sourceName: ExternalSourceName
+): Promise<ParkSourceMappingRecord[]> => {
+  const result = await pool.query<{
+    id: number;
+    source_name: string;
+    entity_type: string;
+    internal_entity_id: number;
+    external_id: string;
+    external_url: string | null;
+    last_verified_at: string | null;
+    notes: string | null;
+    park_slug: string;
+  }>(
+    `
+      SELECT
+        mappings.id,
+        mappings.source_name,
+        mappings.entity_type,
+        mappings.internal_entity_id,
+        mappings.external_id,
+        mappings.external_url,
+        mappings.last_verified_at,
+        mappings.notes,
+        parks.slug AS park_slug
+      FROM external_source_mappings AS mappings
+      INNER JOIN parks ON parks.id = mappings.internal_entity_id
+      WHERE mappings.source_name = $1 AND mappings.entity_type = 'park'
+      ORDER BY parks.name ASC
+    `,
+    [sourceName]
+  );
+
+  return result.rows.map((mapping) => ({
+    id: mapping.id,
+    sourceName: mapping.source_name as ExternalSourceName,
+    entityType: mapping.entity_type as ExternalEntityType,
+    internalEntityId: mapping.internal_entity_id,
+    externalId: mapping.external_id,
+    parkSlug: mapping.park_slug,
+    ...(mapping.external_url ? { externalUrl: mapping.external_url } : {}),
+    ...(mapping.last_verified_at
+      ? { lastVerifiedAt: mapping.last_verified_at }
+      : {}),
+    ...(mapping.notes ? { notes: mapping.notes } : {})
+  }));
+};
+
+export const listRideSourceMappingsForPark = async (
+  parkId: number,
+  sourceName: ExternalSourceName
+): Promise<RideSourceMappingRecord[]> => {
+  const result = await pool.query<{
+    mapping_id: number;
+    source_name: string;
+    entity_type: string;
+    internal_entity_id: number;
+    external_id: string;
+    external_url: string | null;
+    last_verified_at: string | null;
+    notes: string | null;
+    ride_id: number;
+    ride_name: string;
+    ride_slug: string;
+    ride_status: string;
+    ride_type: string;
+    ride_image_url: string | null;
+    ride_manufacturer: string | null;
+    ride_model: string | null;
+    ride_opening_year: number | null;
+    ride_height_m: number | null;
+    ride_speed_kmh: number | null;
+    ride_inversions: number | null;
+  }>(
+    `
+      SELECT
+        mappings.id AS mapping_id,
+        mappings.source_name,
+        mappings.entity_type,
+        mappings.internal_entity_id,
+        mappings.external_id,
+        mappings.external_url,
+        mappings.last_verified_at,
+        mappings.notes,
+        rides.id AS ride_id,
+        rides.name AS ride_name,
+        rides.slug AS ride_slug,
+        rides.status AS ride_status,
+        rides.ride_type AS ride_type,
+        rides.image_url AS ride_image_url,
+        rides.manufacturer AS ride_manufacturer,
+        rides.model AS ride_model,
+        rides.opening_year AS ride_opening_year,
+        rides.height_m AS ride_height_m,
+        rides.speed_kmh AS ride_speed_kmh,
+        rides.inversions AS ride_inversions
+      FROM external_source_mappings AS mappings
+      INNER JOIN rides ON rides.id = mappings.internal_entity_id
+      WHERE
+        mappings.source_name = $2
+        AND mappings.entity_type = 'ride'
+        AND rides.park_id = $1
+      ORDER BY rides.name ASC
+    `,
+    [parkId, sourceName]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.mapping_id,
+    sourceName: row.source_name as ExternalSourceName,
+    entityType: row.entity_type as ExternalEntityType,
+    internalEntityId: row.internal_entity_id,
+    externalId: row.external_id,
+    ...(row.external_url ? { externalUrl: row.external_url } : {}),
+    ...(row.last_verified_at ? { lastVerifiedAt: row.last_verified_at } : {}),
+    ...(row.notes ? { notes: row.notes } : {}),
+    ride: {
+      id: row.ride_id,
+      parkId,
+      name: row.ride_name,
+      slug: row.ride_slug,
+      status: row.ride_status as RideStatus,
+      rideType: row.ride_type,
+      ...toOptionalRideFields({
+        imageUrl: row.ride_image_url,
+        manufacturer: row.ride_manufacturer,
+        model: row.ride_model,
+        openingYear: row.ride_opening_year,
+        heightM: row.ride_height_m,
+        speedKmh: row.ride_speed_kmh,
+        inversions: row.ride_inversions
+      })
+    }
+  }));
+};
+
+export const insertWaitTimeSnapshots = async (
+  snapshots: WaitTimeSnapshotInput[]
+) => {
+  if (snapshots.length === 0) {
+    return;
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    for (const snapshot of snapshots) {
+      await client.query(
+        `
+          INSERT INTO wait_time_snapshots (
+            external_source_mapping_id,
+            source_name,
+            entity_type,
+            internal_entity_id,
+            external_id,
+            wait_time_minutes,
+            is_open,
+            ride_status,
+            recorded_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `,
+        [
+          snapshot.mappingId,
+          snapshot.sourceName,
+          snapshot.entityType,
+          snapshot.internalEntityId,
+          snapshot.externalId,
+          snapshot.waitTimeMinutes,
+          snapshot.isOpen,
+          snapshot.rideStatus,
+          snapshot.recordedAt
+        ]
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const closeDatabase = async () => {

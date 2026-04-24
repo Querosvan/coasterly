@@ -69,6 +69,10 @@ Document these values in Railway instead of relying on local-only `.env` usage.
   - Set this to the Railway web domain and any approved preview domains.
 - `NODE_ENV`
   - Environment mode such as `production`, `staging`, or `development`
+- `QUEUE_TIMES_BASE_URL`
+  - Optional override for the Queue-Times API base URL.
+  - Default: `https://queue-times.com`
+  - Leave unset in normal Railway environments unless you intentionally proxy or mock the integration.
 
 ## Provider Setup Notes
 
@@ -92,7 +96,9 @@ Document these values in Railway instead of relying on local-only `.env` usage.
 5. Start with `node apps/api/dist/index.js`.
 6. Set the healthcheck path to `/health`.
 7. Add `DATABASE_URL`, `CORS_ORIGIN`, `HOST`, `PORT`, and `NODE_ENV`.
-8. After first deploy, verify `GET /parks` returns the seeded parks from PostgreSQL.
+8. If Queue-Times-backed live waits are enabled, keep `QUEUE_TIMES_BASE_URL` unset unless you need a non-default API host.
+9. After first deploy, verify `GET /parks` returns the seeded parks from PostgreSQL.
+10. Verify `GET /parks/:slug/live-waits` returns a normalized Coasterly response and keep the required `Powered by Queue-Times.com` attribution visible in the web UI.
 
 ### Railway PostgreSQL
 

@@ -4,6 +4,7 @@ import type {
   DemoUserStatsResponse,
   HealthResponse,
   Park,
+  ParkLiveWaitsResponse,
   ParkResponse,
   ParksResponse,
   Ride,
@@ -47,6 +48,41 @@ const formatCountLabel = (
 const formatDecimalValue = (value: number) =>
   Number.isInteger(value) ? String(value) : value.toFixed(1);
 
+const formatLiveWaitLabel = (
+  ride: ParkLiveWaitsResponse["rides"][number]
+) => {
+  if (ride.isOpen === false) {
+    return "Closed";
+  }
+
+  if (typeof ride.waitTimeMinutes === "number") {
+    return `${ride.waitTimeMinutes} min`;
+  }
+
+  if (ride.isOpen === true) {
+    return "Open";
+  }
+
+  return "No update";
+};
+
+const formatSourceTimeLabel = (value?: string) => {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+};
+
 type Route =
   | { view: "home" }
   | { view: "parks" }
@@ -75,6 +111,16 @@ type ParkRidesStatus =
   | { state: "idle" }
   | { state: "loading" }
   | { state: "success"; rides: Ride[] }
+  | { state: "error"; message: string };
+
+type ParkLiveWaitsStatus =
+  | { state: "idle" }
+  | { state: "loading" }
+  | {
+      state: "success";
+      source: ParkLiveWaitsResponse["source"];
+      rides: ParkLiveWaitsResponse["rides"];
+    }
   | { state: "error"; message: string };
 
 type ParkRideSort = "name" | "opening_year" | "speed_kmh";
@@ -237,6 +283,10 @@ function App() {
   const [parkDetailStatus, setParkDetailStatus] = useState<ParkDetailStatus>({
     state: "idle"
   });
+  const [parkLiveWaitsStatus, setParkLiveWaitsStatus] =
+    useState<ParkLiveWaitsStatus>({
+      state: "idle"
+    });
   const [parkRidesStatus, setParkRidesStatus] = useState<ParkRidesStatus>({
     state: "idle"
   });
@@ -624,6 +674,80 @@ function App() {
     };
 
     void loadPark();
+
+    return () => {
+      controller.abort();
+    };
+  }, [route]);
+
+  useEffect(() => {
+    if (route.view !== "park") {
+      setParkLiveWaitsStatus({ state: "idle" });
+
+      return;
+    }
+
+    if (!apiBaseUrl) {
+      setParkLiveWaitsStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadParkLiveWaits = async () => {
+      setParkLiveWaitsStatus({ state: "loading" });
+
+      try {
+        const response = await fetch(
+          new URL(`/parks/${route.slug}/live-waits`, apiBaseUrl),
+          { signal: controller.signal }
+        );
+
+        if (response.status === 404) {
+          setParkLiveWaitsStatus({
+            state: "error",
+            message: "Park not found."
+          });
+
+          return;
+        }
+
+        if (!response.ok) {
+          setParkLiveWaitsStatus({
+            state: "error",
+            message: `Live waits request failed with status ${response.status}.`
+          });
+
+          return;
+        }
+
+        const payload = (await response.json()) as ParkLiveWaitsResponse;
+
+        setParkLiveWaitsStatus({
+          state: "success",
+          source: payload.source,
+          rides: payload.rides
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setParkLiveWaitsStatus({
+          state: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "The live waits request failed."
+        });
+      }
+    };
+
+    void loadParkLiveWaits();
 
     return () => {
       controller.abort();
@@ -1141,6 +1265,11 @@ function App() {
     );
   const activeParkProgress =
     route.view === "park" ? parkProgressBySlug?.get(route.slug) : undefined;
+  const liveWaitSource =
+    parkLiveWaitsStatus.state === "success" ? parkLiveWaitsStatus.source : null;
+  const hasMappedLiveWaits = liveWaitSource?.state === "mapped";
+  const liveWaitRides =
+    parkLiveWaitsStatus.state === "success" ? parkLiveWaitsStatus.rides : [];
   const parkRideSortLabel =
     parkRideSort === "name"
       ? "Name"
@@ -2143,6 +2272,112 @@ function App() {
                     <p><code>{parkDetailStatus.park.slug}</code></p>
                   </div>
                 </div>
+
+                {parkLiveWaitsStatus.state === "loading" ||
+                parkLiveWaitsStatus.state === "error" ||
+                hasMappedLiveWaits ? (
+                  <div className="live-waits-section">
+                    <div className="section-row">
+                      <div>
+                        <p className="status-label">Live waits</p>
+                        <p className="section-copy">
+                          Queue-Times data, normalized by the Coasterly API for this park.
+                        </p>
+                      </div>
+                      {liveWaitSource ? (
+                        <div className="detail-chip-row">
+                          <span className="catalog-chip">
+                            {liveWaitSource.state === "mapped"
+                              ? formatCountLabel(liveWaitRides.length, "live ride")
+                              : "Source unmapped"}
+                          </span>
+                          <a
+                            className="catalog-inline-button catalog-inline-link"
+                            href={liveWaitSource.attributionUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {liveWaitSource.attributionLabel}
+                          </a>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {parkLiveWaitsStatus.state === "loading" ? (
+                      <div className="state-message state-message-loading state-message-compact">
+                        <p>Loading live waits...</p>
+                      </div>
+                    ) : null}
+
+                    {parkLiveWaitsStatus.state === "error" ? (
+                      <div className="state-message state-message-error state-message-compact">
+                        <p>Unable to load live waits.</p>
+                        <p>{parkLiveWaitsStatus.message}</p>
+                      </div>
+                    ) : null}
+
+                    {parkLiveWaitsStatus.state === "success" &&
+                    parkLiveWaitsStatus.source.state === "mapped" ? (
+                      parkLiveWaitsStatus.rides.length > 0 ? (
+                        <>
+                          <div className="wait-times-list">
+                            {parkLiveWaitsStatus.rides.map((ride) => (
+                              <article className="wait-time-card" key={ride.rideId}>
+                                <div>
+                                  <p className="wait-time-ride-name">{ride.rideName}</p>
+                                  <p className="wait-time-meta">
+                                    {ride.rideType}
+                                    {ride.sourceLastUpdated
+                                      ? ` | Updated ${formatSourceTimeLabel(
+                                          ride.sourceLastUpdated
+                                        )}`
+                                      : ""}
+                                  </p>
+                                </div>
+                                <div className="wait-time-value-block">
+                                  <strong className="wait-time-value">
+                                    {formatLiveWaitLabel(ride)}
+                                  </strong>
+                                  <span
+                                    className={`catalog-chip wait-time-chip${
+                                      ride.isOpen === false
+                                        ? " wait-time-chip-closed"
+                                        : ride.isOpen === true
+                                          ? " wait-time-chip-open"
+                                          : ""
+                                    }`}
+                                  >
+                                    {ride.isOpen === false
+                                      ? "Closed"
+                                      : ride.isOpen === true
+                                        ? "Open"
+                                        : "Unknown"}
+                                  </span>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                          {parkLiveWaitsStatus.source.externalUrl ? (
+                            <p className="source-note">
+                              Data source:{" "}
+                              <a
+                                href={parkLiveWaitsStatus.source.externalUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {parkLiveWaitsStatus.source.attributionLabel}
+                              </a>
+                            </p>
+                          ) : null}
+                        </>
+                      ) : (
+                        <div className="state-message state-message-empty state-message-compact">
+                          <p>No mapped rides have live wait data right now.</p>
+                        </div>
+                      )
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="rides-section">
                   <div className="section-row">
