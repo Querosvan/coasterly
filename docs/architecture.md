@@ -107,3 +107,35 @@ Live queue data is handled as an enrichment layer:
 - `wait_time_snapshots` stores the minimal history foundation needed for future trend and historical features
 
 The initial ingestion path is intentionally small. The codebase now has a dedicated `apps/queue-times-cron` batch service that can run in Railway Cron Jobs and persist snapshots without turning the API into a scheduler.
+
+## User And Admin Foundations
+
+Coasterly still uses a seeded demo user for the current public ride-credit and progress flows, but the underlying data model is now set up for real users later.
+
+- `users` is no longer treated as a demo-only table
+- the seeded user remains useful for development and preview environments
+- `user_ride_credits` already works as a generic user-to-ride relationship
+
+The current role foundation is intentionally lightweight:
+
+- `user`
+- `moderator`
+- `regional_editor`
+- `global_editor`
+- `super_admin`
+
+Roles are stored directly on the user record for now. That keeps the current foundation simple while giving future auth, admin, and editorial work a stable target.
+
+The intended future backoffice editing areas are:
+
+- parks
+- rides
+- media
+- external source mappings
+- discovery metadata
+- summaries
+- featured and curated flags
+
+Regional ownership and moderation workflows are intentionally left for a later phase. Those should be added as scoped assignment or workflow tables instead of baking regional complexity straight into the base user record.
+
+For more detail, see [docs/admin-foundations.md](./admin-foundations.md).

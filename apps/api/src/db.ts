@@ -1,7 +1,6 @@
 import { Pool } from "pg";
 
 import type {
-  DemoUser,
   DemoUserParkProgress,
   ExternalEntityType,
   ExternalSourceName,
@@ -10,7 +9,9 @@ import type {
   RideCatalogItem,
   RideSort,
   Ride,
-  RideStatus
+  RideStatus,
+  UserRole,
+  UserSummary
 } from "@coasterly/types";
 
 import {
@@ -31,7 +32,9 @@ const pool = new Pool({
 
 const demoUserSeed = {
   slug: "demo-user",
-  name: "Demo User"
+  name: "Demo User",
+  role: "user" as const,
+  isSeeded: true
 } as const;
 
 const createSeedImageUrl = (kind: "park" | "ride", name: string) =>
@@ -454,8 +457,49 @@ export const initializeDatabase = async () => {
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         slug TEXT NOT NULL UNIQUE,
-        name TEXT NOT NULL
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'regional_editor', 'global_editor', 'super_admin')),
+        email TEXT,
+        auth_provider TEXT,
+        auth_subject TEXT,
+        is_seeded BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
+    `);
+
+    await client.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user',
+      ADD COLUMN IF NOT EXISTS email TEXT,
+      ADD COLUMN IF NOT EXISTS auth_provider TEXT,
+      ADD COLUMN IF NOT EXISTS auth_subject TEXT,
+      ADD COLUMN IF NOT EXISTS is_seeded BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    `);
+
+    await client.query(`
+      ALTER TABLE users
+      DROP CONSTRAINT IF EXISTS users_role_check
+    `);
+
+    await client.query(`
+      ALTER TABLE users
+      ADD CONSTRAINT users_role_check
+      CHECK (role IN ('user', 'moderator', 'regional_editor', 'global_editor', 'super_admin'))
+    `);
+
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx
+      ON users (LOWER(email))
+      WHERE email IS NOT NULL
+    `);
+
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS users_auth_identity_unique_idx
+      ON users (auth_provider, auth_subject)
+      WHERE auth_provider IS NOT NULL AND auth_subject IS NOT NULL
     `);
 
     await client.query(`
@@ -562,12 +606,21 @@ export const initializeDatabase = async () => {
 
     await client.query(
       `
-        INSERT INTO users (slug, name)
-        VALUES ($1, $2)
+        INSERT INTO users (slug, name, role, is_seeded, updated_at)
+        VALUES ($1, $2, $3, $4, NOW())
         ON CONFLICT (slug) DO UPDATE
-        SET name = EXCLUDED.name
+        SET
+          name = EXCLUDED.name,
+          role = EXCLUDED.role,
+          is_seeded = EXCLUDED.is_seeded,
+          updated_at = NOW()
       `,
-      [demoUserSeed.slug, demoUserSeed.name]
+      [
+        demoUserSeed.slug,
+        demoUserSeed.name,
+        demoUserSeed.role,
+        demoUserSeed.isSeeded
+      ]
     );
 
     for (const park of seedParks) {
@@ -748,21 +801,43 @@ type RideCatalogListOptions = RideListOptions & {
   parkSlug?: string;
 };
 
-const getDemoUser = async (): Promise<DemoUser> => {
-  const result = await pool.query<DemoUser>(
+const getUserBySlug = async (slug: string): Promise<UserSummary | null> => {
+  const result = await pool.query<{
+    id: number;
+    slug: string;
+    name: string;
+    role: string;
+    is_seeded: boolean;
+  }>(
     `
-      SELECT id, slug, name
+      SELECT id, slug, name, role, is_seeded
       FROM users
       WHERE slug = $1
       LIMIT 1
     `,
-    [demoUserSeed.slug]
+    [slug]
   );
 
-  const user = result.rows[0];
+  const record = result.rows[0];
+
+  if (!record) {
+    return null;
+  }
+
+  return {
+    id: record.id,
+    slug: record.slug,
+    name: record.name,
+    role: record.role as UserRole,
+    ...(record.is_seeded ? { isSeeded: true } : {})
+  };
+};
+
+const getPrimarySeedUser = async (): Promise<UserSummary> => {
+  const user = await getUserBySlug(demoUserSeed.slug);
 
   if (!user) {
-    throw new Error("Demo user is not available.");
+    throw new Error("Primary seeded user is not available.");
   }
 
   return user;
@@ -1165,11 +1240,16 @@ export const getRideBySlugs = async (
   };
 };
 
-export const listDemoUserRideCredits = async (): Promise<{
-  user: DemoUser;
+const listUserRideCreditsBySlug = async (userSlug: string): Promise<{
+  user: UserSummary;
   rideIds: number[];
 }> => {
-  const user = await getDemoUser();
+  const user = await getUserBySlug(userSlug);
+
+  if (!user) {
+    throw new Error(`User "${userSlug}" is not available.`);
+  }
+
   const result = await pool.query<{ ride_id: number }>(
     `
       SELECT ride_id
@@ -1186,13 +1266,21 @@ export const listDemoUserRideCredits = async (): Promise<{
   };
 };
 
-export const getDemoUserRideStats = async (): Promise<{
-  user: DemoUser;
+export const listDemoUserRideCredits = async () =>
+  listUserRideCreditsBySlug(demoUserSeed.slug);
+
+const getUserRideStatsBySlug = async (userSlug: string): Promise<{
+  user: UserSummary;
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
   parks: DemoUserParkProgress[];
 }> => {
-  const user = await getDemoUser();
+  const user = await getUserBySlug(userSlug);
+
+  if (!user) {
+    throw new Error(`User "${userSlug}" is not available.`);
+  }
+
   const result = await pool.query<{
     park_id: number;
     park_name: string;
@@ -1242,14 +1330,22 @@ export const getDemoUserRideStats = async (): Promise<{
   };
 };
 
-export const addDemoUserRideCredit = async (
+export const getDemoUserRideStats = async () =>
+  getUserRideStatsBySlug(demoUserSeed.slug);
+
+const addUserRideCredit = async (
+  userSlug: string,
   parkSlug: string,
   rideSlug: string
-): Promise<{ user: DemoUser; rideId: number } | null> => {
+): Promise<{ user: UserSummary; rideId: number } | null> => {
   const [user, ride] = await Promise.all([
-    getDemoUser(),
+    getUserBySlug(userSlug),
     getRideIdentityBySlugs(parkSlug, rideSlug)
   ]);
+
+  if (!user) {
+    throw new Error(`User "${userSlug}" is not available.`);
+  }
 
   if (!ride) {
     return null;
@@ -1270,14 +1366,25 @@ export const addDemoUserRideCredit = async (
   };
 };
 
-export const removeDemoUserRideCredit = async (
+export const addDemoUserRideCredit = async (
   parkSlug: string,
   rideSlug: string
-): Promise<{ user: DemoUser; rideId: number } | null> => {
+): Promise<{ user: UserSummary; rideId: number } | null> =>
+  addUserRideCredit(demoUserSeed.slug, parkSlug, rideSlug);
+
+const removeUserRideCredit = async (
+  userSlug: string,
+  parkSlug: string,
+  rideSlug: string
+): Promise<{ user: UserSummary; rideId: number } | null> => {
   const [user, ride] = await Promise.all([
-    getDemoUser(),
+    getUserBySlug(userSlug),
     getRideIdentityBySlugs(parkSlug, rideSlug)
   ]);
+
+  if (!user) {
+    throw new Error(`User "${userSlug}" is not available.`);
+  }
 
   if (!ride) {
     return null;
@@ -1296,6 +1403,12 @@ export const removeDemoUserRideCredit = async (
     rideId: ride.id
   };
 };
+
+export const removeDemoUserRideCredit = async (
+  parkSlug: string,
+  rideSlug: string
+): Promise<{ user: UserSummary; rideId: number } | null> =>
+  removeUserRideCredit(demoUserSeed.slug, parkSlug, rideSlug);
 
 export const getExternalSourceMapping = async (
   sourceName: ExternalSourceName,

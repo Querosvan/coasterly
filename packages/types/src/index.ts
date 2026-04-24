@@ -64,19 +64,30 @@ export interface RideCatalogResponse {
   rides: RideCatalogItem[];
 }
 
-export interface DemoUser {
+export type UserRole =
+  | "user"
+  | "moderator"
+  | "regional_editor"
+  | "global_editor"
+  | "super_admin";
+
+export interface UserSummary {
   id: number;
   slug: string;
   name: string;
+  role: UserRole;
+  isSeeded?: boolean;
 }
 
+export type DemoUser = UserSummary;
+
 export interface RideCreditsResponse {
-  user: DemoUser;
+  user: UserSummary;
   rideIds: number[];
 }
 
 export interface RideCreditMutationResponse {
-  user: DemoUser;
+  user: UserSummary;
   rideId: number;
   ridden: boolean;
 }
@@ -91,11 +102,20 @@ export interface DemoUserParkProgress {
 }
 
 export interface DemoUserStatsResponse {
-  user: DemoUser;
+  user: UserSummary;
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
   parks: DemoUserParkProgress[];
 }
+
+export type AdminEditableEntityKind =
+  | "park"
+  | "ride"
+  | "media"
+  | "external_source_mapping"
+  | "discovery_metadata"
+  | "summary"
+  | "featured_flag";
 
 export type ExternalSourceName = "queue-times";
 

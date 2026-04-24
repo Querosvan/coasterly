@@ -103,3 +103,5 @@ That keeps the foundation easy to understand while still leaving room to grow in
 For more detail, see [docs/architecture.md](./docs/architecture.md).
 
 Deployment planning lives in [docs/deployment.md](./docs/deployment.md).
+
+User and role foundations are outlined in [docs/admin-foundations.md](./docs/admin-foundations.md).
