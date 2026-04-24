@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "verbatimModuleSyntax": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src",
+    "../api/src/db.ts",
+    "../api/src/jobs/queue-times.ts",
+    "../api/src/services/wait-times.ts",
+    "../api/src/integrations/queue-times.ts",
+    "../../packages/types/src/index.ts"
+  ]
+}

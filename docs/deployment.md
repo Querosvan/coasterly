@@ -28,6 +28,18 @@ This repository is set up for a cloud-first workflow with Railway as the primary
   - Production can track `develop` during the early phase
   - Preview environments should come from pull requests
 
+### Queue-Times Cron
+
+- Platform: Railway Cron Job
+- Source: `apps/queue-times-cron`
+- Runtime model:
+  - starts
+  - ingests Queue-Times snapshots
+  - exits
+- Branch strategy:
+  - Production can track `develop` during the early phase
+  - Preview environments are optional for this service; production scheduling matters more than PR previews
+
 ### Database
 
 - Platform: Railway PostgreSQL
@@ -74,6 +86,14 @@ Document these values in Railway instead of relying on local-only `.env` usage.
   - Default: `https://queue-times.com`
   - Leave unset in normal Railway environments unless you intentionally proxy or mock the integration.
 
+### Queue-Times Cron (`apps/queue-times-cron`)
+
+- `DATABASE_URL`
+  - PostgreSQL connection string from Railway PostgreSQL.
+- `QUEUE_TIMES_BASE_URL`
+  - Optional override for the Queue-Times API base URL.
+  - Default: `https://queue-times.com`
+
 ## Provider Setup Notes
 
 ### Railway Web
@@ -107,6 +127,19 @@ Document these values in Railway instead of relying on local-only `.env` usage.
 3. Keep production and non-production credentials separated by Railway environment.
 4. Redeploy the API service after updating any database credentials.
 
+### Railway Queue-Times Cron
+
+1. Import the same GitHub repository into the Railway project as a separate service.
+2. Select the staged cron service for `@coasterly/queue-times-cron`.
+3. Point the service at `apps/queue-times-cron/railway.json`.
+4. Build with `pnpm --filter @coasterly/queue-times-cron build`.
+5. Start with `node apps/queue-times-cron/dist/index.js`.
+6. Set `DATABASE_URL` and, if needed, `QUEUE_TIMES_BASE_URL`.
+7. Keep the restart policy set to `NEVER` so a failed run does not automatically loop.
+8. Use Railway's cron schedule support with a five-field UTC cron expression.
+9. Recommended initial cron schedule: `*/15 * * * *`.
+10. After deploy, confirm logs show a full run with processed park counts and inserted snapshot counts, and that the process exits cleanly.
+
 ## Vercel-to-Railway Web Cutover
 
 Use this sequence to move the web app from Vercel to Railway safely:
@@ -125,6 +158,7 @@ The safest next infrastructure step is to connect GitHub to Railway and create:
 
 - one Railway web service for `apps/web`
 - one Railway API service for `apps/api`
+- one Railway cron service for `apps/queue-times-cron`
 - one Railway PostgreSQL service
 
 After that, add Railway environment variables for production and preview environments, validate PR previews, and only then cut the web domain over from Vercel if needed.

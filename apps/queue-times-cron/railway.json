@@ -1,0 +1,22 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "buildCommand": "pnpm --filter @coasterly/queue-times-cron build",
+    "watchPatterns": [
+      "/apps/queue-times-cron/**",
+      "/apps/api/src/db.ts",
+      "/apps/api/src/jobs/queue-times.ts",
+      "/apps/api/src/services/wait-times.ts",
+      "/apps/api/src/integrations/queue-times.ts",
+      "/packages/types/**",
+      "/package.json",
+      "/pnpm-lock.yaml",
+      "/tsconfig.base.json"
+    ]
+  },
+  "deploy": {
+    "startCommand": "node apps/queue-times-cron/dist/index.js",
+    "restartPolicyType": "NEVER",
+    "cronSchedule": "*/15 * * * *"
+  }
+}
