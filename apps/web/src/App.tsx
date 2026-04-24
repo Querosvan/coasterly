@@ -40,6 +40,8 @@ const journalTeasers = [
   }
 ] as const;
 
+const landingJournalTeasers = journalTeasers.slice(0, 2);
+
 const formatCountLabel = (
   count: number,
   singular: string,
@@ -1307,11 +1309,12 @@ function App() {
   const allParks = parksStatus.state === "success" ? parksStatus.parks : [];
   const parkBySlug = new Map(allParks.map((park) => [park.slug, park]));
   const featuredParks = allParks.slice(0, 4);
-  const spotlightPark = featuredParks[0];
+  const landingFeaturedParks = featuredParks.slice(0, 3);
+  const spotlightPark = landingFeaturedParks[0];
   const spotlightProgress = spotlightPark
     ? parkProgressBySlug?.get(spotlightPark.slug)
     : undefined;
-  const secondaryFeaturedParks = featuredParks.slice(1, 4);
+  const secondaryFeaturedParks = landingFeaturedParks.slice(1);
   const rankedProgressParks =
     demoUserStatsStatus.state === "success"
       ? [...demoUserStatsStatus.parks]
@@ -1321,7 +1324,7 @@ function App() {
               right.riddenRides - left.riddenRides ||
               left.parkName.localeCompare(right.parkName)
           )
-          .slice(0, 4)
+          .slice(0, 3)
       : [];
   const featuredProgressParks = rankedProgressParks
     .map((progress) => ({
@@ -1594,7 +1597,7 @@ function App() {
           ))}
         </nav>
         <div className="topbar-meta">
-          <span className="product-pill">Theme park tracker</span>
+          <span className="product-pill">Park catalog</span>
           <div className="status-cluster" aria-live="polite">
             {demoUserStatsStatus.state === "success" ? (
               <span className="catalog-chip">
@@ -1637,8 +1640,8 @@ function App() {
               </div>
               <h1>Europe&apos;s park catalog, built for coaster people.</h1>
               <p className="hero-text">
-                Browse standout parks, follow ride progress, and move through lineups in a
-                cleaner public catalog.
+                Browse standout parks, track what you&apos;ve ridden, and move through each
+                lineup with less noise.
               </p>
               <div className="hero-actions">
                 <button className="primary-button" type="button" onClick={() => {
@@ -1647,7 +1650,7 @@ function App() {
                   Browse parks
                 </button>
                 <button className="secondary-button" type="button" onClick={navigateToDiscover}>
-                  Open discover
+                  See progress
                 </button>
               </div>
               <div className="hero-stats" aria-label="Catalog summary">
@@ -1742,10 +1745,9 @@ function App() {
               <div className="catalog-header landing-header">
                 <div className="catalog-copy">
                   <p className="status-label">Featured parks</p>
-                  <h2 className="section-title">Open the parks worth tracking next.</h2>
+                  <h2 className="section-title">Start with the parks worth opening next.</h2>
                   <p className="section-copy">
-                    A quick way into the catalog, with progress and imagery kept front and
-                    center.
+                    A tighter view into the catalog, led by imagery and momentum.
                   </p>
                 </div>
                 <div className="landing-actions">
@@ -1756,12 +1758,12 @@ function App() {
                       navigateToParks({ preserveSearch: true });
                     }}
                   >
-                    Open parks
+                    View all parks
                   </button>
                 </div>
               </div>
               <div className="parks-list parks-list-featured">
-                {featuredParks.map((park) => {
+                {landingFeaturedParks.map((park) => {
                   const parkProgress = parkProgressBySlug?.get(park.slug);
 
                   return (
@@ -1790,7 +1792,7 @@ function App() {
                       <p className="park-location">
                         {park.city}, {park.country}
                       </p>
-                      {parkProgress ? (
+                      {parkProgress && parkProgress.riddenRides > 0 ? (
                         <div className="park-progress">
                           <div className="progress-copy">
                             <span className="progress-label">Progress</span>
@@ -1818,15 +1820,14 @@ function App() {
               <div className="catalog-header landing-header">
                 <div className="catalog-copy">
                   <p className="status-label">Progress</p>
-                  <h2 className="section-title">Keep ride progress close to the catalog.</h2>
+                  <h2 className="section-title">Keep your collection in view.</h2>
                   <p className="section-copy">
-                    A compact progress snapshot keeps the collection visible without taking
-                    over the page.
+                    A compact snapshot of where momentum is building.
                   </p>
                 </div>
                 <div className="landing-actions">
                   <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
-                    Open discover
+                    See progress
                   </button>
                 </div>
               </div>
@@ -1890,18 +1891,15 @@ function App() {
               <div className="catalog-copy">
                 <p className="status-label">Journal</p>
                 <h2 className="section-title">Guides, rankings, and park news have a home.</h2>
-                <p className="section-copy">
-                  Editorial features can grow here without crowding the catalog.
-                </p>
               </div>
               <div className="landing-actions">
                 <button className="catalog-inline-button" type="button" onClick={navigateToJournal}>
-                  Open journal
+                  Journal
                 </button>
               </div>
             </div>
             <div className="editorial-grid">
-              {journalTeasers.map((entry) => (
+              {landingJournalTeasers.map((entry) => (
                 <article className="editorial-card" key={entry.title}>
                   <span className="editorial-tag">{entry.category}</span>
                   <h3>{entry.title}</h3>
@@ -1919,14 +1917,10 @@ function App() {
           <div className="catalog-header">
             <div className="catalog-copy">
               <p className="status-label">Parks browse</p>
-              <h2 className="section-title">Browse parks across the catalog.</h2>
-              <p className="section-copy">
-                Search by park, city, or country and jump straight into each lineup.
-              </p>
+              <h2 className="section-title">Parks</h2>
             </div>
             <div className="catalog-support">
               <p className="catalog-note">{browseSummary}</p>
-              <p className="catalog-note">Open any park to explore its rides.</p>
             </div>
           </div>
 
@@ -2012,7 +2006,7 @@ function App() {
                       <p className="park-location">
                         {park.city}, {park.country}
                       </p>
-                      {parkProgress ? (
+                      {parkProgress && parkProgress.riddenRides > 0 ? (
                         <div className="park-progress">
                           <div className="progress-copy">
                             <span className="progress-label">Progress</span>
@@ -2059,9 +2053,6 @@ function App() {
             <div className="catalog-copy">
               <p className="status-label">Discover</p>
               <h2 className="section-title">Pick the next park worth opening.</h2>
-              <p className="section-copy">
-                A lighter browse view for momentum, highlights, and quick progress checks.
-              </p>
             </div>
             <div className="catalog-support">
               <p className="catalog-note">{heroCountLabel}</p>
@@ -2074,14 +2065,11 @@ function App() {
               <div className="section-row">
                 <div>
                   <p className="status-label">Ride progress</p>
-                  <p className="section-copy">
-                    A quick snapshot of where the collection is building momentum.
-                  </p>
                 </div>
                 <button className="catalog-inline-button" type="button" onClick={() => {
                   navigateToParks({ preserveSearch: true });
                 }}>
-                  Open parks
+                  Browse parks
                 </button>
               </div>
               <div className="stats-grid">
@@ -2203,13 +2191,10 @@ function App() {
           <div className="catalog-header">
             <div className="catalog-copy">
               <p className="status-label">Journal</p>
-              <h2 className="section-title">A future home for rankings, guides, and park news.</h2>
-              <p className="section-copy">
-                This space is reserved for editorial stories that complement the catalog.
-              </p>
+              <h2 className="section-title">Rankings, guides, and park news will live here.</h2>
             </div>
             <div className="catalog-support">
-              <p className="catalog-note">More editorial depth is coming here.</p>
+              <p className="catalog-note">More editorial depth is on the way.</p>
             </div>
           </div>
           <div className="editorial-grid">
@@ -2221,7 +2206,7 @@ function App() {
                 <button className="catalog-inline-button" type="button" onClick={() => {
                   navigateToParks({ preserveSearch: true });
                 }}>
-                  Explore parks
+                  Browse parks
                 </button>
               </article>
             ))}
@@ -2242,12 +2227,10 @@ function App() {
               >
                 Back to parks
               </button>
-              <p className="detail-nav-copy">Jump back to the full parks catalog.</p>
             </div>
             {parkDetailStatus.state === "loading" ? (
               <div className="state-message state-message-loading">
                 <p>Loading park details...</p>
-                <p>Refreshing the latest park overview.</p>
               </div>
             ) : null}
             {parkDetailStatus.state === "success" ? (
@@ -2334,9 +2317,6 @@ function App() {
                     <div className="section-row">
                       <div>
                         <p className="status-label">Live waits</p>
-                        <p className="section-copy">
-                          Live queue updates for mapped rides in this park.
-                        </p>
                       </div>
                       {liveWaitSource ? (
                         <div className="detail-chip-row">
@@ -2437,9 +2417,6 @@ function App() {
                   <div className="section-row">
                     <div>
                       <p className="status-label">Ride lineup</p>
-                      <p className="section-copy">
-                        Browse the tracked rides in this park.
-                      </p>
                     </div>
                     <div className="detail-chip-row">
                       {parkRidesStatus.state === "success" ? (
@@ -2510,11 +2487,9 @@ function App() {
                       </div>
                     </div>
                     <p className="parks-summary">
-                      <strong>{rideTypeFilter || "All ride types"}</strong>
-                      {" / "}
-                      <strong>{manufacturerFilter || "All manufacturers"}</strong>
-                      {" / Sorted by "}
-                      <strong>{parkRideSortLabel}</strong>
+                      <span>{rideTypeFilter || "All ride types"}</span>
+                      <span>{manufacturerFilter || "All manufacturers"}</span>
+                      <span>Sorted by {parkRideSortLabel}</span>
                     </p>
                     <div className="catalog-state-row">
                       {parkRidesStatus.state === "success" ? (
@@ -2637,12 +2612,10 @@ function App() {
               >
                 Back to lineup
               </button>
-              <p className="detail-nav-copy">Stay inside the lineup and move ride to ride.</p>
             </div>
             {rideDetailStatus.state === "loading" ? (
               <div className="state-message state-message-loading">
                 <p>Loading ride details...</p>
-                <p>Refreshing the latest ride overview.</p>
               </div>
             ) : null}
             {rideDetailStatus.state === "success" ? (
@@ -2683,11 +2656,11 @@ function App() {
 
                 <div className="credit-panel">
                   <div>
-                    <p className="status-label">Ride log</p>
+                    <p className="status-label">Collection</p>
                     <p className="credit-copy">
                       {rideCreditsStatus.state === "success"
                         ? isCurrentRideRidden
-                          ? "This ride is already in your ridden collection."
+                          ? "Saved in your ridden collection."
                           : "Add this ride to your ridden collection."
                         : rideCreditsStatus.state === "error"
                           ? rideCreditsStatus.message
@@ -2705,7 +2678,7 @@ function App() {
                     {isUpdatingRideCredit
                       ? "Saving..."
                       : isCurrentRideRidden
-                        ? "Remove from ridden"
+                        ? "Unmark ridden"
                         : "Mark ridden"}
                   </button>
                 </div>
@@ -2715,16 +2688,15 @@ function App() {
 
                 <div className="lineup-nav-panel">
                   <div>
-                    <p className="status-label">Explore this lineup</p>
+                    <p className="status-label">Park lineup</p>
                     <p className="credit-copy">
                       {rideLineupStatus.state === "success"
-                        ? rideLineupPositionLabel ||
-                          "Move through the current park lineup."
+                        ? rideLineupPositionLabel || "Ride lineup"
                         : rideLineupStatus.state === "loading"
-                          ? "Loading the current park lineup."
+                          ? "Loading lineup."
                           : rideLineupStatus.state === "error"
                             ? rideLineupStatus.message
-                            : "Lineup navigation is unavailable."}
+                            : "Lineup unavailable."}
                     </p>
                   </div>
                   <div className="lineup-nav-actions">
@@ -2755,16 +2727,23 @@ function App() {
                   </div>
                 </div>
 
-                <div className="detail-grid">
-                  {rideSpecItems.map((item) => (
-                    <div
-                      className={`detail-item${item.wide ? " detail-item-wide" : ""}`}
-                      key={item.label}
-                    >
-                      <span className="detail-item-label">{item.label}</span>
-                      <p>{item.code ? <code>{item.value}</code> : item.value}</p>
+                <div className="detail-specs">
+                  <div className="section-row section-row-compact">
+                    <div>
+                      <p className="status-label">Ride facts</p>
                     </div>
-                  ))}
+                  </div>
+                  <div className="detail-grid">
+                    {rideSpecItems.map((item) => (
+                      <div
+                        className={`detail-item${item.wide ? " detail-item-wide" : ""}`}
+                        key={item.label}
+                      >
+                        <span className="detail-item-label">{item.label}</span>
+                        <p>{item.code ? <code>{item.value}</code> : item.value}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </article>
             ) : null}
