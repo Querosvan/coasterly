@@ -1097,10 +1097,22 @@ img {
   font-weight: 700;
 }
 
+.card-summary {
+  margin: 0;
+  color: #596c74;
+  line-height: 1.55;
+}
+
 .park-meta {
   margin: 0;
   color: #5c6f77;
   line-height: 1.6;
+}
+
+.card-cues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 .park-progress,
@@ -1221,6 +1233,13 @@ img {
 
 .detail-summary {
   max-width: 34rem;
+}
+
+.detail-story {
+  max-width: 42rem;
+  margin: 0.7rem 0 0;
+  color: #556870;
+  line-height: 1.6;
 }
 
 .detail-micro-nav {
@@ -1377,6 +1396,12 @@ img {
   font-weight: 700;
 }
 
+.ride-fact-pill-accent {
+  background: rgba(245, 130, 32, 0.12);
+  border-color: rgba(245, 130, 32, 0.18);
+  color: var(--brand-orange-strong);
+}
+
 .ride-card-ridden {
   border-color: rgba(245, 130, 32, 0.18);
   box-shadow: 0 22px 46px rgba(245, 130, 32, 0.08);
@@ -1495,6 +1520,13 @@ img {
 .detail-specs {
   display: grid;
   gap: 0.75rem;
+}
+
+.spotlight-summary {
+  margin: 0;
+  max-width: 34rem;
+  color: rgba(240, 245, 248, 0.9);
+  line-height: 1.5;
 }
 
 .lineup-nav-actions {
