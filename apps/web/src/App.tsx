@@ -45,6 +45,184 @@ const journalTeasers = [
 
 const landingJournalTeasers = journalTeasers.slice(0, 1);
 
+type DiscoveryCue = "Featured" | "Headliner" | "Iconic" | "Standout";
+
+type EditorialNote = {
+  summary: string;
+  cues: DiscoveryCue[];
+};
+
+const parkEditorialBySlug: Record<string, EditorialNote> = {
+  "europa-park": {
+    summary:
+      "A resort-scale park with polished themed lands and one of Europe's deepest all-day coaster lineups.",
+    cues: ["Featured", "Standout"]
+  },
+  phantasialand: {
+    summary:
+      "Dense theming and terrain-driven coasters make this one of the sharpest park days in Europe.",
+    cues: ["Headliner", "Standout"]
+  },
+  "alton-towers": {
+    summary:
+      "A British classic where major coasters thread through gardens, ruins, and a distinctly atmospheric setting.",
+    cues: ["Iconic"]
+  },
+  "disneyland-park": {
+    summary:
+      "A castle park built on polished storytelling, broad appeal, and a few instantly recognizable coaster anchors.",
+    cues: ["Featured", "Iconic"]
+  },
+  "parc-asterix": {
+    summary:
+      "A French thrill-forward park with a fast-rising coaster lineup and a strong steel headline identity.",
+    cues: ["Standout"]
+  },
+  efteling: {
+    summary:
+      "Fantasy atmosphere, dark rides, and a selective coaster lineup give this catalog stop a very different pace.",
+    cues: ["Iconic"]
+  },
+  "walibi-holland": {
+    summary:
+      "Compact and ride-led, with a modern thrill lineup that overdelivers for coaster-focused trips.",
+    cues: ["Standout"]
+  },
+  "portaventura-park": {
+    summary:
+      "A large destination park known for skyline coasters, strong throughput, and broad resort appeal.",
+    cues: ["Headliner"]
+  },
+  gardaland: {
+    summary:
+      "Italy's best-known park, mixing family pull with a small set of reliable headline coasters.",
+    cues: ["Featured"]
+  },
+  energylandia: {
+    summary:
+      "A rapidly expanding ride-heavy park packed with major coasters and strong credit-count appeal.",
+    cues: ["Headliner", "Standout"]
+  },
+  liseberg: {
+    summary:
+      "A city park with compact energy, strong atmosphere, and a surprisingly high-quality coaster mix.",
+    cues: ["Iconic", "Standout"]
+  }
+};
+
+const rideEditorialBySlug: Record<string, EditorialNote> = {
+  "silver-star": {
+    summary:
+      "An open, high-speed hyper with sustained airtime and one of the biggest first drops in Europe.",
+    cues: ["Headliner", "Iconic"]
+  },
+  "voltron-nevera": {
+    summary:
+      "A dense modern launch coaster built around rapid pacing, inversions, and forceful transitions.",
+    cues: ["Featured", "Standout"]
+  },
+  taron: {
+    summary:
+      "Terrain-hugging launches and relentless direction changes make it a modern European benchmark.",
+    cues: ["Iconic", "Standout"]
+  },
+  fly: {
+    summary:
+      "A flying coaster wrapped in heavy theming, designed to feel immersive rather than exposed.",
+    cues: ["Featured"]
+  },
+  "nemesis-reborn": {
+    summary:
+      "An iconic inverted layout rebuilt around one of the most recognizable coaster names in Europe.",
+    cues: ["Iconic"]
+  },
+  "wicker-man": {
+    summary:
+      "A character-led wooden coaster with approachable intensity and a memorable visual identity.",
+    cues: ["Standout"]
+  },
+  "big-thunder-mountain": {
+    summary:
+      "A classic mine train built around scenery, pacing, and broad repeatability rather than raw stats.",
+    cues: ["Iconic"]
+  },
+  "star-wars-hyperspace-mountain": {
+    summary:
+      "A compact indoor thrill ride that layers Disney spectacle onto a classic high-intensity layout.",
+    cues: ["Featured"]
+  },
+  toutatis: {
+    summary:
+      "A recent Intamin built to deliver speed, hangtime, and sustained momentum from the first launch.",
+    cues: ["Headliner"]
+  },
+  oziris: {
+    summary:
+      "A sweeping B&M invert with strong interaction, confident pacing, and broad re-ride appeal.",
+    cues: ["Standout"]
+  },
+  "baron-1898": {
+    summary:
+      "A compact dive coaster with one dominant drop and a strong Efteling story wrapper.",
+    cues: ["Featured"]
+  },
+  "joris-en-de-draak": {
+    summary:
+      "A twin-track wooden coaster that adds race energy to one of Efteling's most kinetic areas.",
+    cues: ["Iconic"]
+  },
+  untamed: {
+    summary:
+      "An RMC hybrid known for quick-fire airtime moments and an aggressively modern pacing profile.",
+    cues: ["Headliner"]
+  },
+  goliath: {
+    summary:
+      "A classic Intamin mega built around sustained speed and broad, open-air airtime.",
+    cues: ["Iconic"]
+  },
+  shambhala: {
+    summary:
+      "A towering hyper coaster with huge scale, floating airtime, and one of Europe's signature skylines.",
+    cues: ["Headliner", "Iconic"]
+  },
+  "dragon-khan": {
+    summary:
+      "A classic inversion machine that still defines PortAventura's skyline and thrill identity.",
+    cues: ["Iconic"]
+  },
+  raptor: {
+    summary:
+      "A compact wing coaster that stays forceful by keeping the pacing tight and the interactions close.",
+    cues: ["Standout"]
+  },
+  "oblivion-the-black-hole": {
+    summary:
+      "A dive machine built around one dramatic pause-and-drop sequence rather than a long layout.",
+    cues: ["Featured"]
+  },
+  hyperion: {
+    summary:
+      "A giant hyper coaster known for scale, pace, and one of the fastest top speeds in the region.",
+    cues: ["Headliner"]
+  },
+  zadra: {
+    summary:
+      "A large hybrid that combines towering scale with the quick-fire intensity RMC is known for.",
+    cues: ["Headliner", "Standout"]
+  },
+  helix: {
+    summary:
+      "A launch coaster built for variety, blending launches, inversions, and hillside terrain.",
+    cues: ["Standout"]
+  },
+  balder: {
+    summary:
+      "A wood coaster that stays relevant through clean pacing, strong airtime, and easy repeat rides.",
+    cues: ["Iconic"]
+  }
+};
+
 const formatCountLabel = (
   count: number,
   singular: string,
@@ -1675,6 +1853,9 @@ function App() {
   const spotlightProgress = spotlightPark
     ? parkProgressBySlug?.get(spotlightPark.slug)
     : undefined;
+  const spotlightParkEditorial = spotlightPark
+    ? parkEditorialBySlug[spotlightPark.slug]
+    : undefined;
   const secondaryFeaturedParks = landingFeaturedParks.slice(1);
   const rankedProgressParks =
     demoUserStatsStatus.state === "success"
@@ -1697,6 +1878,10 @@ function App() {
     );
   const activeParkProgress =
     route.view === "park" ? parkProgressBySlug?.get(route.slug) : undefined;
+  const activeParkEditorial =
+    route.view === "park" && parkDetailStatus.state === "success"
+      ? parkEditorialBySlug[parkDetailStatus.park.slug]
+      : undefined;
   const liveWaitSource =
     parkLiveWaitsStatus.state === "success" ? parkLiveWaitsStatus.source : null;
   const hasMappedLiveWaits = liveWaitSource?.state === "mapped";
@@ -1735,6 +1920,10 @@ function App() {
   const isCurrentRideRidden =
     rideDetailStatus.state === "success" &&
     riddenRideIds?.has(rideDetailStatus.ride.id) === true;
+  const activeRideEditorial =
+    route.view === "ride" && rideDetailStatus.state === "success"
+      ? rideEditorialBySlug[rideDetailStatus.ride.slug]
+      : undefined;
   const rideSpecItems: RideSpecItem[] = [];
 
   if (rideDetailStatus.state === "success") {
@@ -2101,6 +2290,11 @@ function App() {
                   <div className="spotlight-copy">
                     <div className="spotlight-row">
                       <span className="catalog-chip">{spotlightPark.status}</span>
+                      {spotlightParkEditorial?.cues.slice(0, 1).map((cue) => (
+                        <span className="catalog-chip route-chip" key={cue}>
+                          {cue}
+                        </span>
+                      ))}
                       {spotlightProgress ? (
                         <span className="catalog-chip catalog-chip-ridden">
                           {spotlightProgress.completionPercentage}% complete
@@ -2110,6 +2304,9 @@ function App() {
                     <p className="eyebrow">Featured park</p>
                     <h2>{spotlightPark.name}</h2>
                     <p>{spotlightPark.city}, {spotlightPark.country}</p>
+                    {spotlightParkEditorial ? (
+                      <p className="spotlight-summary">{spotlightParkEditorial.summary}</p>
+                    ) : null}
                   </div>
                 </button>
               ) : (
@@ -2176,6 +2373,7 @@ function App() {
               <div className="parks-list parks-list-featured">
                 {landingFeaturedParks.map((park) => {
                   const parkProgress = parkProgressBySlug?.get(park.slug);
+                  const parkEditorial = parkEditorialBySlug[park.slug];
 
                   return (
                     <article className="park-card" key={park.id}>
@@ -2203,6 +2401,18 @@ function App() {
                       <p className="park-location">
                         {park.city}, {park.country}
                       </p>
+                      {parkEditorial ? (
+                        <p className="card-summary">{parkEditorial.summary}</p>
+                      ) : null}
+                      {parkEditorial?.cues.length ? (
+                        <div className="card-cues">
+                          {parkEditorial.cues.slice(0, 2).map((cue) => (
+                            <span className="catalog-chip route-chip" key={cue}>
+                              {cue}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                       {parkProgress && parkProgress.riddenRides > 0 ? (
                         <div className="park-progress">
                           <div className="progress-copy">
@@ -2387,6 +2597,7 @@ function App() {
               <div className="parks-list">
                 {parksStatus.parks.map((park) => {
                   const parkProgress = parkProgressBySlug?.get(park.slug);
+                  const parkEditorial = parkEditorialBySlug[park.slug];
 
                   return (
                     <article className="park-card" key={park.id}>
@@ -2414,6 +2625,18 @@ function App() {
                       <p className="park-location">
                         {park.city}, {park.country}
                       </p>
+                      {parkEditorial ? (
+                        <p className="card-summary">{parkEditorial.summary}</p>
+                      ) : null}
+                      {parkEditorial?.cues.length ? (
+                        <div className="card-cues">
+                          {parkEditorial.cues.slice(0, 2).map((cue) => (
+                            <span className="catalog-chip route-chip" key={cue}>
+                              {cue}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                       {parkProgress && parkProgress.riddenRides > 0 ? (
                         <div className="park-progress">
                           <div className="progress-copy">
@@ -2627,6 +2850,7 @@ function App() {
               <div className="rides-list rides-list-catalog">
                 {ridesCatalogStatus.rides.map((entry) => {
                   const isRidden = riddenRideIds?.has(entry.ride.id) === true;
+                  const rideEditorial = rideEditorialBySlug[entry.ride.slug];
 
                   return (
                     <article
@@ -2674,7 +2898,15 @@ function App() {
                       <p className="park-location">
                         {entry.park.city}, {entry.park.country}
                       </p>
+                      {rideEditorial ? (
+                        <p className="card-summary">{rideEditorial.summary}</p>
+                      ) : null}
                       <div className="ride-facts-row">
+                        {rideEditorial?.cues.slice(0, 2).map((cue) => (
+                          <span className="ride-fact-pill ride-fact-pill-accent" key={cue}>
+                            {cue}
+                          </span>
+                        ))}
                         <span className="ride-fact-pill">{entry.ride.rideType}</span>
                         {entry.ride.manufacturer ? (
                           <span className="ride-fact-pill">{entry.ride.manufacturer}</span>
@@ -2903,6 +3135,18 @@ function App() {
                     <p className="section-copy detail-summary">
                       {parkDetailStatus.park.city}, {parkDetailStatus.park.country}
                     </p>
+                    {activeParkEditorial ? (
+                      <p className="detail-story">{activeParkEditorial.summary}</p>
+                    ) : null}
+                    {activeParkEditorial?.cues.length ? (
+                      <div className="detail-micro-nav" aria-label="Park discovery cues">
+                        {activeParkEditorial.cues.slice(0, 2).map((cue) => (
+                          <span className="detail-micro-item" key={cue}>
+                            {cue}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="detail-chip-row">
                     <span className="catalog-chip">{parkDetailStatus.park.status}</span>
@@ -3175,48 +3419,62 @@ function App() {
                   {parkRidesStatus.state === "success" ? (
                     parkRidesStatus.rides.length > 0 ? (
                       <div className="rides-list">
-                        {parkRidesStatus.rides.map((ride) => (
-                          <article
-                            className={`ride-card${riddenRideIds?.has(ride.id) ? " ride-card-ridden" : ""}`}
-                            key={ride.id}
-                          >
-                            <MediaAsset
-                              kind="ride"
-                              slug={ride.slug}
-                              imageUrl={ride.imageUrl}
-                              alt=""
-                              frameClassName="media-frame media-frame-ride-card"
-                              imageClassName="media-image"
-                            />
-                            <div className="card-header">
-                              <a
-                                className="ride-link"
-                                href={buildPathWithQuery(
-                                  `/parks/${route.slug}/rides/${ride.slug}`,
-                                  getRideBrowserParams()
-                                )}
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  navigateToRide(route.slug, ride.slug);
-                                }}
-                              >
-                                <p className="ride-name">{ride.name}</p>
-                              </a>
-                              <div className="ride-card-chips">
-                                {riddenRideIds?.has(ride.id) ? (
-                                  <span className="catalog-chip catalog-chip-ridden">
-                                    Ridden
-                                  </span>
-                                ) : null}
-                                <span className="catalog-chip">{ride.status}</span>
+                        {parkRidesStatus.rides.map((ride) => {
+                          const rideEditorial = rideEditorialBySlug[ride.slug];
+
+                          return (
+                            <article
+                              className={`ride-card${riddenRideIds?.has(ride.id) ? " ride-card-ridden" : ""}`}
+                              key={ride.id}
+                            >
+                              <MediaAsset
+                                kind="ride"
+                                slug={ride.slug}
+                                imageUrl={ride.imageUrl}
+                                alt=""
+                                frameClassName="media-frame media-frame-ride-card"
+                                imageClassName="media-image"
+                              />
+                              <div className="card-header">
+                                <a
+                                  className="ride-link"
+                                  href={buildPathWithQuery(
+                                    `/parks/${route.slug}/rides/${ride.slug}`,
+                                    getRideBrowserParams()
+                                  )}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    navigateToRide(route.slug, ride.slug);
+                                  }}
+                                >
+                                  <p className="ride-name">{ride.name}</p>
+                                </a>
+                                <div className="ride-card-chips">
+                                  {riddenRideIds?.has(ride.id) ? (
+                                    <span className="catalog-chip catalog-chip-ridden">
+                                      Ridden
+                                    </span>
+                                  ) : null}
+                                  <span className="catalog-chip">{ride.status}</span>
+                                </div>
                               </div>
-                            </div>
-                            <p className="park-meta">Type: {ride.rideType}</p>
-                            {ride.manufacturer ? (
-                              <p className="park-meta">Maker: {ride.manufacturer}</p>
-                            ) : null}
-                          </article>
-                        ))}
+                              {rideEditorial ? (
+                                <p className="card-summary">{rideEditorial.summary}</p>
+                              ) : null}
+                              <div className="ride-facts-row">
+                                {rideEditorial?.cues.slice(0, 1).map((cue) => (
+                                  <span className="ride-fact-pill ride-fact-pill-accent" key={cue}>
+                                    {cue}
+                                  </span>
+                                ))}
+                                <span className="ride-fact-pill">{ride.rideType}</span>
+                                {ride.manufacturer ? (
+                                  <span className="ride-fact-pill">{ride.manufacturer}</span>
+                                ) : null}
+                              </div>
+                            </article>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="state-message state-message-empty">
@@ -3280,6 +3538,9 @@ function App() {
                     <p className="section-copy detail-summary">
                       {rideDetailStatus.park.name}
                     </p>
+                    {activeRideEditorial ? (
+                      <p className="detail-story">{activeRideEditorial.summary}</p>
+                    ) : null}
                     <div className="detail-micro-nav" aria-label="Ride route context">
                       <span className="detail-micro-item">
                         In {rideDetailStatus.park.city}, {rideDetailStatus.park.country}
@@ -3287,6 +3548,11 @@ function App() {
                       <span className="detail-micro-item">
                         {rideDetailStatus.ride.rideType}
                       </span>
+                      {activeRideEditorial?.cues.slice(0, 2).map((cue) => (
+                        <span className="detail-micro-item" key={cue}>
+                          {cue}
+                        </span>
+                      ))}
                     </div>
                   </div>
                   <div className="detail-chip-row">
@@ -3358,7 +3624,9 @@ function App() {
                       type="button"
                       onClick={() => {
                         if (previousRide) {
-                          navigateToRide(route.parkSlug, previousRide.slug);
+                          navigateToRide(route.parkSlug, previousRide.slug, {
+                            origin: rideDetailOrigin
+                          });
                         }
                       }}
                       disabled={!previousRide}
@@ -3370,7 +3638,9 @@ function App() {
                       type="button"
                       onClick={() => {
                         if (nextRide) {
-                          navigateToRide(route.parkSlug, nextRide.slug);
+                          navigateToRide(route.parkSlug, nextRide.slug, {
+                            origin: rideDetailOrigin
+                          });
                         }
                       }}
                       disabled={!nextRide}

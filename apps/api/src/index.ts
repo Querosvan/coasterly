@@ -26,12 +26,16 @@ import type {
   RideCreditMutationResponse,
   RideCreditsResponse,
   RideResponse,
+  RideSort,
   RidesResponse
 } from "@coasterly/types";
 
 const app = Fastify({
   logger: true
 });
+
+const isRideSort = (value: string | undefined): value is RideSort =>
+  value === "name" || value === "opening_year" || value === "speed_kmh";
 
 const corsOrigin = process.env.CORS_ORIGIN
   ?.split(",")
@@ -83,6 +87,10 @@ app.get<{
     sort?: "name" | "opening_year" | "speed_kmh";
   };
 }>("/rides", async (request) => {
+  const sort = isRideSort(request.query.sort)
+    ? request.query.sort
+    : undefined;
+
   const response: RideCatalogResponse = {
     rides: await listRideCatalog({
       ...(request.query.search ? { search: request.query.search } : {}),
@@ -91,7 +99,7 @@ app.get<{
       ...(request.query.manufacturer
         ? { manufacturer: request.query.manufacturer }
         : {}),
-      ...(request.query.sort ? { sort: request.query.sort } : {})
+      ...(sort ? { sort } : {})
     })
   };
 
@@ -132,6 +140,10 @@ app.get<{
       });
     }
 
+    const sort = isRideSort(request.query.sort)
+      ? request.query.sort
+      : undefined;
+
     const response: RidesResponse = {
       rides: await listRidesForPark(park.id, {
         ...(request.query.rideType
@@ -140,7 +152,7 @@ app.get<{
         ...(request.query.manufacturer
           ? { manufacturer: request.query.manufacturer }
           : {}),
-        ...(request.query.sort ? { sort: request.query.sort } : {})
+        ...(sort ? { sort } : {})
       })
     };
 
