@@ -21,10 +21,19 @@ const readSingleHeaderValue = (
   return trimmedValue ? trimmedValue : undefined;
 };
 
-export const getAuthIdentityFromRequest = (request: FastifyRequest) => ({
-  authProvider: readSingleHeaderValue(request.headers["x-coasterly-auth-provider"]),
-  authSubject: readSingleHeaderValue(request.headers["x-coasterly-auth-subject"])
-});
+export const getAuthIdentityFromRequest = (request: FastifyRequest) => {
+  const authProvider = readSingleHeaderValue(
+    request.headers["x-coasterly-auth-provider"]
+  );
+  const authSubject = readSingleHeaderValue(
+    request.headers["x-coasterly-auth-subject"]
+  );
+
+  return {
+    ...(authProvider ? { authProvider } : {}),
+    ...(authSubject ? { authSubject } : {})
+  };
+};
 
 export const resolveRequestCurrentUser = async (request: FastifyRequest) => {
   try {
