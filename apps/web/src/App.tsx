@@ -52,6 +52,15 @@ type EditorialNote = {
   cues: DiscoveryCue[];
 };
 
+type CuratedCollection = {
+  id: string;
+  title: string;
+  summary: string;
+  kind: "park" | "ride";
+  badge: string;
+  itemSlugs: string[];
+};
+
 const parkEditorialBySlug: Record<string, EditorialNote> = {
   "europa-park": {
     summary:
@@ -222,6 +231,70 @@ const rideEditorialBySlug: Record<string, EditorialNote> = {
     cues: ["Iconic"]
   }
 };
+
+const curatedCollections: CuratedCollection[] = [
+  {
+    id: "first-time-europe-parks",
+    title: "First-time Europe parks",
+    summary:
+      "Balanced first picks with recognizable coasters, strong atmosphere, and a full-day park rhythm.",
+    kind: "park",
+    badge: "Parks",
+    itemSlugs: ["europa-park", "phantasialand", "portaventura-park", "efteling"]
+  },
+  {
+    id: "parks-with-strong-lineups",
+    title: "Parks with strong lineups",
+    summary:
+      "Dense coaster depth for days where the lineup matters more than a single headline ride.",
+    kind: "park",
+    badge: "Parks",
+    itemSlugs: ["europa-park", "energylandia", "walibi-holland", "phantasialand"]
+  },
+  {
+    id: "best-launches",
+    title: "Best launches",
+    summary:
+      "Fast acceleration, terrain interaction, and momentum-heavy layouts for riders who chase pacing.",
+    kind: "ride",
+    badge: "Rides",
+    itemSlugs: ["taron", "voltron-nevera", "toutatis", "helix"]
+  },
+  {
+    id: "iconic-hypers",
+    title: "Iconic hypers",
+    summary:
+      "Big-airtime headliners that define skylines and still anchor European coaster trip planning.",
+    kind: "ride",
+    badge: "Rides",
+    itemSlugs: ["silver-star", "shambhala", "hyperion"]
+  },
+  {
+    id: "standout-inverts-and-flyers",
+    title: "Standout inverts and flyers",
+    summary:
+      "Suspended or floorless-feeling layouts where interaction and presentation matter as much as stats.",
+    kind: "ride",
+    badge: "Rides",
+    itemSlugs: ["fly", "nemesis-reborn", "oziris", "raptor"]
+  }
+] as const;
+
+const parkCollections = curatedCollections.filter(
+  (collection): collection is CuratedCollection & { kind: "park" } =>
+    collection.kind === "park"
+);
+
+const rideCollections = curatedCollections.filter(
+  (collection): collection is CuratedCollection & { kind: "ride" } =>
+    collection.kind === "ride"
+);
+
+const landingCollections = [
+  curatedCollections.find((collection) => collection.id === "first-time-europe-parks"),
+  curatedCollections.find((collection) => collection.id === "best-launches"),
+  curatedCollections.find((collection) => collection.id === "parks-with-strong-lineups")
+].filter((collection): collection is CuratedCollection => Boolean(collection));
 
 const formatCountLabel = (
   count: number,
@@ -426,6 +499,9 @@ const getRidesCatalogStateFromUrl = (search: string) => {
   };
 };
 
+const getCollectionIdFromUrl = (search: string) =>
+  new URLSearchParams(search).get("collection")?.trim() ?? "";
+
 const getRideDetailOriginFromUrl = (search: string): RideDetailOrigin =>
   new URLSearchParams(search).get("origin") === "rides" ? "rides" : "park";
 
@@ -570,11 +646,48 @@ function MediaAsset({
   );
 }
 
+type CuratedCollectionCardProps = {
+  collection: CuratedCollection;
+  isActive?: boolean;
+  onOpen: () => void;
+};
+
+function CuratedCollectionCard({
+  collection,
+  isActive = false,
+  onOpen
+}: CuratedCollectionCardProps) {
+  return (
+    <button
+      className={`collection-card${isActive ? " collection-card-active" : ""}`}
+      type="button"
+      onClick={onOpen}
+    >
+      <div className="collection-card-header">
+        <span className="editorial-tag">{collection.badge}</span>
+        {isActive ? (
+          <span className="catalog-chip catalog-chip-ridden">Viewing now</span>
+        ) : null}
+      </div>
+      <div className="collection-card-copy">
+        <h3>{collection.title}</h3>
+        <p>{collection.summary}</p>
+      </div>
+      <span className="collection-card-meta">
+        {`${formatCountLabel(collection.itemSlugs.length, collection.kind)} inside this collection`}
+      </span>
+    </button>
+  );
+}
+
 function App() {
   const [route, setRoute] = useState<Route>(() => getRoute(window.location.pathname));
   const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "loading" });
   const [searchQuery, setSearchQuery] = useState(() =>
     getSearchQueryFromUrl(window.location.search)
+  );
+  const [parkCollectionId, setParkCollectionId] = useState(() =>
+    getCollectionIdFromUrl(window.location.search)
   );
   const [rideCatalogSearchQuery, setRideCatalogSearchQuery] = useState(() =>
     getRidesCatalogStateFromUrl(window.location.search).searchQuery
@@ -624,6 +737,9 @@ function App() {
   );
   const [rideCatalogSort, setRideCatalogSort] = useState<RidesCatalogSort>(
     () => getRidesCatalogStateFromUrl(window.location.search).sort
+  );
+  const [rideCollectionId, setRideCollectionId] = useState(() =>
+    getCollectionIdFromUrl(window.location.search)
   );
   const [rideDetailOrigin, setRideDetailOrigin] = useState<RideDetailOrigin>(() =>
     getRideDetailOriginFromUrl(window.location.search)
@@ -697,6 +813,7 @@ function App() {
     const syncRoute = () => {
       setRoute(getRoute(window.location.pathname));
       setSearchQuery(getSearchQueryFromUrl(window.location.search));
+      setParkCollectionId(getCollectionIdFromUrl(window.location.search));
       setRideCatalogSearchQuery(
         getRidesCatalogStateFromUrl(window.location.search).searchQuery
       );
@@ -711,6 +828,7 @@ function App() {
       setRideCatalogRideTypeFilter(ridesCatalogState.rideType);
       setRideCatalogManufacturerFilter(ridesCatalogState.manufacturer);
       setRideCatalogSort(ridesCatalogState.sort);
+      setRideCollectionId(getCollectionIdFromUrl(window.location.search));
       setRideDetailOrigin(getRideDetailOriginFromUrl(window.location.search));
     };
 
@@ -852,6 +970,10 @@ function App() {
       if (normalizedQuery) {
         params.set("search", normalizedQuery);
       }
+
+      if (parkCollectionId) {
+        params.set("collection", parkCollectionId);
+      }
     }
 
     if (route.view === "rides") {
@@ -874,6 +996,10 @@ function App() {
       }
 
       params.set("sort", rideCatalogSort);
+
+      if (rideCollectionId) {
+        params.set("collection", rideCollectionId);
+      }
     }
 
     if (route.view === "park" || route.view === "ride") {
@@ -899,6 +1025,10 @@ function App() {
         if (rideCatalogParkFilter) {
           params.set("park", rideCatalogParkFilter);
         }
+
+        if (rideCollectionId) {
+          params.set("collection", rideCollectionId);
+        }
       }
     }
 
@@ -911,11 +1041,13 @@ function App() {
   }, [
     route,
     searchQuery,
+    parkCollectionId,
     rideCatalogSearchQuery,
     rideCatalogParkFilter,
     rideCatalogRideTypeFilter,
     rideCatalogManufacturerFilter,
     rideCatalogSort,
+    rideCollectionId,
     rideTypeFilter,
     manufacturerFilter,
     parkRideSort,
@@ -1601,6 +1733,10 @@ function App() {
       params.set("search", searchQuery.trim());
     }
 
+    if (parkCollectionId) {
+      params.set("collection", parkCollectionId);
+    }
+
     return params;
   };
 
@@ -1624,6 +1760,10 @@ function App() {
     }
 
     params.set("sort", rideCatalogSort);
+
+    if (rideCollectionId) {
+      params.set("collection", rideCollectionId);
+    }
 
     return params;
   };
@@ -1658,18 +1798,37 @@ function App() {
     navigateWithParams("/", new URLSearchParams());
   };
 
-  const navigateToParks = (options?: { preserveSearch?: boolean }) => {
+  const navigateToParks = (options?: { preserveSearch?: boolean; collectionId?: string }) => {
     if (!options?.preserveSearch) {
       setSearchQuery("");
     }
 
+    const nextCollectionId =
+      options && "collectionId" in options ? options.collectionId ?? "" : parkCollectionId;
+
+    setParkCollectionId(nextCollectionId);
+
     navigateWithParams(
       "/parks",
-      options?.preserveSearch ? getCatalogSearchParams() : new URLSearchParams()
+      options?.preserveSearch || nextCollectionId
+        ? (() => {
+            const params = new URLSearchParams();
+
+            if (options?.preserveSearch && searchQuery.trim()) {
+              params.set("search", searchQuery.trim());
+            }
+
+            if (nextCollectionId) {
+              params.set("collection", nextCollectionId);
+            }
+
+            return params;
+          })()
+        : new URLSearchParams()
     );
   };
 
-  const navigateToRides = (options?: { preserveFilters?: boolean }) => {
+  const navigateToRides = (options?: { preserveFilters?: boolean; collectionId?: string }) => {
     if (!options?.preserveFilters) {
       setRideCatalogSearchQuery("");
       setRideCatalogParkFilter("");
@@ -1678,9 +1837,28 @@ function App() {
       setRideCatalogSort(defaultRidesCatalogSort);
     }
 
+    const nextCollectionId =
+      options && "collectionId" in options ? options.collectionId ?? "" : rideCollectionId;
+
+    setRideCollectionId(nextCollectionId);
+
     navigateWithParams(
       "/rides",
-      options?.preserveFilters ? getRidesCatalogParams() : new URLSearchParams()
+      options?.preserveFilters || nextCollectionId
+        ? (() => {
+            const params = options?.preserveFilters
+              ? getRidesCatalogParams()
+              : new URLSearchParams();
+
+            if (nextCollectionId) {
+              params.set("collection", nextCollectionId);
+            } else if (!options?.preserveFilters) {
+              params.delete("collection");
+            }
+
+            return params;
+          })()
+        : new URLSearchParams()
     );
   };
 
@@ -1809,18 +1987,6 @@ function App() {
   const normalizedRideCatalogSearchQuery = rideCatalogSearchQuery.trim();
   const hasActiveRideCatalogSearch =
     route.view === "rides" && normalizedRideCatalogSearchQuery.length > 0;
-  const browseSummary =
-    parksStatus.state === "success"
-      ? hasActiveCatalogSearch
-        ? `Showing ${formatCountLabel(parksStatus.parks.length, "result")} for "${normalizedSearchQuery}".`
-        : `${formatCountLabel(parksStatus.parks.length, "park")} available right now.`
-      : null;
-  const ridesBrowseSummary =
-    ridesCatalogStatus.state === "success"
-      ? hasActiveRideCatalogSearch
-        ? `Showing ${formatCountLabel(ridesCatalogStatus.rides.length, "ride")} for "${normalizedRideCatalogSearchQuery}".`
-        : `${formatCountLabel(ridesCatalogStatus.rides.length, "ride")} available right now.`
-      : null;
   const heroCountLabel =
     parksStatus.state === "success"
       ? formatCountLabel(parksStatus.parks.length, "park")
@@ -1846,7 +2012,41 @@ function App() {
   const riddenRideIds =
     rideCreditsStatus.state === "success" ? new Set(rideCreditsStatus.rideIds) : null;
   const allParks = parksStatus.state === "success" ? parksStatus.parks : [];
+  const selectedParkCollection = parkCollections.find(
+    (collection) => collection.id === parkCollectionId
+  );
+  const displayedParks = selectedParkCollection
+    ? allParks.filter((park) => selectedParkCollection.itemSlugs.includes(park.slug))
+    : allParks;
   const parkBySlug = new Map(allParks.map((park) => [park.slug, park]));
+  const allRideCatalogItems =
+    ridesCatalogStatus.state === "success" ? ridesCatalogStatus.rides : [];
+  const selectedRideCollection = rideCollections.find(
+    (collection) => collection.id === rideCollectionId
+  );
+  const displayedRideCatalogItems = selectedRideCollection
+    ? allRideCatalogItems.filter((entry) =>
+        selectedRideCollection.itemSlugs.includes(entry.ride.slug)
+      )
+    : allRideCatalogItems;
+  const browseSummary =
+    parksStatus.state === "success"
+      ? selectedParkCollection
+        ? `${formatCountLabel(displayedParks.length, "park")} in ${selectedParkCollection.title.toLowerCase()}.`
+        : hasActiveCatalogSearch
+          ? `Showing ${formatCountLabel(displayedParks.length, "result")} for "${normalizedSearchQuery}".`
+          : `${formatCountLabel(displayedParks.length, "park")} available right now.`
+      : null;
+  const ridesBrowseSummary =
+    ridesCatalogStatus.state === "success"
+      ? selectedRideCollection
+        ? `${formatCountLabel(displayedRideCatalogItems.length, "ride")} in ${selectedRideCollection.title.toLowerCase()}.`
+        : hasActiveRideCatalogSearch
+          ? `Showing ${formatCountLabel(displayedRideCatalogItems.length, "ride")} for "${normalizedRideCatalogSearchQuery}".`
+          : `${formatCountLabel(displayedRideCatalogItems.length, "ride")} available right now.`
+      : null;
+  const hasActiveParkCollection = Boolean(selectedParkCollection);
+  const hasActiveRideCollection = Boolean(selectedRideCollection);
   const featuredParks = allParks.slice(0, 4);
   const landingFeaturedParks = featuredParks.slice(0, 3);
   const spotlightPark = landingFeaturedParks[0];
@@ -2507,6 +2707,34 @@ function App() {
             </section>
           </section>
 
+          <section className="catalog-panel landing-panel">
+            <div className="catalog-header landing-header">
+              <div className="catalog-copy">
+                <p className="status-label">Collections</p>
+                <h2 className="section-title">Curated ways into the catalog.</h2>
+                <p className="section-copy">
+                  A few quick entry points for launch fans, lineup chasers, and first-time Europe trips.
+                </p>
+              </div>
+            </div>
+            <div className="collection-grid">
+              {landingCollections.map((collection) => (
+                <CuratedCollectionCard
+                  collection={collection}
+                  key={collection.id}
+                  onOpen={() => {
+                    if (collection.kind === "park") {
+                      navigateToParks({ collectionId: collection.id });
+                      return;
+                    }
+
+                    navigateToRides({ collectionId: collection.id });
+                  }}
+                />
+              ))}
+            </div>
+          </section>
+
           <section className="catalog-panel editorial-panel">
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
@@ -2545,6 +2773,19 @@ function App() {
             </div>
           </div>
 
+          <div className="collection-strip" aria-label="Park collections">
+            {parkCollections.map((collection) => (
+              <CuratedCollectionCard
+                collection={collection}
+                isActive={collection.id === parkCollectionId}
+                key={collection.id}
+                onOpen={() => {
+                  navigateToParks({ preserveSearch: true, collectionId: collection.id });
+                }}
+              />
+            ))}
+          </div>
+
           <div className="toolbar-panel browse-toolbar">
             <div className="browse-toolbar-main">
               <label className="search-label" htmlFor="park-search">
@@ -2578,11 +2819,25 @@ function App() {
             <div className="catalog-state-row" aria-label="Browse state">
               <span className="catalog-chip">
                 {parksStatus.state === "success"
-                  ? `${parksStatus.parks.length} results`
+                  ? `${displayedParks.length} results`
                   : "Loading results"}
               </span>
+              {selectedParkCollection ? (
+                <span className="catalog-chip route-chip">{selectedParkCollection.title}</span>
+              ) : null}
               {hasActiveCatalogSearch ? (
                 <span className="catalog-chip route-chip">{`"${normalizedSearchQuery}"`}</span>
+              ) : null}
+              {hasActiveParkCollection ? (
+                <button
+                  className="catalog-inline-button"
+                  type="button"
+                  onClick={() => {
+                    setParkCollectionId("");
+                  }}
+                >
+                  Clear collection
+                </button>
               ) : null}
             </div>
           </div>
@@ -2593,9 +2848,9 @@ function App() {
             </div>
           ) : null}
           {parksStatus.state === "success" ? (
-            parksStatus.parks.length > 0 ? (
+            displayedParks.length > 0 ? (
               <div className="parks-list">
-                {parksStatus.parks.map((park) => {
+                {displayedParks.map((park) => {
                   const parkProgress = parkProgressBySlug?.get(park.slug);
                   const parkEditorial = parkEditorialBySlug[park.slug];
 
@@ -2664,7 +2919,11 @@ function App() {
               </div>
             ) : (
               <div className="state-message state-message-empty">
-                <p>No parks match this search yet.</p>
+                <p>
+                  {selectedParkCollection
+                    ? "No parks match this collection yet."
+                    : "No parks match this search yet."}
+                </p>
               </div>
             )
           ) : null}
@@ -2687,6 +2946,19 @@ function App() {
             <div className="catalog-support">
               <p className="catalog-note">{ridesBrowseSummary}</p>
             </div>
+          </div>
+
+          <div className="collection-strip" aria-label="Ride collections">
+            {rideCollections.map((collection) => (
+              <CuratedCollectionCard
+                collection={collection}
+                isActive={collection.id === rideCollectionId}
+                key={collection.id}
+                onOpen={() => {
+                  navigateToRides({ preserveFilters: true, collectionId: collection.id });
+                }}
+              />
+            ))}
           </div>
 
           <div className="toolbar-panel browse-toolbar browse-toolbar-stacked">
@@ -2815,9 +3087,12 @@ function App() {
             <div className="catalog-state-row" aria-label="Ride browse state">
               <span className="catalog-chip">
                 {ridesCatalogStatus.state === "success"
-                  ? `${ridesCatalogStatus.rides.length} results`
+                  ? `${displayedRideCatalogItems.length} results`
                   : "Loading results"}
               </span>
+              {selectedRideCollection ? (
+                <span className="catalog-chip route-chip">{selectedRideCollection.title}</span>
+              ) : null}
               {(rideCatalogSearchQuery.trim() ||
                 rideCatalogParkFilter ||
                 rideCatalogRideTypeFilter ||
@@ -2837,6 +3112,17 @@ function App() {
                   Clear filters
                 </button>
               ) : null}
+              {hasActiveRideCollection ? (
+                <button
+                  className="catalog-inline-button"
+                  type="button"
+                  onClick={() => {
+                    setRideCollectionId("");
+                  }}
+                >
+                  Clear collection
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -2846,9 +3132,9 @@ function App() {
             </div>
           ) : null}
           {ridesCatalogStatus.state === "success" ? (
-            ridesCatalogStatus.rides.length > 0 ? (
+            displayedRideCatalogItems.length > 0 ? (
               <div className="rides-list rides-list-catalog">
-                {ridesCatalogStatus.rides.map((entry) => {
+                {displayedRideCatalogItems.map((entry) => {
                   const isRidden = riddenRideIds?.has(entry.ride.id) === true;
                   const rideEditorial = rideEditorialBySlug[entry.ride.slug];
 
@@ -2926,8 +3212,14 @@ function App() {
               </div>
             ) : (
               <div className="state-message state-message-empty">
-                <p>No rides match this view yet.</p>
-                <p>Try a broader ride name or clear one of the current filters.</p>
+                <p>
+                  {selectedRideCollection
+                    ? "No rides match this collection yet."
+                    : "No rides match this view yet."}
+                </p>
+                {!selectedRideCollection ? (
+                  <p>Try a broader ride name or clear one of the current filters.</p>
+                ) : null}
               </div>
             )
           ) : null}
@@ -3006,6 +3298,31 @@ function App() {
               </div>
             </section>
           ) : null}
+
+          <section className="catalog-panel nested-panel">
+            <div className="catalog-header landing-header">
+              <div className="catalog-copy">
+                <p className="status-label">Collections</p>
+                <h2 className="section-title">Browse by taste, not only by search.</h2>
+              </div>
+            </div>
+            <div className="collection-grid">
+              {curatedCollections.map((collection) => (
+                <CuratedCollectionCard
+                  collection={collection}
+                  key={collection.id}
+                  onOpen={() => {
+                    if (collection.kind === "park") {
+                      navigateToParks({ collectionId: collection.id });
+                      return;
+                    }
+
+                    navigateToRides({ collectionId: collection.id });
+                  }}
+                />
+              ))}
+            </div>
+          </section>
 
           <section className="catalog-panel nested-panel">
             <div className="catalog-header landing-header">

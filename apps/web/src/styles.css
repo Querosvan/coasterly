@@ -717,6 +717,81 @@ img {
   flex: 1 1 240px;
 }
 
+.collection-strip,
+.collection-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.collection-strip {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.collection-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.collection-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(19, 37, 59, 0.08);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(245, 130, 32, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 248, 245, 0.94));
+  box-shadow: 0 16px 34px rgba(20, 34, 41, 0.05);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.collection-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(19, 37, 59, 0.16);
+  box-shadow: 0 24px 44px rgba(20, 34, 41, 0.08);
+}
+
+.collection-card-active {
+  border-color: rgba(245, 130, 32, 0.24);
+  box-shadow: 0 20px 40px rgba(245, 130, 32, 0.1);
+}
+
+.collection-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.collection-card-copy {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.collection-card-copy h3,
+.collection-card-copy p,
+.collection-card-meta {
+  margin: 0;
+}
+
+.collection-card-copy h3 {
+  color: var(--brand-navy-strong);
+  font-size: 1.14rem;
+  line-height: 1.15;
+}
+
+.collection-card-copy p,
+.collection-card-meta {
+  color: #566971;
+  line-height: 1.55;
+}
+
+.collection-card-meta {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
 .editorial-card {
   display: grid;
   gap: 0.55rem;
@@ -1078,6 +1153,7 @@ img {
 .ride-link:focus-visible,
 .brand-link:focus-visible,
 .back-link:focus-visible,
+.collection-card:focus-visible,
 .stats-park-card:focus-visible,
 .ghost-button:focus-visible,
 .catalog-inline-button:focus-visible,
@@ -1612,7 +1688,9 @@ img {
   }
 
   .landing-grid,
-  .editorial-grid {
+  .editorial-grid,
+  .collection-strip,
+  .collection-grid {
     display: grid;
     grid-template-columns: 1fr;
   }
