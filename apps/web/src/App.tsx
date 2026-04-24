@@ -1970,7 +1970,7 @@ function App() {
                 <span className="catalog-chip route-chip">
                   Searching for {normalizedSearchQuery}
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
 
