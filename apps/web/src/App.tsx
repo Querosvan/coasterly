@@ -89,6 +89,12 @@ type RideSpecItem = {
   code?: true;
 };
 
+type BreadcrumbItem = {
+  label: string;
+  href?: string;
+  onClick?: () => void;
+};
+
 const getRoute = (pathname: string): Route => {
   const rideMatch = pathname.match(/^\/parks\/([^/]+)\/rides\/([^/]+)\/?$/);
 
@@ -111,6 +117,41 @@ const getRoute = (pathname: string): Route => {
 
   return { view: "home" };
 };
+
+const renderBreadcrumbs = (items: BreadcrumbItem[]) => (
+  <nav className="breadcrumbs" aria-label="Breadcrumb">
+    <ol className="breadcrumb-list">
+      {items.map((item, index) => {
+        const isLast = index === items.length - 1;
+
+        return (
+          <li className="breadcrumb-item" key={`${item.label}-${index}`}>
+            {item.href && item.onClick && !isLast ? (
+              <a
+                className="breadcrumb-link"
+                href={item.href}
+                onClick={(event) => {
+                  event.preventDefault();
+                  item.onClick?.();
+                }}
+              >
+                {item.label}
+              </a>
+            ) : (
+              <span
+                className={`breadcrumb-current${isLast ? " breadcrumb-current-active" : ""}`}
+                aria-current={isLast ? "page" : undefined}
+              >
+                {item.label}
+              </span>
+            )}
+            {!isLast ? <span className="breadcrumb-separator">/</span> : null}
+          </li>
+        );
+      })}
+    </ol>
+  </nav>
+);
 
 function App() {
   const [route, setRoute] = useState<Route>(() => getRoute(window.location.pathname));
@@ -877,6 +918,87 @@ function App() {
     });
   }
 
+  const currentSearchLabel = normalizedSearchQuery
+    ? `Search: “${normalizedSearchQuery}”`
+    : "All parks";
+  const catalogEyebrow =
+    normalizedSearchQuery && parksStatus.state === "success"
+      ? "Filtered park catalog"
+      : "Park catalog";
+  const catalogTitle = normalizedSearchQuery
+    ? `Browse matching parks for ${normalizedSearchQuery}.`
+    : "Browse parks, open lineups, and keep progress visible.";
+  const catalogDescription = normalizedSearchQuery
+    ? "The catalog stays scoped to the current query so it is easier to move from search into park and ride detail."
+    : "The home catalog keeps imagery, ride progress, and route context in view so the next step feels obvious.";
+  const breadcrumbItems: BreadcrumbItem[] =
+    route.view === "home"
+      ? [
+          {
+            label: "Catalog"
+          },
+          {
+            label: currentSearchLabel
+          }
+        ]
+      : route.view === "park"
+        ? [
+            {
+              label: "Catalog",
+              href: "/",
+              onClick: navigateHome
+            },
+            {
+              label:
+                parkDetailStatus.state === "success"
+                  ? parkDetailStatus.park.name
+                  : route.slug
+            }
+          ]
+        : [
+            {
+              label: "Catalog",
+              href: "/",
+              onClick: navigateHome
+            },
+            {
+              label:
+                rideDetailStatus.state === "success"
+                  ? rideDetailStatus.park.name
+                  : route.parkSlug,
+              href: `/parks/${
+                rideDetailStatus.state === "success"
+                  ? rideDetailStatus.park.slug
+                  : route.parkSlug
+              }`,
+              onClick: () => {
+                navigateBackToPark(
+                  rideDetailStatus.state === "success"
+                    ? rideDetailStatus.park.slug
+                    : route.parkSlug
+                );
+              }
+            },
+            {
+              label:
+                rideDetailStatus.state === "success"
+                  ? rideDetailStatus.ride.name
+                  : route.rideSlug
+            }
+          ];
+  const parkContextLabel =
+    route.view === "park"
+      ? activeParkProgress
+        ? `${activeParkProgress.riddenRides}/${activeParkProgress.totalRides} rides ridden`
+        : "Park detail"
+      : null;
+  const rideContextLabel =
+    route.view === "ride"
+      ? rideDetailStatus.state === "success"
+        ? `${rideDetailStatus.park.name} lineup`
+        : "Ride detail"
+      : null;
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -902,6 +1024,43 @@ function App() {
           </div>
         </div>
       </header>
+
+      <section className="route-bar" aria-label="Current route">
+        <div className="route-bar-main">
+          {renderBreadcrumbs(breadcrumbItems)}
+          <div className="route-context">
+            <p className="route-context-label">
+              {route.view === "home"
+                ? catalogEyebrow
+                : route.view === "park"
+                  ? "Park detail"
+                  : "Ride detail"}
+            </p>
+            <strong className="route-context-value">
+              {route.view === "home"
+                ? currentSearchLabel
+                : route.view === "park"
+                  ? parkDetailStatus.state === "success"
+                    ? parkDetailStatus.park.name
+                    : route.slug
+                  : rideDetailStatus.state === "success"
+                    ? rideDetailStatus.ride.name
+                    : route.rideSlug}
+            </strong>
+          </div>
+        </div>
+        <div className="route-bar-actions">
+          {route.view === "home" ? (
+            <span className="catalog-chip route-chip">{heroCountLabel}</span>
+          ) : null}
+          {parkContextLabel ? (
+            <span className="catalog-chip route-chip">{parkContextLabel}</span>
+          ) : null}
+          {rideContextLabel ? (
+            <span className="catalog-chip route-chip">{rideContextLabel}</span>
+          ) : null}
+        </div>
+      </section>
 
       {route.view === "home" ? (
         <>
@@ -1034,16 +1193,16 @@ function App() {
           <section className="catalog-panel" aria-live="polite">
             <div className="catalog-header catalog-header-home">
               <div className="catalog-copy">
-                <p className="status-label">Park catalog</p>
-                <h2 className="section-title">A stronger catalog for planning, tracking, and repeat visits.</h2>
+                <p className="status-label">{catalogEyebrow}</p>
+                <h2 className="section-title">{catalogTitle}</h2>
                 <p className="section-copy">
-                  Images, progress, and lineup context stay in view so the catalog feels closer to a real product than a raw data browser.
+                  {catalogDescription}
                 </p>
               </div>
               <div className="catalog-support">
                 <p className="catalog-note">{homeSummary}</p>
                 <p className="catalog-note">
-                  Search updates the live API and keeps the focus on the parks worth opening next.
+                  Search updates the live API and keeps the next park or ride page one step away.
                 </p>
               </div>
             </div>
@@ -1210,9 +1369,14 @@ function App() {
       {route.view === "park" ? (
         <section className="catalog-panel detail-surface" aria-live="polite">
           <div className="detail-layout">
-            <button className="back-link" type="button" onClick={navigateHome}>
-              Back to parks
-            </button>
+            <div className="detail-nav">
+              <button className="back-link" type="button" onClick={navigateHome}>
+                Back to catalog
+              </button>
+              <p className="detail-nav-copy">
+                Return to the park catalog or continue through this park&apos;s lineup below.
+              </p>
+            </div>
             {parkDetailStatus.state === "loading" ? (
               <div className="state-message state-message-loading">
                 <p>Loading park details...</p>
@@ -1228,6 +1392,14 @@ function App() {
                     <p className="section-copy detail-summary">
                       {parkDetailStatus.park.city}, {parkDetailStatus.park.country}. Review the lineup, filter rides quickly, and keep progress visible while browsing.
                     </p>
+                    <div className="detail-micro-nav" aria-label="Park route context">
+                      <span className="detail-micro-item">Catalog to park</span>
+                      <span className="detail-micro-item">
+                        {activeParkProgress
+                          ? `${activeParkProgress.totalRides} tracked rides`
+                          : "Ride lineup available"}
+                      </span>
+                    </div>
                   </div>
                   <div className="detail-chip-row">
                     <span className="catalog-chip">{parkDetailStatus.park.status}</span>
@@ -1298,11 +1470,14 @@ function App() {
                         Filter and sort the tracked rides without losing progress context.
                       </p>
                     </div>
-                    {parkRidesStatus.state === "success" ? (
-                      <span className="catalog-chip">
-                        {formatCountLabel(parkRidesStatus.rides.length, "ride")}
-                      </span>
-                    ) : null}
+                    <div className="detail-chip-row">
+                      {parkRidesStatus.state === "success" ? (
+                        <span className="catalog-chip">
+                          {formatCountLabel(parkRidesStatus.rides.length, "ride")}
+                        </span>
+                      ) : null}
+                      <span className="catalog-chip route-chip">Open a ride for full specs</span>
+                    </div>
                   </div>
                   <div className="toolbar-panel">
                     <div className="ride-toolbar" aria-label="Ride filters and sorting">
@@ -1462,15 +1637,20 @@ function App() {
       {route.view === "ride" ? (
         <section className="catalog-panel detail-surface" aria-live="polite">
           <div className="detail-layout">
-            <button
-              className="back-link"
-              type="button"
-              onClick={() => {
-                navigateBackToPark(route.parkSlug);
-              }}
-            >
-              Back to park
-            </button>
+            <div className="detail-nav">
+              <button
+                className="back-link"
+                type="button"
+                onClick={() => {
+                  navigateBackToPark(route.parkSlug);
+                }}
+              >
+                Back to park
+              </button>
+              <p className="detail-nav-copy">
+                Return to the lineup to keep browsing this park, or stay here to manage the ride credit.
+              </p>
+            </div>
             {rideDetailStatus.state === "loading" ? (
               <div className="state-message state-message-loading">
                 <p>Loading ride details...</p>
@@ -1486,6 +1666,14 @@ function App() {
                     <p className="section-copy detail-summary">
                       Inside {rideDetailStatus.park.name}. Review the core ride specs and keep ride credits close to the content.
                     </p>
+                    <div className="detail-micro-nav" aria-label="Ride route context">
+                      <span className="detail-micro-item">
+                        In {rideDetailStatus.park.city}, {rideDetailStatus.park.country}
+                      </span>
+                      <span className="detail-micro-item">
+                        {rideDetailStatus.ride.rideType}
+                      </span>
+                    </div>
                   </div>
                   <div className="detail-chip-row">
                     <span className="catalog-chip">{rideDetailStatus.ride.status}</span>
