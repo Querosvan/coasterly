@@ -610,6 +610,44 @@ img {
   gap: 0.45rem;
 }
 
+.catalog-state-row,
+.lineup-nav-panel,
+.lineup-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.catalog-state-row,
+.lineup-nav-panel {
+  flex-wrap: wrap;
+}
+
+.catalog-inline-button,
+.lineup-nav-button {
+  width: fit-content;
+  min-height: 2.55rem;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid rgba(19, 37, 59, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--brand-navy-strong);
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+
+.catalog-inline-button:hover,
+.lineup-nav-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(19, 37, 59, 0.22);
+  background: rgba(255, 255, 255, 1);
+}
+
+.lineup-nav-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .catalog-note,
 .section-copy,
 .credit-copy,
@@ -826,6 +864,8 @@ img {
 .back-link:focus-visible,
 .stats-park-card:focus-visible,
 .ghost-button:focus-visible,
+.catalog-inline-button:focus-visible,
+.lineup-nav-button:focus-visible,
 .search-input:focus-visible,
 .toolbar-select:focus-visible,
 .spotlight-card:focus-visible,
@@ -1077,6 +1117,19 @@ img {
   color: var(--brand-orange-strong);
 }
 
+.lineup-nav-panel {
+  justify-content: space-between;
+  padding: 1rem;
+  border-radius: 22px;
+  background: rgba(246, 247, 244, 0.92);
+  border: 1px solid rgba(19, 37, 59, 0.06);
+}
+
+.lineup-nav-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .state-message {
   display: grid;
   gap: 0.4rem;
@@ -1158,6 +1211,8 @@ img {
   .detail-header,
   .section-row,
   .detail-nav,
+  .lineup-nav-panel,
+  .lineup-nav-actions,
   .credit-panel,
   .developer-footer,
   .developer-status {

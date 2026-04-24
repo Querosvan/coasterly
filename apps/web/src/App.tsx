@@ -95,6 +95,42 @@ type BreadcrumbItem = {
   onClick?: () => void;
 };
 
+type RideLineupStatus =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "success"; rides: Ride[] }
+  | { state: "error"; message: string };
+
+const defaultParkRideSort: ParkRideSort = "name";
+
+const isParkRideSort = (value: string | null): value is ParkRideSort =>
+  value === "name" || value === "opening_year" || value === "speed_kmh";
+
+const getSearchQueryFromUrl = (search: string) => {
+  const value = new URLSearchParams(search).get("search")?.trim();
+
+  return value ?? "";
+};
+
+const getRideBrowserStateFromUrl = (search: string) => {
+  const params = new URLSearchParams(search);
+  const rideType = params.get("rideType")?.trim() ?? "";
+  const manufacturer = params.get("manufacturer")?.trim() ?? "";
+  const sort = params.get("sort");
+
+  return {
+    rideType,
+    manufacturer,
+    sort: isParkRideSort(sort) ? sort : defaultParkRideSort
+  };
+};
+
+const buildPathWithQuery = (pathname: string, params: URLSearchParams) => {
+  const query = params.toString();
+
+  return query ? `${pathname}?${query}` : pathname;
+};
+
 const getRoute = (pathname: string): Route => {
   const rideMatch = pathname.match(/^\/parks\/([^/]+)\/rides\/([^/]+)\/?$/);
 
@@ -156,7 +192,9 @@ const renderBreadcrumbs = (items: BreadcrumbItem[]) => (
 function App() {
   const [route, setRoute] = useState<Route>(() => getRoute(window.location.pathname));
   const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "loading" });
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(() =>
+    getSearchQueryFromUrl(window.location.search)
+  );
   const [parksStatus, setParksStatus] = useState<ParksStatus>({
     state: "loading"
   });
@@ -170,9 +208,15 @@ function App() {
     rideTypes: [],
     manufacturers: []
   });
-  const [rideTypeFilter, setRideTypeFilter] = useState("");
-  const [manufacturerFilter, setManufacturerFilter] = useState("");
-  const [parkRideSort, setParkRideSort] = useState<ParkRideSort>("name");
+  const [rideTypeFilter, setRideTypeFilter] = useState(
+    () => getRideBrowserStateFromUrl(window.location.search).rideType
+  );
+  const [manufacturerFilter, setManufacturerFilter] = useState(
+    () => getRideBrowserStateFromUrl(window.location.search).manufacturer
+  );
+  const [parkRideSort, setParkRideSort] = useState<ParkRideSort>(
+    () => getRideBrowserStateFromUrl(window.location.search).sort
+  );
   const [rideCreditsStatus, setRideCreditsStatus] = useState<RideCreditsStatus>({
     state: "loading"
   });
@@ -182,10 +226,11 @@ function App() {
   const [rideDetailStatus, setRideDetailStatus] = useState<RideDetailStatus>({
     state: "idle"
   });
+  const [rideLineupStatus, setRideLineupStatus] = useState<RideLineupStatus>({
+    state: "idle"
+  });
   const [isUpdatingRideCredit, setIsUpdatingRideCredit] = useState(false);
   const [rideCreditMessage, setRideCreditMessage] = useState<string | null>(null);
-
-  const activeParkSlug = route.view === "park" ? route.slug : null;
 
   const loadDemoUserStats = async (signal?: AbortSignal) => {
     if (!apiBaseUrl) {
@@ -240,6 +285,13 @@ function App() {
   useEffect(() => {
     const syncRoute = () => {
       setRoute(getRoute(window.location.pathname));
+      setSearchQuery(getSearchQueryFromUrl(window.location.search));
+
+      const rideBrowserState = getRideBrowserStateFromUrl(window.location.search);
+
+      setRideTypeFilter(rideBrowserState.rideType);
+      setManufacturerFilter(rideBrowserState.manufacturer);
+      setParkRideSort(rideBrowserState.sort);
     };
 
     window.addEventListener("popstate", syncRoute);
@@ -372,6 +424,37 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (route.view === "home") {
+      const normalizedQuery = searchQuery.trim();
+
+      if (normalizedQuery) {
+        params.set("search", normalizedQuery);
+      }
+    }
+
+    if (route.view === "park" || route.view === "ride") {
+      if (rideTypeFilter) {
+        params.set("rideType", rideTypeFilter);
+      }
+
+      if (manufacturerFilter) {
+        params.set("manufacturer", manufacturerFilter);
+      }
+
+      params.set("sort", parkRideSort);
+    }
+
+    const nextLocation = buildPathWithQuery(window.location.pathname, params);
+    const currentLocation = `${window.location.pathname}${window.location.search}`;
+
+    if (nextLocation !== currentLocation) {
+      window.history.replaceState({}, "", nextLocation);
+    }
+  }, [route, searchQuery, rideTypeFilter, manufacturerFilter, parkRideSort]);
+
+  useEffect(() => {
     if (!apiBaseUrl) {
       setParksStatus({
         state: "error",
@@ -437,16 +520,6 @@ function App() {
       controller.abort();
     };
   }, [searchQuery]);
-
-  useEffect(() => {
-    setRideTypeFilter("");
-    setManufacturerFilter("");
-    setParkRideSort("name");
-    setParkRideOptions({
-      rideTypes: [],
-      manufacturers: []
-    });
-  }, [activeParkSlug]);
 
   useEffect(() => {
     if (route.view !== "park") {
@@ -523,6 +596,67 @@ function App() {
 
   useEffect(() => {
     if (route.view !== "park") {
+      setParkRideOptions({
+        rideTypes: [],
+        manufacturers: []
+      });
+
+      return;
+    }
+
+    if (!apiBaseUrl) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadRideOptions = async () => {
+      try {
+        const ridesUrl = new URL(`/parks/${route.slug}/rides`, apiBaseUrl);
+
+        ridesUrl.searchParams.set("sort", defaultParkRideSort);
+
+        const response = await fetch(ridesUrl, { signal: controller.signal });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as RidesResponse;
+        const rideTypes = Array.from(
+          new Set(payload.rides.map((ride) => ride.rideType))
+        );
+        rideTypes.sort((left, right) => left.localeCompare(right));
+
+        const manufacturers = Array.from(
+          new Set(
+            payload.rides
+              .map((ride) => ride.manufacturer)
+              .filter((manufacturer): manufacturer is string => Boolean(manufacturer))
+          )
+        );
+        manufacturers.sort((left, right) => left.localeCompare(right));
+
+        setParkRideOptions({
+          rideTypes,
+          manufacturers
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+      }
+    };
+
+    void loadRideOptions();
+
+    return () => {
+      controller.abort();
+    };
+  }, [route, apiBaseUrl]);
+
+  useEffect(() => {
+    if (route.view !== "park") {
       setParkRidesStatus({ state: "idle" });
 
       return;
@@ -581,27 +715,6 @@ function App() {
           state: "success",
           rides: payload.rides
         });
-
-        if (!rideTypeFilter && !manufacturerFilter) {
-          const rideTypes = Array.from(
-            new Set(payload.rides.map((ride) => ride.rideType))
-          );
-          rideTypes.sort((left, right) => left.localeCompare(right));
-
-          const manufacturers = Array.from(
-            new Set(
-              payload.rides
-                .map((ride) => ride.manufacturer)
-                .filter((manufacturer): manufacturer is string => Boolean(manufacturer))
-            )
-          );
-          manufacturers.sort((left, right) => left.localeCompare(right));
-
-          setParkRideOptions({
-            rideTypes,
-            manufacturers
-          });
-        }
       } catch (error) {
         if (controller.signal.aborted) {
           return;
@@ -618,6 +731,88 @@ function App() {
     };
 
     void loadRides();
+
+    return () => {
+      controller.abort();
+    };
+  }, [route, rideTypeFilter, manufacturerFilter, parkRideSort]);
+
+  useEffect(() => {
+    if (route.view !== "ride") {
+      setRideLineupStatus({ state: "idle" });
+
+      return;
+    }
+
+    if (!apiBaseUrl) {
+      setRideLineupStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadRideLineup = async () => {
+      setRideLineupStatus({ state: "loading" });
+
+      try {
+        const ridesUrl = new URL(`/parks/${route.parkSlug}/rides`, apiBaseUrl);
+
+        if (rideTypeFilter) {
+          ridesUrl.searchParams.set("rideType", rideTypeFilter);
+        }
+
+        if (manufacturerFilter) {
+          ridesUrl.searchParams.set("manufacturer", manufacturerFilter);
+        }
+
+        ridesUrl.searchParams.set("sort", parkRideSort);
+
+        const response = await fetch(ridesUrl, { signal: controller.signal });
+
+        if (response.status === 404) {
+          setRideLineupStatus({
+            state: "error",
+            message: "Park not found."
+          });
+
+          return;
+        }
+
+        if (!response.ok) {
+          setRideLineupStatus({
+            state: "error",
+            message: `Ride lineup request failed with status ${response.status}.`
+          });
+
+          return;
+        }
+
+        const payload = (await response.json()) as RidesResponse;
+
+        setRideLineupStatus({
+          state: "success",
+          rides: payload.rides
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setRideLineupStatus({
+          state: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "The ride lineup request failed."
+        });
+      }
+    };
+
+    void loadRideLineup();
 
     return () => {
       controller.abort();
@@ -698,33 +893,71 @@ function App() {
     };
   }, [route]);
 
-  const navigateToPark = (slug: string) => {
-    const nextPath = `/parks/${slug}`;
+  const getCatalogSearchParams = () => {
+    const params = new URLSearchParams();
 
-    if (window.location.pathname !== nextPath) {
-      window.history.pushState({}, "", nextPath);
-      setRoute({ view: "park", slug });
+    if (searchQuery.trim()) {
+      params.set("search", searchQuery.trim());
     }
+
+    return params;
+  };
+
+  const getRideBrowserParams = () => {
+    const params = new URLSearchParams();
+
+    if (rideTypeFilter) {
+      params.set("rideType", rideTypeFilter);
+    }
+
+    if (manufacturerFilter) {
+      params.set("manufacturer", manufacturerFilter);
+    }
+
+    params.set("sort", parkRideSort);
+
+    return params;
+  };
+
+  const navigateWithParams = (pathname: string, params: URLSearchParams) => {
+    const nextLocation = buildPathWithQuery(pathname, params);
+    const currentLocation = `${window.location.pathname}${window.location.search}`;
+
+    if (currentLocation !== nextLocation) {
+      window.history.pushState({}, "", nextLocation);
+      setRoute(getRoute(pathname));
+    }
+  };
+
+  const navigateToPark = (
+    slug: string,
+    options?: { preserveRideBrowserState?: boolean }
+  ) => {
+    if (!options?.preserveRideBrowserState) {
+      setRideTypeFilter("");
+      setManufacturerFilter("");
+      setParkRideSort(defaultParkRideSort);
+    }
+
+    navigateWithParams(
+      `/parks/${slug}`,
+      options?.preserveRideBrowserState ? getRideBrowserParams() : new URLSearchParams()
+    );
   };
 
   const navigateToRide = (parkSlug: string, rideSlug: string) => {
-    const nextPath = `/parks/${parkSlug}/rides/${rideSlug}`;
-
-    if (window.location.pathname !== nextPath) {
-      window.history.pushState({}, "", nextPath);
-      setRoute({ view: "ride", parkSlug, rideSlug });
-    }
+    navigateWithParams(
+      `/parks/${parkSlug}/rides/${rideSlug}`,
+      getRideBrowserParams()
+    );
   };
 
   const navigateHome = () => {
-    if (window.location.pathname !== "/") {
-      window.history.pushState({}, "", "/");
-      setRoute({ view: "home" });
-    }
+    navigateWithParams("/", getCatalogSearchParams());
   };
 
   const navigateBackToPark = (slug: string) => {
-    navigateToPark(slug);
+    navigateToPark(slug, { preserveRideBrowserState: true });
   };
 
   const updateRiddenRide = (rideId: number, ridden: boolean) => {
@@ -788,6 +1021,7 @@ function App() {
   };
 
   const normalizedSearchQuery = searchQuery.trim();
+  const hasActiveCatalogSearch = normalizedSearchQuery.length > 0;
   const homeSummary =
     parksStatus.state === "success"
       ? normalizedSearchQuery
@@ -838,6 +1072,24 @@ function App() {
       : parkRideSort === "opening_year"
         ? "Opening year"
         : "Top speed";
+  const rideLineup =
+    rideLineupStatus.state === "success" ? rideLineupStatus.rides : [];
+  const activeRideIndex =
+    rideDetailStatus.state === "success"
+      ? rideLineup.findIndex((ride) => ride.slug === rideDetailStatus.ride.slug)
+      : -1;
+  const previousRide =
+    activeRideIndex > 0 ? rideLineup[activeRideIndex - 1] : undefined;
+  const nextRide =
+    activeRideIndex >= 0 && activeRideIndex < rideLineup.length - 1
+      ? rideLineup[activeRideIndex + 1]
+      : undefined;
+  const rideLineupPositionLabel =
+    activeRideIndex >= 0
+      ? `${activeRideIndex + 1} of ${rideLineup.length} in current lineup`
+      : rideLineupStatus.state === "success" && rideLineup.length > 0
+        ? "Current ride is outside the active lineup filters"
+        : null;
   const featuredParks =
     parksStatus.state === "success" ? parksStatus.parks.slice(0, 4) : [];
   const spotlightPark = featuredParks[0];
@@ -931,6 +1183,12 @@ function App() {
   const catalogDescription = normalizedSearchQuery
     ? "The catalog stays scoped to the current query so it is easier to move from search into park and ride detail."
     : "The home catalog keeps imagery, ride progress, and route context in view so the next step feels obvious.";
+  const catalogStateLabel =
+    parksStatus.state === "success"
+      ? `${parksStatus.parks.length} results`
+      : parksStatus.state === "loading"
+        ? "Loading results"
+        : "Catalog unavailable";
   const breadcrumbItems: BreadcrumbItem[] =
     route.view === "home"
       ? [
@@ -945,7 +1203,7 @@ function App() {
         ? [
             {
               label: "Catalog",
-              href: "/",
+              href: buildPathWithQuery("/", getCatalogSearchParams()),
               onClick: navigateHome
             },
             {
@@ -958,7 +1216,7 @@ function App() {
         : [
             {
               label: "Catalog",
-              href: "/",
+              href: buildPathWithQuery("/", getCatalogSearchParams()),
               onClick: navigateHome
             },
             {
@@ -966,11 +1224,14 @@ function App() {
                 rideDetailStatus.state === "success"
                   ? rideDetailStatus.park.name
                   : route.parkSlug,
-              href: `/parks/${
-                rideDetailStatus.state === "success"
-                  ? rideDetailStatus.park.slug
-                  : route.parkSlug
-              }`,
+              href: buildPathWithQuery(
+                `/parks/${
+                  rideDetailStatus.state === "success"
+                    ? rideDetailStatus.park.slug
+                    : route.parkSlug
+                }`,
+                getRideBrowserParams()
+              ),
               onClick: () => {
                 navigateBackToPark(
                   rideDetailStatus.state === "success"
@@ -1051,13 +1312,21 @@ function App() {
         </div>
         <div className="route-bar-actions">
           {route.view === "home" ? (
-            <span className="catalog-chip route-chip">{heroCountLabel}</span>
+            <>
+              <span className="catalog-chip route-chip">{catalogStateLabel}</span>
+              {hasActiveCatalogSearch ? (
+                <span className="catalog-chip route-chip">Search active</span>
+              ) : null}
+            </>
           ) : null}
           {parkContextLabel ? (
             <span className="catalog-chip route-chip">{parkContextLabel}</span>
           ) : null}
           {rideContextLabel ? (
             <span className="catalog-chip route-chip">{rideContextLabel}</span>
+          ) : null}
+          {route.view === "ride" && rideLineupPositionLabel ? (
+            <span className="catalog-chip route-chip">{rideLineupPositionLabel}</span>
           ) : null}
         </div>
       </section>
@@ -1205,6 +1474,27 @@ function App() {
                   Search updates the live API and keeps the next park or ride page one step away.
                 </p>
               </div>
+            </div>
+            <div className="catalog-state-row" aria-label="Catalog state">
+              <span className="catalog-chip">{catalogStateLabel}</span>
+              {hasActiveCatalogSearch ? (
+                <>
+                  <span className="catalog-chip route-chip">
+                    Query: {normalizedSearchQuery}
+                  </span>
+                  <button
+                    className="catalog-inline-button"
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                    }}
+                  >
+                    Clear search
+                  </button>
+                </>
+              ) : (
+                <span className="catalog-chip route-chip">Search state is URL-backed</span>
+              )}
             </div>
 
             {parksStatus.state === "loading" ? (
@@ -1546,6 +1836,29 @@ function App() {
                       {" | "}
                       <strong>{parkRideSortLabel}</strong>
                     </p>
+                    <div className="catalog-state-row">
+                      <span className="catalog-chip route-chip">State lives in the URL</span>
+                      {parkRidesStatus.state === "success" ? (
+                        <span className="catalog-chip">
+                          {formatCountLabel(parkRidesStatus.rides.length, "visible ride")}
+                        </span>
+                      ) : null}
+                      {(rideTypeFilter ||
+                        manufacturerFilter ||
+                        parkRideSort !== defaultParkRideSort) ? (
+                        <button
+                          className="catalog-inline-button"
+                          type="button"
+                          onClick={() => {
+                            setRideTypeFilter("");
+                            setManufacturerFilter("");
+                            setParkRideSort(defaultParkRideSort);
+                          }}
+                        >
+                          Reset lineup view
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                   {parkRidesStatus.state === "loading" ? (
                     <div className="state-message state-message-loading">
@@ -1573,7 +1886,10 @@ function App() {
                             <div className="card-header">
                               <a
                                 className="ride-link"
-                                href={`/parks/${route.slug}/rides/${ride.slug}`}
+                                href={buildPathWithQuery(
+                                  `/parks/${route.slug}/rides/${ride.slug}`,
+                                  getRideBrowserParams()
+                                )}
                                 onClick={(event) => {
                                   event.preventDefault();
                                   navigateToRide(route.slug, ride.slug);
@@ -1722,6 +2038,48 @@ function App() {
                 {rideCreditMessage ? (
                   <p className="credit-copy">{rideCreditMessage}</p>
                 ) : null}
+
+                <div className="lineup-nav-panel">
+                  <div>
+                    <p className="status-label">Ride lineup navigation</p>
+                    <p className="credit-copy">
+                      {rideLineupStatus.state === "success"
+                        ? rideLineupPositionLabel ||
+                          "Move through the current park lineup without returning to the park page."
+                        : rideLineupStatus.state === "loading"
+                          ? "Loading the current park lineup."
+                          : rideLineupStatus.state === "error"
+                            ? rideLineupStatus.message
+                            : "Lineup navigation is unavailable."}
+                    </p>
+                  </div>
+                  <div className="lineup-nav-actions">
+                    <button
+                      className="lineup-nav-button"
+                      type="button"
+                      onClick={() => {
+                        if (previousRide) {
+                          navigateToRide(route.parkSlug, previousRide.slug);
+                        }
+                      }}
+                      disabled={!previousRide}
+                    >
+                      Previous ride
+                    </button>
+                    <button
+                      className="lineup-nav-button"
+                      type="button"
+                      onClick={() => {
+                        if (nextRide) {
+                          navigateToRide(route.parkSlug, nextRide.slug);
+                        }
+                      }}
+                      disabled={!nextRide}
+                    >
+                      Next ride
+                    </button>
+                  </div>
+                </div>
 
                 <div className="detail-grid">
                   {rideSpecItems.map((item) => (
