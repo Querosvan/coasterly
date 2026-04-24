@@ -2,21 +2,28 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 
 import {
-  addDemoUserRideCredit,
+  addRideCreditForUser,
   closeDatabase,
   getDemoUserRideStats,
+  getRideStatsForUser,
   getParkBySlug,
   getRideBySlugs,
   initializeDatabase,
+  listRideCreditsForUser,
   listRideCatalog,
   listDemoUserRideCredits,
   listParks,
   listRidesForPark,
-  removeDemoUserRideCredit
+  removeRideCreditForUser
 } from "./db.js";
+import {
+  CurrentUserResolutionError,
+  resolveRequestCurrentUser
+} from "./current-user.js";
 import { getQueueTimesLiveWaitsForPark } from "./services/wait-times.js";
 
 import type {
+  CurrentUserResponse,
   DemoUserStatsResponse,
   HealthResponse,
   ParkResponse,
@@ -209,6 +216,68 @@ app.get("/demo-user/stats", async () => {
   return response;
 });
 
+app.get("/me", async (request, reply) => {
+  try {
+    const response: CurrentUserResponse = await resolveRequestCurrentUser(request);
+
+    return response;
+  } catch (error) {
+    if (error instanceof CurrentUserResolutionError) {
+      return reply.code(error.statusCode).send({
+        message: error.message
+      });
+    }
+
+    throw error;
+  }
+});
+
+app.get("/me/ride-credits", async (request, reply) => {
+  try {
+    const currentUser = await resolveRequestCurrentUser(request);
+    const rideIds = await listRideCreditsForUser(currentUser.user);
+
+    const response: RideCreditsResponse = {
+      user: currentUser.user,
+      rideIds
+    };
+
+    return response;
+  } catch (error) {
+    if (error instanceof CurrentUserResolutionError) {
+      return reply.code(error.statusCode).send({
+        message: error.message
+      });
+    }
+
+    throw error;
+  }
+});
+
+app.get("/me/stats", async (request, reply) => {
+  try {
+    const currentUser = await resolveRequestCurrentUser(request);
+    const stats = await getRideStatsForUser(currentUser.user);
+
+    const response: DemoUserStatsResponse = {
+      user: stats.user,
+      totalRiddenRides: stats.totalRiddenRides,
+      totalParksWithRiddenRides: stats.totalParksWithRiddenRides,
+      parks: stats.parks
+    };
+
+    return response;
+  } catch (error) {
+    if (error instanceof CurrentUserResolutionError) {
+      return reply.code(error.statusCode).send({
+        message: error.message
+      });
+    }
+
+    throw error;
+  }
+});
+
 app.get<{ Params: { slug: string; rideSlug: string } }>(
   "/parks/:slug/rides/:rideSlug",
   async (request, reply) => {
@@ -235,48 +304,72 @@ app.get<{ Params: { slug: string; rideSlug: string } }>(
 app.put<{ Params: { slug: string; rideSlug: string } }>(
   "/parks/:slug/rides/:rideSlug/credit",
   async (request, reply) => {
-    const credit = await addDemoUserRideCredit(
-      request.params.slug,
-      request.params.rideSlug
-    );
+    try {
+      const currentUser = await resolveRequestCurrentUser(request);
+      const credit = await addRideCreditForUser(
+        currentUser.user,
+        request.params.slug,
+        request.params.rideSlug
+      );
 
-    if (!credit) {
-      return reply.code(404).send({
-        message: "Ride not found."
-      });
+      if (!credit) {
+        return reply.code(404).send({
+          message: "Ride not found."
+        });
+      }
+
+      const response: RideCreditMutationResponse = {
+        user: credit.user,
+        rideId: credit.rideId,
+        ridden: true
+      };
+
+      return response;
+    } catch (error) {
+      if (error instanceof CurrentUserResolutionError) {
+        return reply.code(error.statusCode).send({
+          message: error.message
+        });
+      }
+
+      throw error;
     }
-
-    const response: RideCreditMutationResponse = {
-      user: credit.user,
-      rideId: credit.rideId,
-      ridden: true
-    };
-
-    return response;
   }
 );
 
 app.delete<{ Params: { slug: string; rideSlug: string } }>(
   "/parks/:slug/rides/:rideSlug/credit",
   async (request, reply) => {
-    const credit = await removeDemoUserRideCredit(
-      request.params.slug,
-      request.params.rideSlug
-    );
+    try {
+      const currentUser = await resolveRequestCurrentUser(request);
+      const credit = await removeRideCreditForUser(
+        currentUser.user,
+        request.params.slug,
+        request.params.rideSlug
+      );
 
-    if (!credit) {
-      return reply.code(404).send({
-        message: "Ride not found."
-      });
+      if (!credit) {
+        return reply.code(404).send({
+          message: "Ride not found."
+        });
+      }
+
+      const response: RideCreditMutationResponse = {
+        user: credit.user,
+        rideId: credit.rideId,
+        ridden: false
+      };
+
+      return response;
+    } catch (error) {
+      if (error instanceof CurrentUserResolutionError) {
+        return reply.code(error.statusCode).send({
+          message: error.message
+        });
+      }
+
+      throw error;
     }
-
-    const response: RideCreditMutationResponse = {
-      user: credit.user,
-      rideId: credit.rideId,
-      ridden: false
-    };
-
-    return response;
   }
 );
 

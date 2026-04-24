@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 
 import type {
+  CurrentUserResponse,
   DemoUserParkProgress,
   ExternalEntityType,
   ExternalSourceName,
@@ -843,6 +844,89 @@ const getPrimarySeedUser = async (): Promise<UserSummary> => {
   return user;
 };
 
+const getUserByAuthIdentity = async (
+  authProvider: string,
+  authSubject: string
+): Promise<UserSummary | null> => {
+  const normalizedAuthProvider = authProvider.trim();
+  const normalizedAuthSubject = authSubject.trim();
+
+  if (!normalizedAuthProvider || !normalizedAuthSubject) {
+    return null;
+  }
+
+  const result = await pool.query<{
+    id: number;
+    slug: string;
+    name: string;
+    role: string;
+    is_seeded: boolean;
+  }>(
+    `
+      SELECT id, slug, name, role, is_seeded
+      FROM users
+      WHERE auth_provider = $1 AND auth_subject = $2
+      LIMIT 1
+    `,
+    [normalizedAuthProvider, normalizedAuthSubject]
+  );
+
+  const record = result.rows[0];
+
+  if (!record) {
+    return null;
+  }
+
+  return {
+    id: record.id,
+    slug: record.slug,
+    name: record.name,
+    role: record.role as UserRole,
+    ...(record.is_seeded ? { isSeeded: true } : {})
+  };
+};
+
+export const resolveCurrentUser = async (options?: {
+  authProvider?: string;
+  authSubject?: string;
+}): Promise<CurrentUserResponse> => {
+  const normalizedAuthProvider = options?.authProvider?.trim();
+  const normalizedAuthSubject = options?.authSubject?.trim();
+
+  if (normalizedAuthProvider || normalizedAuthSubject) {
+    if (!normalizedAuthProvider || !normalizedAuthSubject) {
+      throw new Error("Incomplete auth identity.");
+    }
+
+    const authenticatedUser = await getUserByAuthIdentity(
+      normalizedAuthProvider,
+      normalizedAuthSubject
+    );
+
+    if (!authenticatedUser) {
+      throw new Error("Auth identity is not linked to a Coasterly user.");
+    }
+
+    return {
+      user: authenticatedUser,
+      identity: {
+        source: "auth_identity",
+        provider: normalizedAuthProvider,
+        subject: normalizedAuthSubject
+      }
+    };
+  }
+
+  const fallbackUser = await getPrimarySeedUser();
+
+  return {
+    user: fallbackUser,
+    identity: {
+      source: "seeded_fallback"
+    }
+  };
+};
+
 const getRideIdentityBySlugs = async (parkSlug: string, rideSlug: string) => {
   const result = await pool.query<{ id: number }>(
     `
@@ -1240,16 +1324,9 @@ export const getRideBySlugs = async (
   };
 };
 
-const listUserRideCreditsBySlug = async (userSlug: string): Promise<{
-  user: UserSummary;
-  rideIds: number[];
-}> => {
-  const user = await getUserBySlug(userSlug);
-
-  if (!user) {
-    throw new Error(`User "${userSlug}" is not available.`);
-  }
-
+export const listRideCreditsForUser = async (
+  user: UserSummary
+): Promise<number[]> => {
   const result = await pool.query<{ ride_id: number }>(
     `
       SELECT ride_id
@@ -1260,20 +1337,12 @@ const listUserRideCreditsBySlug = async (userSlug: string): Promise<{
     [user.id]
   );
 
-  return {
-    user,
-    rideIds: result.rows.map((row) => row.ride_id)
-  };
+  return result.rows.map((row) => row.ride_id);
 };
 
-export const listDemoUserRideCredits = async () =>
-  listUserRideCreditsBySlug(demoUserSeed.slug);
-
-const getUserRideStatsBySlug = async (userSlug: string): Promise<{
+const listUserRideCreditsBySlug = async (userSlug: string): Promise<{
   user: UserSummary;
-  totalRiddenRides: number;
-  totalParksWithRiddenRides: number;
-  parks: DemoUserParkProgress[];
+  rideIds: number[];
 }> => {
   const user = await getUserBySlug(userSlug);
 
@@ -1281,6 +1350,22 @@ const getUserRideStatsBySlug = async (userSlug: string): Promise<{
     throw new Error(`User "${userSlug}" is not available.`);
   }
 
+  return {
+    user,
+    rideIds: await listRideCreditsForUser(user)
+  };
+};
+
+export const listDemoUserRideCredits = async () =>
+  listUserRideCreditsBySlug(demoUserSeed.slug);
+
+export const getRideStatsForUser = async (
+  user: UserSummary
+): Promise<Omit<CurrentUserResponse, "identity"> & {
+  totalRiddenRides: number;
+  totalParksWithRiddenRides: number;
+  parks: DemoUserParkProgress[];
+}> => {
   const result = await pool.query<{
     park_id: number;
     park_name: string;
@@ -1330,22 +1415,30 @@ const getUserRideStatsBySlug = async (userSlug: string): Promise<{
   };
 };
 
-export const getDemoUserRideStats = async () =>
-  getUserRideStatsBySlug(demoUserSeed.slug);
-
-const addUserRideCredit = async (
-  userSlug: string,
-  parkSlug: string,
-  rideSlug: string
-): Promise<{ user: UserSummary; rideId: number } | null> => {
-  const [user, ride] = await Promise.all([
-    getUserBySlug(userSlug),
-    getRideIdentityBySlugs(parkSlug, rideSlug)
-  ]);
+const getUserRideStatsBySlug = async (userSlug: string): Promise<{
+  user: UserSummary;
+  totalRiddenRides: number;
+  totalParksWithRiddenRides: number;
+  parks: DemoUserParkProgress[];
+}> => {
+  const user = await getUserBySlug(userSlug);
 
   if (!user) {
     throw new Error(`User "${userSlug}" is not available.`);
   }
+
+  return getRideStatsForUser(user);
+};
+
+export const getDemoUserRideStats = async () =>
+  getUserRideStatsBySlug(demoUserSeed.slug);
+
+export const addRideCreditForUser = async (
+  user: UserSummary,
+  parkSlug: string,
+  rideSlug: string
+): Promise<{ user: UserSummary; rideId: number } | null> => {
+  const ride = await getRideIdentityBySlugs(parkSlug, rideSlug);
 
   if (!ride) {
     return null;
@@ -1369,22 +1462,18 @@ const addUserRideCredit = async (
 export const addDemoUserRideCredit = async (
   parkSlug: string,
   rideSlug: string
-): Promise<{ user: UserSummary; rideId: number } | null> =>
-  addUserRideCredit(demoUserSeed.slug, parkSlug, rideSlug);
+): Promise<{ user: UserSummary; rideId: number } | null> => {
+  const user = await getPrimarySeedUser();
 
-const removeUserRideCredit = async (
-  userSlug: string,
+  return addRideCreditForUser(user, parkSlug, rideSlug);
+};
+
+export const removeRideCreditForUser = async (
+  user: UserSummary,
   parkSlug: string,
   rideSlug: string
 ): Promise<{ user: UserSummary; rideId: number } | null> => {
-  const [user, ride] = await Promise.all([
-    getUserBySlug(userSlug),
-    getRideIdentityBySlugs(parkSlug, rideSlug)
-  ]);
-
-  if (!user) {
-    throw new Error(`User "${userSlug}" is not available.`);
-  }
+  const ride = await getRideIdentityBySlugs(parkSlug, rideSlug);
 
   if (!ride) {
     return null;
@@ -1407,8 +1496,11 @@ const removeUserRideCredit = async (
 export const removeDemoUserRideCredit = async (
   parkSlug: string,
   rideSlug: string
-): Promise<{ user: UserSummary; rideId: number } | null> =>
-  removeUserRideCredit(demoUserSeed.slug, parkSlug, rideSlug);
+): Promise<{ user: UserSummary; rideId: number } | null> => {
+  const user = await getPrimarySeedUser();
+
+  return removeRideCreditForUser(user, parkSlug, rideSlug);
+};
 
 export const getExternalSourceMapping = async (
   sourceName: ExternalSourceName,
