@@ -40,7 +40,7 @@ const journalTeasers = [
   }
 ] as const;
 
-const landingJournalTeasers = journalTeasers.slice(0, 2);
+const landingJournalTeasers = journalTeasers.slice(0, 1);
 
 const formatCountLabel = (
   count: number,
@@ -1758,7 +1758,7 @@ function App() {
                       navigateToParks({ preserveSearch: true });
                     }}
                   >
-                    View all parks
+                    Explore parks
                   </button>
                 </div>
               </div>
@@ -1890,11 +1890,11 @@ function App() {
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
                 <p className="status-label">Journal</p>
-                <h2 className="section-title">Guides, rankings, and park news have a home.</h2>
+                <h2 className="section-title">Guides, rankings, and park news.</h2>
               </div>
               <div className="landing-actions">
                 <button className="catalog-inline-button" type="button" onClick={navigateToJournal}>
-                  Journal
+                  Read journal
                 </button>
               </div>
             </div>
@@ -1916,7 +1916,7 @@ function App() {
         <section className="catalog-panel browse-panel" aria-live="polite">
           <div className="catalog-header">
             <div className="catalog-copy">
-              <p className="status-label">Parks browse</p>
+              <p className="status-label">Browse</p>
               <h2 className="section-title">Parks</h2>
             </div>
             <div className="catalog-support">
@@ -1961,9 +1961,7 @@ function App() {
                   : "Loading results"}
               </span>
               {hasActiveCatalogSearch ? (
-                <span className="catalog-chip route-chip">
-                  Searching for {normalizedSearchQuery}
-                </span>
+                <span className="catalog-chip route-chip">{`"${normalizedSearchQuery}"`}</span>
               ) : null}
             </div>
           </div>
@@ -1971,7 +1969,6 @@ function App() {
           {parksStatus.state === "loading" ? (
             <div className="state-message state-message-loading">
               <p>Loading parks...</p>
-              <p>Refreshing the current catalog view.</p>
             </div>
           ) : null}
           {parksStatus.state === "success" ? (
@@ -2034,7 +2031,6 @@ function App() {
             ) : (
               <div className="state-message state-message-empty">
                 <p>No parks match this search yet.</p>
-                <p>Try a broader park name, city, or country query.</p>
               </div>
             )
           ) : null}
@@ -2242,14 +2238,6 @@ function App() {
                     <p className="section-copy detail-summary">
                       {parkDetailStatus.park.city}, {parkDetailStatus.park.country}
                     </p>
-                    <div className="detail-micro-nav" aria-label="Park route context">
-                      <span className="detail-micro-item">Park guide</span>
-                      <span className="detail-micro-item">
-                        {activeParkProgress
-                          ? `${activeParkProgress.totalRides} tracked rides`
-                          : "Ride lineup available"}
-                      </span>
-                    </div>
                   </div>
                   <div className="detail-chip-row">
                     <span className="catalog-chip">{parkDetailStatus.park.status}</span>
@@ -2406,7 +2394,7 @@ function App() {
                         </>
                       ) : (
                         <div className="state-message state-message-empty state-message-compact">
-                          <p>No mapped rides have live wait data right now.</p>
+                          <p>Live waits are unavailable right now.</p>
                         </div>
                       )
                     ) : null}
@@ -2656,12 +2644,12 @@ function App() {
 
                 <div className="credit-panel">
                   <div>
-                    <p className="status-label">Collection</p>
+                    <p className="status-label">Ridden status</p>
                     <p className="credit-copy">
                       {rideCreditsStatus.state === "success"
                         ? isCurrentRideRidden
-                          ? "Saved in your ridden collection."
-                          : "Add this ride to your ridden collection."
+                          ? "Saved to your ridden list."
+                          : "Add this ride to your ridden list."
                         : rideCreditsStatus.state === "error"
                           ? rideCreditsStatus.message
                           : "Checking ride status."}
@@ -2678,8 +2666,8 @@ function App() {
                     {isUpdatingRideCredit
                       ? "Saving..."
                       : isCurrentRideRidden
-                        ? "Unmark ridden"
-                        : "Mark ridden"}
+                        ? "Remove ridden"
+                        : "Mark as ridden"}
                   </button>
                 </div>
                 {rideCreditMessage ? (
@@ -2688,15 +2676,15 @@ function App() {
 
                 <div className="lineup-nav-panel">
                   <div>
-                    <p className="status-label">Park lineup</p>
+                    <p className="status-label">Lineup</p>
                     <p className="credit-copy">
                       {rideLineupStatus.state === "success"
                         ? rideLineupPositionLabel || "Ride lineup"
                         : rideLineupStatus.state === "loading"
-                          ? "Loading lineup."
+                          ? "Loading ride order."
                           : rideLineupStatus.state === "error"
                             ? rideLineupStatus.message
-                            : "Lineup unavailable."}
+                            : "Ride order unavailable."}
                     </p>
                   </div>
                   <div className="lineup-nav-actions">
