@@ -2,10 +2,11 @@
 
 ## Current Shape
 
-The repository is split into two application surfaces and one shared package:
+The repository is split into three application surfaces and one shared package:
 
 - `apps/web`: public-facing browser application
 - `apps/api`: backend API for future business logic and integrations
+- `apps/queue-times-cron`: scheduled Queue-Times snapshot ingestion job
 - `packages/types`: shared contracts used across clients and services
 
 ## Design Principles
@@ -42,6 +43,12 @@ The starter does not include extra orchestration tools or platform abstractions 
 - Expose HTTP endpoints
 - Hold business logic as the platform grows
 - Become the integration layer for databases and external services later
+
+### `apps/queue-times-cron`
+
+- Run scheduled Queue-Times ingestion as a short-lived batch process
+- Reuse the API-side ingestion foundations without keeping an HTTP server alive
+- Exit cleanly so Railway Cron Jobs can schedule the next run
 
 ### `packages/types`
 
@@ -99,4 +106,4 @@ Live queue data is handled as an enrichment layer:
 - normalized live wait responses stay under Coasterly control
 - `wait_time_snapshots` stores the minimal history foundation needed for future trend and historical features
 
-The initial ingestion path is intentionally small. The codebase now has an obvious place for a future scheduled job to fetch Queue-Times data and persist snapshots without adding cron orchestration yet.
+The initial ingestion path is intentionally small. The codebase now has a dedicated `apps/queue-times-cron` batch service that can run in Railway Cron Jobs and persist snapshots without turning the API into a scheduler.

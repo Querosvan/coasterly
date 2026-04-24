@@ -6,6 +6,7 @@ This repository currently includes only the foundation:
 
 - a web app
 - a backend API
+- a Queue-Times cron app
 - a shared types package
 - lightweight documentation
 
@@ -17,6 +18,7 @@ The goal is to keep the setup production-friendly without adding extra complexit
 coasterly/
   apps/
     api/            Fastify API
+    queue-times-cron Scheduled Queue-Times snapshot ingestion job
     web/            React + Vite web app
   docs/
     architecture.md Project structure and growth path
@@ -31,6 +33,7 @@ coasterly/
 
 - `apps/web` keeps the browser app isolated from backend concerns.
 - `apps/api` gives the platform a dedicated backend from day one.
+- `apps/queue-times-cron` keeps scheduled Queue-Times ingestion separate from the always-on API process.
 - `packages/types` is intentionally type-only for now, so it can be safely shared by web, API, and a future mobile app.
 - The monorepo is ready for an eventual `apps/mobile` directory without a reorganization later.
 
@@ -64,6 +67,7 @@ Or run each app separately:
 
 ```bash
 pnpm --filter @coasterly/api dev
+pnpm --filter @coasterly/queue-times-cron dev
 pnpm --filter @coasterly/web dev
 ```
 

@@ -21,6 +21,26 @@ type ResolvedQueueTimesLiveWaits = {
   snapshots: WaitTimeSnapshotInput[];
 };
 
+export type QueueTimesIngestionParkResult = {
+  parkSlug: string;
+  sourceState: "mapped" | "unmapped";
+  snapshotCount: number;
+};
+
+export type QueueTimesIngestionParkFailure = {
+  parkSlug: string;
+  message: string;
+};
+
+export type QueueTimesIngestionRunSummary = {
+  startedAt: string;
+  finishedAt: string;
+  processedParks: number;
+  insertedSnapshots: number;
+  results: QueueTimesIngestionParkResult[];
+  failures: QueueTimesIngestionParkFailure[];
+};
+
 const getSnapshotRideStatus = (isOpen: boolean | null) => {
   if (isOpen === true) {
     return "open";
@@ -173,11 +193,7 @@ export const getQueueTimesLiveWaitsForPark = async (
 
 export const ingestQueueTimesSnapshotsForPark = async (
   parkSlug: string
-): Promise<{
-  parkSlug: string;
-  sourceState: "mapped" | "unmapped";
-  snapshotCount: number;
-} | null> => {
+): Promise<QueueTimesIngestionParkResult | null> => {
   const resolved = await resolveQueueTimesLiveWaitsForPark(parkSlug);
 
   if (!resolved) {
@@ -196,28 +212,39 @@ export const ingestQueueTimesSnapshotsForPark = async (
 };
 
 export const ingestAllQueueTimesSnapshots = async (): Promise<
-  Array<{
-    parkSlug: string;
-    sourceState: "mapped" | "unmapped";
-    snapshotCount: number;
-  }>
+  QueueTimesIngestionRunSummary
 > => {
+  const startedAt = new Date().toISOString();
   const parkMappings = await listParkSourceMappingsBySource(
     QUEUE_TIMES_SOURCE_NAME
   );
-  const results: Array<{
-    parkSlug: string;
-    sourceState: "mapped" | "unmapped";
-    snapshotCount: number;
-  }> = [];
+  const results: QueueTimesIngestionParkResult[] = [];
+  const failures: QueueTimesIngestionParkFailure[] = [];
 
   for (const mapping of parkMappings) {
-    const result = await ingestQueueTimesSnapshotsForPark(mapping.parkSlug);
+    try {
+      const result = await ingestQueueTimesSnapshotsForPark(mapping.parkSlug);
 
-    if (result) {
-      results.push(result);
+      if (result) {
+        results.push(result);
+      }
+    } catch (error) {
+      failures.push({
+        parkSlug: mapping.parkSlug,
+        message: error instanceof Error ? error.message : "Unknown ingestion error."
+      });
     }
   }
 
-  return results;
+  return {
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    processedParks: results.length + failures.length,
+    insertedSnapshots: results.reduce(
+      (total, result) => total + result.snapshotCount,
+      0
+    ),
+    results,
+    failures
+  };
 };
