@@ -86,6 +86,41 @@ export interface DemoUserStatsResponse {
   parks: DemoUserParkProgress[];
 }
 
+export type ExternalSourceName = "queue-times";
+
+export type ExternalEntityType = "park" | "ride";
+
+export type LiveWaitSourceState = "mapped" | "unmapped";
+
+export interface ParkLiveWaitSource {
+  name: ExternalSourceName;
+  state: LiveWaitSourceState;
+  attributionLabel: string;
+  attributionUrl: string;
+  fetchedAt: string;
+  externalId?: string;
+  externalUrl?: string;
+}
+
+export interface ParkLiveWait {
+  rideId: number;
+  rideSlug: string;
+  rideName: string;
+  rideType: string;
+  sourceName: ExternalSourceName;
+  sourceExternalId: string;
+  waitTimeMinutes?: number;
+  isOpen?: boolean;
+  sourceLastUpdated?: string;
+  sourceUrl?: string;
+}
+
+export interface ParkLiveWaitsResponse {
+  park: Park;
+  source: ParkLiveWaitSource;
+  rides: ParkLiveWait[];
+}
+
 export interface ProjectSurface {
   id: "web" | "api" | "mobile";
   name: string;

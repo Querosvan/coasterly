@@ -13,11 +13,13 @@ import {
   listRidesForPark,
   removeDemoUserRideCredit
 } from "./db.js";
+import { getQueueTimesLiveWaitsForPark } from "./services/wait-times.js";
 
 import type {
   DemoUserStatsResponse,
   HealthResponse,
   ParkResponse,
+  ParkLiveWaitsResponse,
   ParksResponse,
   RideCreditMutationResponse,
   RideCreditsResponse,
@@ -117,6 +119,31 @@ app.get<{
     };
 
     return response;
+  }
+);
+
+app.get<{ Params: { slug: string } }>(
+  "/parks/:slug/live-waits",
+  async (request, reply) => {
+    try {
+      const liveWaits = await getQueueTimesLiveWaitsForPark(request.params.slug);
+
+      if (!liveWaits) {
+        return reply.code(404).send({
+          message: "Park not found."
+        });
+      }
+
+      const response: ParkLiveWaitsResponse = liveWaits;
+
+      return response;
+    } catch (error) {
+      app.log.error(error);
+
+      return reply.code(502).send({
+        message: "Unable to load Queue-Times data right now."
+      });
+    }
   }
 );
 

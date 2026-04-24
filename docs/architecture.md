@@ -82,3 +82,21 @@ Park and ride records now support optional `image_url` fields in PostgreSQL.
 - The placeholder URLs already follow the intended Coasterly brand direction with dark navy and vivid orange tones
 
 This is intentionally a foundation step. A later phase can replace seeded placeholder URLs with curated licensed imagery or a managed media pipeline without changing the domain model again.
+
+## External Source Foundations
+
+Coasterly keeps its own `parks` and `rides` tables as the catalog source of truth.
+
+- External providers are attached through `external_source_mappings`
+- The first source is Queue-Times, but the schema is generic enough for more providers later
+- Queue-Times identifiers are not hardcoded into `parks` or `rides`
+- This keeps a future admin/backoffice path straightforward: mappings can be edited without changing the core catalog schema
+
+Live queue data is handled as an enrichment layer:
+
+- the API fetches Queue-Times data server-side
+- the frontend only talks to Coasterly endpoints
+- normalized live wait responses stay under Coasterly control
+- `wait_time_snapshots` stores the minimal history foundation needed for future trend and historical features
+
+The initial ingestion path is intentionally small. The codebase now has an obvious place for a future scheduled job to fetch Queue-Times data and persist snapshots without adding cron orchestration yet.
