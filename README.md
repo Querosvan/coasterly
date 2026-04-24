@@ -78,6 +78,16 @@ pnpm --filter @coasterly/web dev
 - `pnpm typecheck`: runs TypeScript checks across the repo
 - `pnpm clean`: removes generated build output where applicable
 
+## Frontend Media
+
+The web app can use manual local PNG assets without code changes.
+
+- Park covers: `apps/web/public/media/parks/<park-slug>/cover.png`
+- Ride covers: `apps/web/public/media/rides/<ride-slug>/cover.png`
+
+If a local file exists for the slug, the frontend can use it automatically. If not, it falls
+back gracefully to API media or a lightweight built-in fallback.
+
 ## Current Starter Scope
 
 The starter intentionally does not include authentication, databases, design systems, testing frameworks, CI, or deployment configuration yet.

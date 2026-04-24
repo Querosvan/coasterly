@@ -17,6 +17,7 @@ import type {
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const brandLogoDark = "/brand/coasterly-logo-horizontal-dark.png";
 const brandIconDark = "/brand/coasterly-logo-icon-dark.png";
+const placeholderImageHost = "placehold.co";
 
 const journalTeasers = [
   {
@@ -171,6 +172,18 @@ type BreadcrumbItem = {
   onClick?: () => void;
 };
 
+type MediaKind = "park" | "ride";
+
+type MediaAssetProps = {
+  kind: MediaKind;
+  slug: string;
+  imageUrl?: string;
+  alt: string;
+  frameClassName: string;
+  imageClassName: string;
+  loading?: "eager" | "lazy";
+};
+
 const defaultParkRideSort: ParkRideSort = "name";
 
 const isParkRideSort = (value: string | null): value is ParkRideSort =>
@@ -199,6 +212,27 @@ const buildPathWithQuery = (pathname: string, params: URLSearchParams) => {
   const query = params.toString();
 
   return query ? `${pathname}?${query}` : pathname;
+};
+
+const isPlaceholderImageUrl = (value?: string) => value?.includes(placeholderImageHost) ?? false;
+
+const getLocalMediaPath = (kind: MediaKind, slug: string) =>
+  kind === "park"
+    ? `/media/parks/${slug}/cover.png`
+    : `/media/rides/${slug}/cover.png`;
+
+const getMediaSources = (kind: MediaKind, slug: string, imageUrl?: string) => {
+  const localMediaPath = getLocalMediaPath(kind, slug);
+
+  if (imageUrl && !isPlaceholderImageUrl(imageUrl)) {
+    return [imageUrl, localMediaPath];
+  }
+
+  if (imageUrl) {
+    return [localMediaPath, imageUrl];
+  }
+
+  return [localMediaPath];
 };
 
 const getRoute = (pathname: string): Route => {
@@ -270,6 +304,46 @@ const renderBreadcrumbs = (items: BreadcrumbItem[]) => (
     </ol>
   </nav>
 );
+
+function MediaAsset({
+  kind,
+  slug,
+  imageUrl,
+  alt,
+  frameClassName,
+  imageClassName,
+  loading = "lazy"
+}: MediaAssetProps) {
+  const sources = getMediaSources(kind, slug, imageUrl);
+  const sourceKey = sources.join("|");
+  const [activeSourceIndex, setActiveSourceIndex] = useState(0);
+
+  useEffect(() => {
+    setActiveSourceIndex(0);
+  }, [sourceKey]);
+
+  const activeSource = sources[activeSourceIndex];
+
+  return (
+    <div className={`${frameClassName}${activeSource ? "" : " media-frame-fallback"}`}>
+      {activeSource ? (
+        <img
+          className={imageClassName}
+          src={activeSource}
+          alt={alt}
+          loading={loading}
+          onError={() => {
+            setActiveSourceIndex((currentIndex) => currentIndex + 1);
+          }}
+        />
+      ) : (
+        <div className="media-fallback" aria-hidden="true">
+          <img className="media-fallback-mark" src={brandIconDark} alt="" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 function App() {
   const [route, setRoute] = useState<Route>(() => getRoute(window.location.pathname));
@@ -1200,22 +1274,16 @@ function App() {
   const normalizedSearchQuery = searchQuery.trim();
   const isParksBrowseRoute = route.view === "parks";
   const hasActiveCatalogSearch = isParksBrowseRoute && normalizedSearchQuery.length > 0;
-  const apiStatusLabel =
-    apiStatus.state === "success"
-      ? `API ${apiStatus.response.status}`
-      : apiStatus.state === "loading"
-        ? "API loading"
-        : "API issue";
   const browseSummary =
     parksStatus.state === "success"
       ? hasActiveCatalogSearch
         ? `Showing ${formatCountLabel(parksStatus.parks.length, "result")} for "${normalizedSearchQuery}".`
-        : `Browsing ${formatCountLabel(parksStatus.parks.length, "park")} in the current catalog.`
+        : `${formatCountLabel(parksStatus.parks.length, "park")} available right now.`
       : null;
   const heroCountLabel =
     parksStatus.state === "success"
       ? formatCountLabel(parksStatus.parks.length, "park")
-      : "Live catalog";
+      : "Catalog";
   const riddenRideCountLabel =
     demoUserStatsStatus.state === "success"
       ? formatCountLabel(demoUserStatsStatus.totalRiddenRides, "ridden ride")
@@ -1290,9 +1358,9 @@ function App() {
       : undefined;
   const rideLineupPositionLabel =
     activeRideIndex >= 0
-      ? `${activeRideIndex + 1} of ${rideLineup.length} in current lineup`
+      ? `${activeRideIndex + 1} of ${rideLineup.length} in this lineup`
       : rideLineupStatus.state === "success" && rideLineup.length > 0
-        ? "Current ride is outside the active lineup filters"
+        ? "Outside the current lineup"
         : null;
   const isCurrentRideRidden =
     rideDetailStatus.state === "success" &&
@@ -1353,12 +1421,6 @@ function App() {
         value: String(rideDetailStatus.ride.inversions)
       });
     }
-
-    rideSpecItems.push({
-      label: "Slug",
-      value: rideDetailStatus.ride.slug,
-      code: true
-    });
   }
 
   const parksSearchLabel = hasActiveCatalogSearch
@@ -1386,7 +1448,7 @@ function App() {
       : route.view === "discover"
         ? "Discovery"
         : route.view === "journal"
-          ? "Editorial roadmap"
+          ? "Journal"
           : route.view === "park"
             ? "Park detail"
             : route.view === "ride"
@@ -1461,12 +1523,12 @@ function App() {
     route.view === "parks"
       ? [
           catalogStateChip(parksStatus),
-          hasActiveCatalogSearch ? "Search active" : "Browse surface"
+          hasActiveCatalogSearch ? `Search: ${normalizedSearchQuery}` : "Browse"
         ].filter(Boolean)
       : route.view === "discover"
         ? [heroCountLabel, riddenRideCountLabel]
-        : route.view === "journal"
-          ? ["Editorial roadmap", "No CMS yet"]
+      : route.view === "journal"
+          ? ["Coming soon"]
           : route.view === "park"
             ? [
                 activeParkProgress
@@ -1534,13 +1596,13 @@ function App() {
         <div className="topbar-meta">
           <span className="product-pill">Theme park tracker</span>
           <div className="status-cluster" aria-live="polite">
-            <span className={`status-chip status-chip-${apiStatus.state}`}>
-              {apiStatusLabel}
-            </span>
             {demoUserStatsStatus.state === "success" ? (
               <span className="catalog-chip">
-                {demoUserStatsStatus.totalRiddenRides} ridden
+                {demoUserStatsStatus.totalRiddenRides} logged
               </span>
+            ) : null}
+            {apiStatus.state === "error" ? (
+              <span className="status-chip status-chip-error">Service issue</span>
             ) : null}
           </div>
         </div>
@@ -1573,10 +1635,10 @@ function App() {
                 <img className="hero-mark" src={brandIconDark} alt="" />
                 <p className="eyebrow">Coasterly</p>
               </div>
-              <h1>Track parks, lineups, and ride progress without the clutter.</h1>
+              <h1>Europe&apos;s park catalog, built for coaster people.</h1>
               <p className="hero-text">
-                A cleaner public entry into Europe&apos;s major theme parks, with
-                progress tracking and catalog depth ready behind the landing page.
+                Browse standout parks, follow ride progress, and move through lineups in a
+                cleaner public catalog.
               </p>
               <div className="hero-actions">
                 <button className="primary-button" type="button" onClick={() => {
@@ -1585,7 +1647,7 @@ function App() {
                   Browse parks
                 </button>
                 <button className="secondary-button" type="button" onClick={navigateToDiscover}>
-                  Discover next stops
+                  Open discover
                 </button>
               </div>
               <div className="hero-stats" aria-label="Catalog summary">
@@ -1612,13 +1674,15 @@ function App() {
                     navigateToPark(spotlightPark.slug);
                   }}
                 >
-                  {spotlightPark.imageUrl ? (
-                    <img
-                      className="spotlight-image"
-                      src={spotlightPark.imageUrl}
-                      alt={`${spotlightPark.name} park view`}
-                    />
-                  ) : null}
+                  <MediaAsset
+                    kind="park"
+                    slug={spotlightPark.slug}
+                    imageUrl={spotlightPark.imageUrl}
+                    alt={`${spotlightPark.name} park view`}
+                    frameClassName="spotlight-media"
+                    imageClassName="spotlight-image"
+                    loading="eager"
+                  />
                   <div className="spotlight-overlay" />
                   <div className="spotlight-copy">
                     <div className="spotlight-row">
@@ -1639,7 +1703,7 @@ function App() {
                   <div className="spotlight-copy">
                     <p className="eyebrow">Featured park</p>
                     <h2>Catalog loading</h2>
-                    <p>The current catalog will appear here once the API responds.</p>
+                    <p>Featured parks will appear here shortly.</p>
                   </div>
                 </div>
               )}
@@ -1654,13 +1718,14 @@ function App() {
                         navigateToPark(park.slug);
                       }}
                     >
-                      {park.imageUrl ? (
-                        <img
-                          className="stack-card-image"
-                          src={park.imageUrl}
-                          alt=""
-                        />
-                      ) : null}
+                      <MediaAsset
+                        kind="park"
+                        slug={park.slug}
+                        imageUrl={park.imageUrl}
+                        alt=""
+                        frameClassName="stack-card-media"
+                        imageClassName="stack-card-image"
+                      />
                       <div className="stack-card-copy">
                         <span className="stack-card-label">{park.country}</span>
                         <strong>{park.name}</strong>
@@ -1676,10 +1741,11 @@ function App() {
             <section className="catalog-panel landing-panel">
               <div className="catalog-header landing-header">
                 <div className="catalog-copy">
-                  <p className="status-label">Start with parks</p>
-                  <h2 className="section-title">Use the landing page to choose a direction, not to operate the whole app.</h2>
+                  <p className="status-label">Featured parks</p>
+                  <h2 className="section-title">Open the parks worth tracking next.</h2>
                   <p className="section-copy">
-                    Featured parks stay visible here. Search and deeper catalog work now live in the dedicated parks surface.
+                    A quick way into the catalog, with progress and imagery kept front and
+                    center.
                   </p>
                 </div>
                 <div className="landing-actions">
@@ -1700,16 +1766,14 @@ function App() {
 
                   return (
                     <article className="park-card" key={park.id}>
-                      {park.imageUrl ? (
-                        <div className="media-frame media-frame-park">
-                          <img
-                            className="media-image"
-                            src={park.imageUrl}
-                            alt={`${park.name} park view`}
-                            loading="lazy"
-                          />
-                        </div>
-                      ) : null}
+                      <MediaAsset
+                        kind="park"
+                        slug={park.slug}
+                        imageUrl={park.imageUrl}
+                        alt={`${park.name} park view`}
+                        frameClassName="media-frame media-frame-park"
+                        imageClassName="media-image"
+                      />
                       <div className="card-header">
                         <a
                           className="park-link"
@@ -1729,7 +1793,7 @@ function App() {
                       {parkProgress ? (
                         <div className="park-progress">
                           <div className="progress-copy">
-                            <span className="progress-label">Demo progress</span>
+                            <span className="progress-label">Progress</span>
                             <strong className="progress-value">
                               {parkProgress.completionPercentage}%
                             </strong>
@@ -1754,9 +1818,10 @@ function App() {
               <div className="catalog-header landing-header">
                 <div className="catalog-copy">
                   <p className="status-label">Progress</p>
-                  <h2 className="section-title">Keep the value visible without dropping users into browse controls immediately.</h2>
+                  <h2 className="section-title">Keep ride progress close to the catalog.</h2>
                   <p className="section-copy">
-                    Demo ride credits and park completion stay visible as a product signal, while the landing page stays compact.
+                    A compact progress snapshot keeps the collection visible without taking
+                    over the page.
                   </p>
                 </div>
                 <div className="landing-actions">
@@ -1766,7 +1831,7 @@ function App() {
                 </div>
               </div>
               {demoUserStatsStatus.state === "success" ? (
-                <div className="stats-panel stats-panel-compact" aria-label="Demo user stats">
+                <div className="stats-panel stats-panel-compact" aria-label="Ride progress">
                   <div className="stats-grid">
                     <article className="stats-card">
                       <span className="stats-card-label">Ridden rides</span>
@@ -1809,11 +1874,11 @@ function App() {
                 </div>
               ) : demoUserStatsStatus.state === "loading" ? (
                 <div className="state-message state-message-loading">
-                  <p>Loading demo rider stats...</p>
+                  <p>Loading progress...</p>
                 </div>
               ) : (
                 <div className="state-message state-message-error">
-                  <p>Unable to load demo rider stats.</p>
+                  <p>Unable to load progress.</p>
                   <p>{demoUserStatsStatus.message}</p>
                 </div>
               )}
@@ -1823,10 +1888,10 @@ function App() {
           <section className="catalog-panel editorial-panel">
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
-                <p className="status-label">Future journal</p>
-                <h2 className="section-title">Leave room for rankings, guides, and park news without building a CMS yet.</h2>
+                <p className="status-label">Journal</p>
+                <h2 className="section-title">Guides, rankings, and park news have a home.</h2>
                 <p className="section-copy">
-                  The product structure now has a clear place for editorial and SEO-oriented content.
+                  Editorial features can grow here without crowding the catalog.
                 </p>
               </div>
               <div className="landing-actions">
@@ -1854,14 +1919,14 @@ function App() {
           <div className="catalog-header">
             <div className="catalog-copy">
               <p className="status-label">Parks browse</p>
-              <h2 className="section-title">Search the park catalog without mixing it into the landing page.</h2>
+              <h2 className="section-title">Browse parks across the catalog.</h2>
               <p className="section-copy">
-                Search is URL-backed here, so results, refreshes, and direct links stay consistent.
+                Search by park, city, or country and jump straight into each lineup.
               </p>
             </div>
             <div className="catalog-support">
               <p className="catalog-note">{browseSummary}</p>
-              <p className="catalog-note">Open a park to move into the lineup and ride flow.</p>
+              <p className="catalog-note">Open any park to explore its rides.</p>
             </div>
           </div>
 
@@ -1903,10 +1968,8 @@ function App() {
               </span>
               {hasActiveCatalogSearch ? (
                 <span className="catalog-chip route-chip">
-                  Query: {normalizedSearchQuery}
+                  Searching for {normalizedSearchQuery}
                 </span>
-              ) : (
-                <span className="catalog-chip route-chip">Search state is active here</span>
               )}
             </div>
           </div>
@@ -1914,7 +1977,7 @@ function App() {
           {parksStatus.state === "loading" ? (
             <div className="state-message state-message-loading">
               <p>Loading parks...</p>
-              <p>Refreshing the current catalog view from the API.</p>
+              <p>Refreshing the current catalog view.</p>
             </div>
           ) : null}
           {parksStatus.state === "success" ? (
@@ -1925,16 +1988,14 @@ function App() {
 
                   return (
                     <article className="park-card" key={park.id}>
-                      {park.imageUrl ? (
-                        <div className="media-frame media-frame-park">
-                          <img
-                            className="media-image"
-                            src={park.imageUrl}
-                            alt={`${park.name} park view`}
-                            loading="lazy"
-                          />
-                        </div>
-                      ) : null}
+                      <MediaAsset
+                        kind="park"
+                        slug={park.slug}
+                        imageUrl={park.imageUrl}
+                        alt={`${park.name} park view`}
+                        frameClassName="media-frame media-frame-park"
+                        imageClassName="media-image"
+                      />
                       <div className="card-header">
                         <a
                           className="park-link"
@@ -1954,7 +2015,7 @@ function App() {
                       {parkProgress ? (
                         <div className="park-progress">
                           <div className="progress-copy">
-                            <span className="progress-label">Demo progress</span>
+                            <span className="progress-label">Progress</span>
                             <strong className="progress-value">
                               {parkProgress.completionPercentage}%
                             </strong>
@@ -1997,9 +2058,9 @@ function App() {
           <div className="catalog-header">
             <div className="catalog-copy">
               <p className="status-label">Discover</p>
-              <h2 className="section-title">Use progress and featured parks to decide where to go deeper next.</h2>
+              <h2 className="section-title">Pick the next park worth opening.</h2>
               <p className="section-copy">
-                This surface stays lighter than the full browse view and points back into parks and ride detail.
+                A lighter browse view for momentum, highlights, and quick progress checks.
               </p>
             </div>
             <div className="catalog-support">
@@ -2009,12 +2070,12 @@ function App() {
           </div>
 
           {demoUserStatsStatus.state === "success" ? (
-            <section className="stats-panel" aria-label="Demo rider progress">
+            <section className="stats-panel" aria-label="Ride progress">
               <div className="section-row">
                 <div>
-                  <p className="status-label">Demo rider progress</p>
+                  <p className="status-label">Ride progress</p>
                   <p className="section-copy">
-                    Keep the next few parks visible while the public product stays compact.
+                    A quick snapshot of where the collection is building momentum.
                   </p>
                 </div>
                 <button className="catalog-inline-button" type="button" onClick={() => {
@@ -2076,16 +2137,14 @@ function App() {
               {featuredProgressParks.length > 0
                 ? featuredProgressParks.map(({ park, progress }) => (
                     <article className="park-card" key={park.id}>
-                      {park.imageUrl ? (
-                        <div className="media-frame media-frame-park">
-                          <img
-                            className="media-image"
-                            src={park.imageUrl}
-                            alt={`${park.name} park view`}
-                            loading="lazy"
-                          />
-                        </div>
-                      ) : null}
+                      <MediaAsset
+                        kind="park"
+                        slug={park.slug}
+                        imageUrl={park.imageUrl}
+                        alt={`${park.name} park view`}
+                        frameClassName="media-frame media-frame-park"
+                        imageClassName="media-image"
+                      />
                       <div className="card-header">
                         <a
                           className="park-link"
@@ -2108,16 +2167,14 @@ function App() {
                   ))
                 : featuredParks.map((park) => (
                     <article className="park-card" key={park.id}>
-                      {park.imageUrl ? (
-                        <div className="media-frame media-frame-park">
-                          <img
-                            className="media-image"
-                            src={park.imageUrl}
-                            alt={`${park.name} park view`}
-                            loading="lazy"
-                          />
-                        </div>
-                      ) : null}
+                      <MediaAsset
+                        kind="park"
+                        slug={park.slug}
+                        imageUrl={park.imageUrl}
+                        alt={`${park.name} park view`}
+                        frameClassName="media-frame media-frame-park"
+                        imageClassName="media-image"
+                      />
                       <div className="card-header">
                         <a
                           className="park-link"
@@ -2148,12 +2205,11 @@ function App() {
               <p className="status-label">Journal</p>
               <h2 className="section-title">A future home for rankings, guides, and park news.</h2>
               <p className="section-copy">
-                The route exists now so the product structure can scale into editorial and SEO-oriented content later.
+                This space is reserved for editorial stories that complement the catalog.
               </p>
             </div>
             <div className="catalog-support">
-              <p className="catalog-note">No CMS or publishing backend yet.</p>
-              <p className="catalog-note">This is an information architecture placeholder, not a dead-end landing panel.</p>
+              <p className="catalog-note">More editorial depth is coming here.</p>
             </div>
           </div>
           <div className="editorial-grid">
@@ -2162,8 +2218,10 @@ function App() {
                 <span className="editorial-tag">{entry.category}</span>
                 <h3>{entry.title}</h3>
                 <p>{entry.summary}</p>
-                <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
-                  Explore discover
+                <button className="catalog-inline-button" type="button" onClick={() => {
+                  navigateToParks({ preserveSearch: true });
+                }}>
+                  Explore parks
                 </button>
               </article>
             ))}
@@ -2184,27 +2242,25 @@ function App() {
               >
                 Back to parks
               </button>
-              <p className="detail-nav-copy">
-                Return to the parks surface or stay here to work through this park&apos;s lineup.
-              </p>
+              <p className="detail-nav-copy">Jump back to the full parks catalog.</p>
             </div>
             {parkDetailStatus.state === "loading" ? (
               <div className="state-message state-message-loading">
                 <p>Loading park details...</p>
-                <p>Pulling the park profile, progress, and lineup from the API.</p>
+                <p>Refreshing the latest park overview.</p>
               </div>
             ) : null}
             {parkDetailStatus.state === "success" ? (
               <article className="detail-card detail-card-park">
                 <div className="detail-header detail-header-feature">
                   <div>
-                    <p className="status-label">Park profile</p>
+                    <p className="status-label">Park</p>
                     <h2 className="detail-title">{parkDetailStatus.park.name}</h2>
                     <p className="section-copy detail-summary">
-                      {parkDetailStatus.park.city}, {parkDetailStatus.park.country}. Review the lineup, keep filters close, and move into ride detail when needed.
+                      {parkDetailStatus.park.city}, {parkDetailStatus.park.country}
                     </p>
                     <div className="detail-micro-nav" aria-label="Park route context">
-                      <span className="detail-micro-item">Parks to park</span>
+                      <span className="detail-micro-item">Park guide</span>
                       <span className="detail-micro-item">
                         {activeParkProgress
                           ? `${activeParkProgress.totalRides} tracked rides`
@@ -2222,41 +2278,39 @@ function App() {
                   </div>
                 </div>
 
-                {parkDetailStatus.park.imageUrl || activeParkProgress ? (
-                  <div className="detail-overview">
-                    {parkDetailStatus.park.imageUrl ? (
-                      <div className="media-frame media-frame-detail">
-                        <img
-                          className="media-image"
-                          src={parkDetailStatus.park.imageUrl}
-                          alt={`${parkDetailStatus.park.name} park view`}
+                <div className="detail-overview">
+                  <MediaAsset
+                    kind="park"
+                    slug={parkDetailStatus.park.slug}
+                    imageUrl={parkDetailStatus.park.imageUrl}
+                    alt={`${parkDetailStatus.park.name} park view`}
+                    frameClassName="media-frame media-frame-detail"
+                    imageClassName="media-image"
+                    loading="eager"
+                  />
+                  {activeParkProgress ? (
+                    <div className="progress-card">
+                      <p className="status-label">Your progress</p>
+                      <div className="progress-copy">
+                        <span className="progress-label">Completion</span>
+                        <strong className="progress-value">
+                          {activeParkProgress.completionPercentage}%
+                        </strong>
+                      </div>
+                      <div className="progress-rail" aria-hidden="true">
+                        <span
+                          className="progress-fill"
+                          style={{
+                            width: `${activeParkProgress.completionPercentage}%`
+                          }}
                         />
                       </div>
-                    ) : null}
-                    {activeParkProgress ? (
-                      <div className="progress-card">
-                        <p className="status-label">Demo rider progress</p>
-                        <div className="progress-copy">
-                          <span className="progress-label">Completion</span>
-                          <strong className="progress-value">
-                            {activeParkProgress.completionPercentage}%
-                          </strong>
-                        </div>
-                        <div className="progress-rail" aria-hidden="true">
-                          <span
-                            className="progress-fill"
-                            style={{
-                              width: `${activeParkProgress.completionPercentage}%`
-                            }}
-                          />
-                        </div>
-                        <p className="credit-copy">
-                          {`${activeParkProgress.riddenRides} of ${activeParkProgress.totalRides} rides ridden in this park.`}
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
+                      <p className="credit-copy">
+                        {`${activeParkProgress.riddenRides} of ${activeParkProgress.totalRides} rides ridden`}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
 
                 <div className="detail-grid">
                   <div className="detail-item">
@@ -2268,8 +2322,8 @@ function App() {
                     <p>{parkDetailStatus.park.country}</p>
                   </div>
                   <div className="detail-item">
-                    <span className="detail-item-label">Slug</span>
-                    <p><code>{parkDetailStatus.park.slug}</code></p>
+                    <span className="detail-item-label">Status</span>
+                    <p>{parkDetailStatus.park.status}</p>
                   </div>
                 </div>
 
@@ -2281,7 +2335,7 @@ function App() {
                       <div>
                         <p className="status-label">Live waits</p>
                         <p className="section-copy">
-                          Queue-Times data, normalized by the Coasterly API for this park.
+                          Live queue updates for mapped rides in this park.
                         </p>
                       </div>
                       {liveWaitSource ? (
@@ -2297,7 +2351,7 @@ function App() {
                             target="_blank"
                             rel="noreferrer"
                           >
-                            {liveWaitSource.attributionLabel}
+                            Queue-Times
                           </a>
                         </div>
                       ) : null}
@@ -2359,7 +2413,7 @@ function App() {
                           </div>
                           {parkLiveWaitsStatus.source.externalUrl ? (
                             <p className="source-note">
-                              Data source:{" "}
+                              Source:{" "}
                               <a
                                 href={parkLiveWaitsStatus.source.externalUrl}
                                 target="_blank"
@@ -2384,7 +2438,7 @@ function App() {
                     <div>
                       <p className="status-label">Ride lineup</p>
                       <p className="section-copy">
-                        Filter and sort the tracked rides inside the park surface.
+                        Browse the tracked rides in this park.
                       </p>
                     </div>
                     <div className="detail-chip-row">
@@ -2393,7 +2447,6 @@ function App() {
                           {formatCountLabel(parkRidesStatus.rides.length, "ride")}
                         </span>
                       ) : null}
-                      <span className="catalog-chip route-chip">Open a ride for full specs</span>
                     </div>
                   </div>
                   <div className="toolbar-panel">
@@ -2457,14 +2510,13 @@ function App() {
                       </div>
                     </div>
                     <p className="parks-summary">
-                      Filters: <strong>{rideTypeFilter || "All ride types"}</strong>
-                      {" | "}
+                      <strong>{rideTypeFilter || "All ride types"}</strong>
+                      {" / "}
                       <strong>{manufacturerFilter || "All manufacturers"}</strong>
-                      {" | "}
+                      {" / Sorted by "}
                       <strong>{parkRideSortLabel}</strong>
                     </p>
                     <div className="catalog-state-row">
-                      <span className="catalog-chip route-chip">State lives in the URL</span>
                       {parkRidesStatus.state === "success" ? (
                         <span className="catalog-chip">
                           {formatCountLabel(parkRidesStatus.rides.length, "visible ride")}
@@ -2482,7 +2534,7 @@ function App() {
                             setParkRideSort(defaultParkRideSort);
                           }}
                         >
-                          Reset lineup view
+                          Clear filters
                         </button>
                       ) : null}
                     </div>
@@ -2500,16 +2552,14 @@ function App() {
                             className={`ride-card${riddenRideIds?.has(ride.id) ? " ride-card-ridden" : ""}`}
                             key={ride.id}
                           >
-                            {ride.imageUrl ? (
-                              <div className="media-frame media-frame-ride-card">
-                                <img
-                                  className="media-image"
-                                  src={ride.imageUrl}
-                                  alt=""
-                                  loading="lazy"
-                                />
-                              </div>
-                            ) : null}
+                            <MediaAsset
+                              kind="ride"
+                              slug={ride.slug}
+                              imageUrl={ride.imageUrl}
+                              alt=""
+                              frameClassName="media-frame media-frame-ride-card"
+                              imageClassName="media-image"
+                            />
                             <div className="card-header">
                               <a
                                 className="ride-link"
@@ -2587,24 +2637,22 @@ function App() {
               >
                 Back to lineup
               </button>
-              <p className="detail-nav-copy">
-                Return to the park lineup or move through rides without leaving this park context.
-              </p>
+              <p className="detail-nav-copy">Stay inside the lineup and move ride to ride.</p>
             </div>
             {rideDetailStatus.state === "loading" ? (
               <div className="state-message state-message-loading">
                 <p>Loading ride details...</p>
-                <p>Pulling the ride profile, media, and credit state from the API.</p>
+                <p>Refreshing the latest ride overview.</p>
               </div>
             ) : null}
             {rideDetailStatus.state === "success" ? (
               <article className="detail-card detail-card-ride">
                 <div className="detail-header detail-header-feature">
                   <div>
-                    <p className="status-label">Ride profile</p>
+                    <p className="status-label">Ride</p>
                     <h2 className="detail-title">{rideDetailStatus.ride.name}</h2>
                     <p className="section-copy detail-summary">
-                      Inside {rideDetailStatus.park.name}. Ride detail stays focused while the surrounding park context remains visible.
+                      {rideDetailStatus.park.name}
                     </p>
                     <div className="detail-micro-nav" aria-label="Ride route context">
                       <span className="detail-micro-item">
@@ -2623,25 +2671,27 @@ function App() {
                   </div>
                 </div>
 
-                {rideDetailStatus.ride.imageUrl ? (
-                  <div className="media-frame media-frame-detail">
-                    <img
-                      className="media-image"
-                      src={rideDetailStatus.ride.imageUrl}
-                      alt={`${rideDetailStatus.ride.name} ride view`}
-                    />
-                  </div>
-                ) : null}
+                <MediaAsset
+                  kind="ride"
+                  slug={rideDetailStatus.ride.slug}
+                  imageUrl={rideDetailStatus.ride.imageUrl}
+                  alt={`${rideDetailStatus.ride.name} ride view`}
+                  frameClassName="media-frame media-frame-detail"
+                  imageClassName="media-image"
+                  loading="eager"
+                />
 
                 <div className="credit-panel">
                   <div>
-                    <p className="status-label">Demo rider</p>
+                    <p className="status-label">Ride log</p>
                     <p className="credit-copy">
                       {rideCreditsStatus.state === "success"
-                        ? `${rideCreditsStatus.userName} can track whether this ride has been ridden.`
+                        ? isCurrentRideRidden
+                          ? "This ride is already in your ridden collection."
+                          : "Add this ride to your ridden collection."
                         : rideCreditsStatus.state === "error"
                           ? rideCreditsStatus.message
-                          : "Ride credit state is loading."}
+                          : "Checking ride status."}
                     </p>
                   </div>
                   <button
@@ -2655,8 +2705,8 @@ function App() {
                     {isUpdatingRideCredit
                       ? "Saving..."
                       : isCurrentRideRidden
-                        ? "Remove ridden credit"
-                        : "Mark as ridden"}
+                        ? "Remove from ridden"
+                        : "Mark ridden"}
                   </button>
                 </div>
                 {rideCreditMessage ? (
@@ -2665,11 +2715,11 @@ function App() {
 
                 <div className="lineup-nav-panel">
                   <div>
-                    <p className="status-label">Ride lineup navigation</p>
+                    <p className="status-label">Explore this lineup</p>
                     <p className="credit-copy">
                       {rideLineupStatus.state === "success"
                         ? rideLineupPositionLabel ||
-                          "Move through the current park lineup without returning to the park page."
+                          "Move through the current park lineup."
                         : rideLineupStatus.state === "loading"
                           ? "Loading the current park lineup."
                           : rideLineupStatus.state === "error"
@@ -2688,7 +2738,7 @@ function App() {
                       }}
                       disabled={!previousRide}
                     >
-                      Previous ride
+                      Previous
                     </button>
                     <button
                       className="lineup-nav-button"
@@ -2700,7 +2750,7 @@ function App() {
                       }}
                       disabled={!nextRide}
                     >
-                      Next ride
+                      Next
                     </button>
                   </div>
                 </div>
@@ -2727,24 +2777,6 @@ function App() {
           </div>
         </section>
       ) : null}
-
-      <footer className="developer-footer" aria-live="polite">
-        <div className="developer-status">
-          <span className={`status-chip status-chip-${apiStatus.state}`}>
-            {apiStatusLabel}
-          </span>
-          <p className="developer-copy">
-            {apiStatus.state === "success"
-              ? `Updated ${apiStatus.response.timestamp}`
-              : apiStatus.state === "loading"
-                ? "Checking /health"
-                : apiStatus.message}
-          </p>
-        </div>
-        <p className="developer-copy">
-          API source: <code>{apiBaseUrl || "Missing VITE_API_BASE_URL"}</code>
-        </p>
-      </footer>
     </main>
   );
 }
