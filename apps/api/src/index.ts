@@ -8,6 +8,7 @@ import {
   getParkBySlug,
   getRideBySlugs,
   initializeDatabase,
+  listRideCatalog,
   listDemoUserRideCredits,
   listParks,
   listRidesForPark,
@@ -21,6 +22,7 @@ import type {
   ParkResponse,
   ParkLiveWaitsResponse,
   ParksResponse,
+  RideCatalogResponse,
   RideCreditMutationResponse,
   RideCreditsResponse,
   RideResponse,
@@ -67,6 +69,30 @@ app.get("/health", async () => {
 app.get<{ Querystring: { search?: string } }>("/parks", async (request) => {
   const response: ParksResponse = {
     parks: await listParks(request.query.search)
+  };
+
+  return response;
+});
+
+app.get<{
+  Querystring: {
+    search?: string;
+    park?: string;
+    rideType?: string;
+    manufacturer?: string;
+    sort?: "name" | "opening_year" | "speed_kmh";
+  };
+}>("/rides", async (request) => {
+  const response: RideCatalogResponse = {
+    rides: await listRideCatalog({
+      ...(request.query.search ? { search: request.query.search } : {}),
+      ...(request.query.park ? { parkSlug: request.query.park } : {}),
+      ...(request.query.rideType ? { rideType: request.query.rideType } : {}),
+      ...(request.query.manufacturer
+        ? { manufacturer: request.query.manufacturer }
+        : {}),
+      ...(request.query.sort ? { sort: request.query.sort } : {})
+    })
   };
 
   return response;
