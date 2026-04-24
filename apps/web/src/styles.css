@@ -1284,6 +1284,10 @@ img {
     rgba(255, 255, 255, 0.94);
 }
 
+.browse-toolbar-stacked {
+  grid-template-columns: 1fr;
+}
+
 .browse-toolbar-main {
   align-items: end;
   flex-wrap: wrap;
@@ -1293,6 +1297,10 @@ img {
   display: grid;
   gap: 0.8rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ride-toolbar-catalog {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .toolbar-field {
@@ -1330,6 +1338,43 @@ img {
 
 .rides-list {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.rides-list-catalog {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.ride-card-heading {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.ride-card-kicker {
+  margin: 0;
+  color: #657780;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ride-facts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.ride-fact-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.34rem 0.66rem;
+  border-radius: 999px;
+  background: rgba(250, 251, 248, 0.96);
+  border: 1px solid rgba(19, 37, 59, 0.08);
+  color: #425760;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .ride-card-ridden {
@@ -1558,6 +1603,10 @@ img {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .ride-toolbar-catalog {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .wait-time-card,
   .wait-time-value-block {
     display: grid;
@@ -1591,6 +1640,11 @@ img {
   .parks-list,
   .rides-list,
   .ride-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .ride-toolbar-catalog,
+  .rides-list-catalog {
     grid-template-columns: 1fr;
   }
 

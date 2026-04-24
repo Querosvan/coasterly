@@ -44,6 +44,8 @@ export interface Ride {
   inversions?: number;
 }
 
+export type RideSort = "name" | "opening_year" | "speed_kmh";
+
 export interface RidesResponse {
   rides: Ride[];
 }
@@ -51,6 +53,15 @@ export interface RidesResponse {
 export interface RideResponse {
   ride: Ride;
   park: Park;
+}
+
+export interface RideCatalogItem {
+  ride: Ride;
+  park: Park;
+}
+
+export interface RideCatalogResponse {
+  rides: RideCatalogItem[];
 }
 
 export interface DemoUser {

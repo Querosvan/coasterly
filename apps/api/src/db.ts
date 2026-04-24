@@ -7,6 +7,8 @@ import type {
   ExternalSourceName,
   Park,
   ParkStatus,
+  RideCatalogItem,
+  RideSort,
   Ride,
   RideStatus
 } from "@coasterly/types";
@@ -738,7 +740,12 @@ const toOptionalRideFields = (fields: {
 type RideListOptions = {
   rideType?: string;
   manufacturer?: string;
-  sort?: string;
+  sort?: RideSort;
+};
+
+type RideCatalogListOptions = RideListOptions & {
+  search?: string;
+  parkSlug?: string;
 };
 
 const getDemoUser = async (): Promise<DemoUser> => {
@@ -941,6 +948,130 @@ export const listRidesForPark = async (
       speedKmh: ride.speed_kmh,
       inversions: ride.inversions
     })
+  }));
+};
+
+export const listRideCatalog = async (
+  options: RideCatalogListOptions = {}
+): Promise<RideCatalogItem[]> => {
+  const normalizedSearch = options.search?.trim();
+  const normalizedParkSlug = options.parkSlug?.trim();
+  const normalizedRideType = options.rideType?.trim();
+  const normalizedManufacturer = options.manufacturer?.trim();
+  const sortColumnMap = {
+    name: "rides.name",
+    opening_year: "rides.opening_year",
+    speed_kmh: "rides.speed_kmh"
+  } as const;
+  const sortColumn =
+    options.sort && options.sort in sortColumnMap
+      ? sortColumnMap[options.sort]
+      : sortColumnMap.name;
+  const filters: string[] = [];
+  const values: string[] = [];
+
+  if (normalizedSearch) {
+    values.push(`%${escapeLikePattern(normalizedSearch)}%`);
+    filters.push(`rides.name ILIKE $${values.length} ESCAPE '\\'`);
+  }
+
+  if (normalizedParkSlug) {
+    values.push(normalizedParkSlug);
+    filters.push(`parks.slug = $${values.length}`);
+  }
+
+  if (normalizedRideType) {
+    values.push(normalizedRideType);
+    filters.push(`rides.ride_type = $${values.length}`);
+  }
+
+  if (normalizedManufacturer) {
+    values.push(normalizedManufacturer);
+    filters.push(`rides.manufacturer = $${values.length}`);
+  }
+
+  const orderBy =
+    sortColumn === "rides.name"
+      ? "rides.name ASC"
+      : `${sortColumn} DESC NULLS LAST, rides.name ASC`;
+
+  const result = await pool.query<{
+    park_id: number;
+    park_name: string;
+    park_slug: string;
+    park_country: string;
+    park_city: string;
+    park_status: string;
+    park_image_url: string | null;
+    ride_id: number;
+    ride_name: string;
+    ride_slug: string;
+    ride_status: string;
+    ride_type: string;
+    ride_image_url: string | null;
+    ride_manufacturer: string | null;
+    ride_model: string | null;
+    ride_opening_year: number | null;
+    ride_height_m: number | null;
+    ride_speed_kmh: number | null;
+    ride_inversions: number | null;
+  }>(
+    `
+      SELECT
+        parks.id AS park_id,
+        parks.name AS park_name,
+        parks.slug AS park_slug,
+        parks.country AS park_country,
+        parks.city AS park_city,
+        parks.status AS park_status,
+        parks.image_url AS park_image_url,
+        rides.id AS ride_id,
+        rides.name AS ride_name,
+        rides.slug AS ride_slug,
+        rides.status AS ride_status,
+        rides.ride_type AS ride_type,
+        rides.image_url AS ride_image_url,
+        rides.manufacturer AS ride_manufacturer,
+        rides.model AS ride_model,
+        rides.opening_year AS ride_opening_year,
+        rides.height_m AS ride_height_m,
+        rides.speed_kmh AS ride_speed_kmh,
+        rides.inversions AS ride_inversions
+      FROM rides
+      INNER JOIN parks ON parks.id = rides.park_id
+      ${filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : ""}
+      ORDER BY ${orderBy}
+    `,
+    values
+  );
+
+  return result.rows.map((row) => ({
+    park: {
+      id: row.park_id,
+      name: row.park_name,
+      slug: row.park_slug,
+      country: row.park_country,
+      city: row.park_city,
+      status: row.park_status as ParkStatus,
+      ...(row.park_image_url ? { imageUrl: row.park_image_url } : {})
+    },
+    ride: {
+      id: row.ride_id,
+      parkId: row.park_id,
+      name: row.ride_name,
+      slug: row.ride_slug,
+      status: row.ride_status as RideStatus,
+      rideType: row.ride_type,
+      ...toOptionalRideFields({
+        imageUrl: row.ride_image_url,
+        manufacturer: row.ride_manufacturer,
+        model: row.ride_model,
+        openingYear: row.ride_opening_year,
+        heightM: row.ride_height_m,
+        speedKmh: row.ride_speed_kmh,
+        inversions: row.ride_inversions
+      })
+    }
   }));
 };
 
