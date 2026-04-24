@@ -105,3 +105,5 @@ For more detail, see [docs/architecture.md](./docs/architecture.md).
 Deployment planning lives in [docs/deployment.md](./docs/deployment.md).
 
 User and role foundations are outlined in [docs/admin-foundations.md](./docs/admin-foundations.md).
+
+The API now also has a minimal current-user foundation through `/me`, with a seeded-user fallback for non-auth environments.

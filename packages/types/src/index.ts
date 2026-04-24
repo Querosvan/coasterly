@@ -81,6 +81,19 @@ export interface UserSummary {
 
 export type DemoUser = UserSummary;
 
+export type CurrentUserIdentitySource = "auth_identity" | "seeded_fallback";
+
+export interface CurrentUserIdentity {
+  source: CurrentUserIdentitySource;
+  provider?: string;
+  subject?: string;
+}
+
+export interface CurrentUserResponse {
+  user: UserSummary;
+  identity: CurrentUserIdentity;
+}
+
 export interface RideCreditsResponse {
   user: UserSummary;
   rideIds: number[];

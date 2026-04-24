@@ -126,6 +126,15 @@ The current role foundation is intentionally lightweight:
 
 Roles are stored directly on the user record for now. That keeps the current foundation simple while giving future auth, admin, and editorial work a stable target.
 
+The API now also has a minimal current-user resolution layer:
+
+- `/me` exposes the current resolved user
+- provider identity can be linked through `auth_provider` + `auth_subject`
+- if no identity is present, the API can still fall back to the seeded user for non-auth environments
+- if identity is present but unmapped, the API fails rather than silently impersonating the fallback user
+
+This makes future auth integration much cleaner because a later provider-specific middleware layer only needs to supply claims, not redesign the user model.
+
 The intended future backoffice editing areas are:
 
 - parks

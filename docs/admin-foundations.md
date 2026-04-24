@@ -78,3 +78,36 @@ This pass is deliberately small.
 - no full moderation workflow yet
 
 The foundation is now strong enough that those later phases can build on stable user and role primitives instead of replacing the demo-only assumptions later.
+
+## Auth Identity Groundwork
+
+The API now has a minimal current-user resolution path.
+
+- `GET /me` returns the current user and how that user was resolved
+- `GET /me/ride-credits` and `GET /me/stats` expose the current-user view of the existing ride-credit and progress flows
+- ride credit mutations now resolve the current user first instead of conceptually depending on the demo user
+
+Current-user resolution works like this:
+
+1. If provider identity claims are present, the API attempts to resolve a user through:
+   - `auth_provider`
+   - `auth_subject`
+2. If no auth identity is present, the API falls back to the seeded user
+3. If auth identity is present but does not map to a Coasterly user, the API returns an auth-style failure instead of silently falling back
+
+For now, the API reads a lightweight provider-agnostic identity shape from request headers:
+
+- `x-coasterly-auth-provider`
+- `x-coasterly-auth-subject`
+
+This is intentionally a bridge step, not a final auth solution.
+
+- a future auth middleware or gateway can populate those values from real provider claims
+- the database model already has the fields needed to link those claims to users
+- the public product can keep working in non-auth environments through the seeded fallback
+
+## Compatibility
+
+The existing `/demo-user/...` endpoints are still available.
+
+They remain useful as compatibility surfaces for the current frontend while the product transitions toward real current-user handling.
