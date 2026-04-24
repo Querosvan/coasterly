@@ -17,6 +17,27 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const brandLogoDark = "/brand/coasterly-logo-horizontal-dark.png";
 const brandIconDark = "/brand/coasterly-logo-icon-dark.png";
 
+const journalTeasers = [
+  {
+    category: "Guide",
+    title: "Europe park-planning notes",
+    summary: "Trip planning, lineup context, and progress-ready park guides.",
+    status: "Planned"
+  },
+  {
+    category: "Ranking",
+    title: "Coaster lists worth revisiting",
+    summary: "Editorial rankings, route ideas, and park-by-park comparisons.",
+    status: "Planned"
+  },
+  {
+    category: "News",
+    title: "Launches, retracks, and major openings",
+    summary: "A future home for park news once editorial publishing is added.",
+    status: "Planned"
+  }
+] as const;
+
 const formatCountLabel = (
   count: number,
   singular: string,
@@ -28,6 +49,9 @@ const formatDecimalValue = (value: number) =>
 
 type Route =
   | { view: "home" }
+  | { view: "parks" }
+  | { view: "discover" }
+  | { view: "journal" }
   | { view: "park"; slug: string }
   | { view: "ride"; parkSlug: string; rideSlug: string };
 
@@ -82,6 +106,12 @@ type RideDetailStatus =
   | { state: "success"; park: Park; ride: Ride }
   | { state: "error"; message: string };
 
+type RideLineupStatus =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "success"; rides: Ride[] }
+  | { state: "error"; message: string };
+
 type RideSpecItem = {
   label: string;
   value: string;
@@ -94,12 +124,6 @@ type BreadcrumbItem = {
   href?: string;
   onClick?: () => void;
 };
-
-type RideLineupStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | { state: "success"; rides: Ride[] }
-  | { state: "error"; message: string };
 
 const defaultParkRideSort: ParkRideSort = "name";
 
@@ -142,13 +166,25 @@ const getRoute = (pathname: string): Route => {
     };
   }
 
-  const match = pathname.match(/^\/parks\/([^/]+)\/?$/);
+  if (pathname === "/parks" || pathname === "/parks/") {
+    return { view: "parks" };
+  }
 
-  if (match?.[1]) {
+  const parkMatch = pathname.match(/^\/parks\/([^/]+)\/?$/);
+
+  if (parkMatch?.[1]) {
     return {
       view: "park",
-      slug: decodeURIComponent(match[1])
+      slug: decodeURIComponent(parkMatch[1])
     };
+  }
+
+  if (pathname === "/discover" || pathname === "/discover/") {
+    return { view: "discover" };
+  }
+
+  if (pathname === "/journal" || pathname === "/journal/") {
+    return { view: "journal" };
   }
 
   return { view: "home" };
@@ -426,7 +462,7 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams();
 
-    if (route.view === "home") {
+    if (route.view === "parks") {
       const normalizedQuery = searchQuery.trim();
 
       if (normalizedQuery) {
@@ -465,7 +501,7 @@ function App() {
     }
 
     const controller = new AbortController();
-    const normalizedSearchQuery = searchQuery.trim();
+    const activeSearchQuery = route.view === "parks" ? searchQuery.trim() : "";
 
     setParksStatus({ state: "loading" });
 
@@ -474,8 +510,8 @@ function App() {
         try {
           const parksUrl = new URL("/parks", apiBaseUrl);
 
-          if (normalizedSearchQuery) {
-            parksUrl.searchParams.set("search", normalizedSearchQuery);
+          if (activeSearchQuery) {
+            parksUrl.searchParams.set("search", activeSearchQuery);
           }
 
           const response = await fetch(parksUrl, {
@@ -513,13 +549,13 @@ function App() {
       };
 
       void loadParks();
-    }, normalizedSearchQuery ? 250 : 0);
+    }, activeSearchQuery ? 250 : 0);
 
     return () => {
       window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [searchQuery]);
+  }, [route, searchQuery]);
 
   useEffect(() => {
     if (route.view !== "park") {
@@ -929,6 +965,29 @@ function App() {
     }
   };
 
+  const navigateHome = () => {
+    navigateWithParams("/", new URLSearchParams());
+  };
+
+  const navigateToParks = (options?: { preserveSearch?: boolean }) => {
+    if (!options?.preserveSearch) {
+      setSearchQuery("");
+    }
+
+    navigateWithParams(
+      "/parks",
+      options?.preserveSearch ? getCatalogSearchParams() : new URLSearchParams()
+    );
+  };
+
+  const navigateToDiscover = () => {
+    navigateWithParams("/discover", new URLSearchParams());
+  };
+
+  const navigateToJournal = () => {
+    navigateWithParams("/journal", new URLSearchParams());
+  };
+
   const navigateToPark = (
     slug: string,
     options?: { preserveRideBrowserState?: boolean }
@@ -950,10 +1009,6 @@ function App() {
       `/parks/${parkSlug}/rides/${rideSlug}`,
       getRideBrowserParams()
     );
-  };
-
-  const navigateHome = () => {
-    navigateWithParams("/", getCatalogSearchParams());
   };
 
   const navigateBackToPark = (slug: string) => {
@@ -997,9 +1052,7 @@ function App() {
       });
 
       if (!response.ok) {
-        setRideCreditMessage(
-          `Unable to update ride credit (${response.status}).`
-        );
+        setRideCreditMessage(`Unable to update ride credit (${response.status}).`);
 
         return;
       }
@@ -1021,12 +1074,19 @@ function App() {
   };
 
   const normalizedSearchQuery = searchQuery.trim();
-  const hasActiveCatalogSearch = normalizedSearchQuery.length > 0;
-  const homeSummary =
+  const isParksBrowseRoute = route.view === "parks";
+  const hasActiveCatalogSearch = isParksBrowseRoute && normalizedSearchQuery.length > 0;
+  const apiStatusLabel =
+    apiStatus.state === "success"
+      ? `API ${apiStatus.response.status}`
+      : apiStatus.state === "loading"
+        ? "API loading"
+        : "API issue";
+  const browseSummary =
     parksStatus.state === "success"
-      ? normalizedSearchQuery
+      ? hasActiveCatalogSearch
         ? `Showing ${formatCountLabel(parksStatus.parks.length, "result")} for "${normalizedSearchQuery}".`
-        : `Loaded ${formatCountLabel(parksStatus.parks.length, "park")} from the API.`
+        : `Browsing ${formatCountLabel(parksStatus.parks.length, "park")} in the current catalog.`
       : null;
   const heroCountLabel =
     parksStatus.state === "success"
@@ -1040,32 +1100,47 @@ function App() {
         : "Stats unavailable";
   const riddenParkCountLabel =
     demoUserStatsStatus.state === "success"
-      ? formatCountLabel(
-          demoUserStatsStatus.totalParksWithRiddenRides,
-          "park"
-        )
+      ? formatCountLabel(demoUserStatsStatus.totalParksWithRiddenRides, "park")
       : demoUserStatsStatus.state === "loading"
         ? "Loading stats"
         : "Stats unavailable";
-  const apiStatusLabel =
-    apiStatus.state === "success"
-      ? `API ${apiStatus.response.status}`
-      : apiStatus.state === "loading"
-        ? "API loading"
-        : "API issue";
   const parkProgressBySlug =
     demoUserStatsStatus.state === "success"
       ? new Map(
           demoUserStatsStatus.parks.map((park) => [park.parkSlug, park])
         )
       : null;
-  const activeParkProgress =
-    route.view === "park" ? parkProgressBySlug?.get(route.slug) : undefined;
   const riddenRideIds =
     rideCreditsStatus.state === "success" ? new Set(rideCreditsStatus.rideIds) : null;
-  const isCurrentRideRidden =
-    rideDetailStatus.state === "success" &&
-    riddenRideIds?.has(rideDetailStatus.ride.id) === true;
+  const allParks = parksStatus.state === "success" ? parksStatus.parks : [];
+  const parkBySlug = new Map(allParks.map((park) => [park.slug, park]));
+  const featuredParks = allParks.slice(0, 4);
+  const spotlightPark = featuredParks[0];
+  const spotlightProgress = spotlightPark
+    ? parkProgressBySlug?.get(spotlightPark.slug)
+    : undefined;
+  const secondaryFeaturedParks = featuredParks.slice(1, 4);
+  const rankedProgressParks =
+    demoUserStatsStatus.state === "success"
+      ? [...demoUserStatsStatus.parks]
+          .sort(
+            (left, right) =>
+              right.completionPercentage - left.completionPercentage ||
+              right.riddenRides - left.riddenRides ||
+              left.parkName.localeCompare(right.parkName)
+          )
+          .slice(0, 4)
+      : [];
+  const featuredProgressParks = rankedProgressParks
+    .map((progress) => ({
+      progress,
+      park: parkBySlug.get(progress.parkSlug)
+    }))
+    .filter((entry): entry is { progress: DemoUserStatsResponse["parks"][number]; park: Park } =>
+      Boolean(entry.park)
+    );
+  const activeParkProgress =
+    route.view === "park" ? parkProgressBySlug?.get(route.slug) : undefined;
   const parkRideSortLabel =
     parkRideSort === "name"
       ? "Name"
@@ -1090,36 +1165,23 @@ function App() {
       : rideLineupStatus.state === "success" && rideLineup.length > 0
         ? "Current ride is outside the active lineup filters"
         : null;
-  const featuredParks =
-    parksStatus.state === "success" ? parksStatus.parks.slice(0, 4) : [];
-  const spotlightPark = featuredParks[0];
-  const spotlightProgress = spotlightPark
-    ? parkProgressBySlug?.get(spotlightPark.slug)
-    : undefined;
-  const secondaryFeaturedParks = featuredParks.slice(1, 4);
-  const rankedProgressParks =
-    demoUserStatsStatus.state === "success"
-      ? [...demoUserStatsStatus.parks]
-          .sort(
-            (left, right) =>
-              right.completionPercentage - left.completionPercentage ||
-              right.riddenRides - left.riddenRides ||
-              left.parkName.localeCompare(right.parkName)
-          )
-          .slice(0, 4)
-      : [];
+  const isCurrentRideRidden =
+    rideDetailStatus.state === "success" &&
+    riddenRideIds?.has(rideDetailStatus.ride.id) === true;
   const rideSpecItems: RideSpecItem[] = [];
 
   if (rideDetailStatus.state === "success") {
-    rideSpecItems.push({
-      label: "Parent park",
-      value: rideDetailStatus.park.name,
-      wide: true
-    });
-    rideSpecItems.push({
-      label: "Ride type",
-      value: rideDetailStatus.ride.rideType
-    });
+    rideSpecItems.push(
+      {
+        label: "Parent park",
+        value: rideDetailStatus.park.name,
+        wide: true
+      },
+      {
+        label: "Ride type",
+        value: rideDetailStatus.ride.rideType
+      }
+    );
 
     if (rideDetailStatus.ride.manufacturer) {
       rideSpecItems.push({
@@ -1170,95 +1232,154 @@ function App() {
     });
   }
 
-  const currentSearchLabel = normalizedSearchQuery
-    ? `Search: “${normalizedSearchQuery}”`
+  const parksSearchLabel = hasActiveCatalogSearch
+    ? `Search: "${normalizedSearchQuery}"`
     : "All parks";
-  const catalogEyebrow =
-    normalizedSearchQuery && parksStatus.state === "success"
-      ? "Filtered park catalog"
-      : "Park catalog";
-  const catalogTitle = normalizedSearchQuery
-    ? `Browse matching parks for ${normalizedSearchQuery}.`
-    : "Browse parks, open lineups, and keep progress visible.";
-  const catalogDescription = normalizedSearchQuery
-    ? "The catalog stays scoped to the current query so it is easier to move from search into park and ride detail."
-    : "The home catalog keeps imagery, ride progress, and route context in view so the next step feels obvious.";
-  const catalogStateLabel =
-    parksStatus.state === "success"
-      ? `${parksStatus.parks.length} results`
-      : parksStatus.state === "loading"
-        ? "Loading results"
-        : "Catalog unavailable";
+  const routeBarTitle =
+    route.view === "parks"
+      ? parksSearchLabel
+      : route.view === "discover"
+        ? "Discover"
+        : route.view === "journal"
+          ? "Journal"
+          : route.view === "park"
+            ? parkDetailStatus.state === "success"
+              ? parkDetailStatus.park.name
+              : route.slug
+            : route.view === "ride"
+              ? rideDetailStatus.state === "success"
+                ? rideDetailStatus.ride.name
+                : route.rideSlug
+              : "Home";
+  const routeBarLabel =
+    route.view === "parks"
+      ? "Parks browse"
+      : route.view === "discover"
+        ? "Discovery"
+        : route.view === "journal"
+          ? "Editorial roadmap"
+          : route.view === "park"
+            ? "Park detail"
+            : route.view === "ride"
+              ? "Ride detail"
+              : "Landing";
   const breadcrumbItems: BreadcrumbItem[] =
-    route.view === "home"
+    route.view === "parks"
       ? [
-          {
-            label: "Catalog"
-          },
-          {
-            label: currentSearchLabel
-          }
+          { label: "Parks" },
+          { label: parksSearchLabel }
         ]
-      : route.view === "park"
-        ? [
-            {
-              label: "Catalog",
-              href: buildPathWithQuery("/", getCatalogSearchParams()),
-              onClick: navigateHome
-            },
-            {
-              label:
-                parkDetailStatus.state === "success"
-                  ? parkDetailStatus.park.name
-                  : route.slug
-            }
-          ]
-        : [
-            {
-              label: "Catalog",
-              href: buildPathWithQuery("/", getCatalogSearchParams()),
-              onClick: navigateHome
-            },
-            {
-              label:
-                rideDetailStatus.state === "success"
-                  ? rideDetailStatus.park.name
-                  : route.parkSlug,
-              href: buildPathWithQuery(
-                `/parks/${
+      : route.view === "discover"
+        ? [{ label: "Discover" }]
+        : route.view === "journal"
+          ? [{ label: "Journal" }]
+          : route.view === "park"
+            ? [
+                {
+                  label: "Parks",
+                  href: buildPathWithQuery("/parks", getCatalogSearchParams()),
+                  onClick: () => {
+                    navigateToParks({ preserveSearch: true });
+                  }
+                },
+                {
+                  label:
+                    parkDetailStatus.state === "success"
+                      ? parkDetailStatus.park.name
+                      : route.slug
+                }
+              ]
+            : route.view === "ride"
+              ? [
+                  {
+                    label: "Parks",
+                    href: buildPathWithQuery("/parks", getCatalogSearchParams()),
+                    onClick: () => {
+                      navigateToParks({ preserveSearch: true });
+                    }
+                  },
+                  {
+                    label:
+                      rideDetailStatus.state === "success"
+                        ? rideDetailStatus.park.name
+                        : route.parkSlug,
+                    href: buildPathWithQuery(
+                      `/parks/${
+                        rideDetailStatus.state === "success"
+                          ? rideDetailStatus.park.slug
+                          : route.parkSlug
+                      }`,
+                      getRideBrowserParams()
+                    ),
+                    onClick: () => {
+                      navigateBackToPark(
+                        rideDetailStatus.state === "success"
+                          ? rideDetailStatus.park.slug
+                          : route.parkSlug
+                      );
+                    }
+                  },
+                  {
+                    label:
+                      rideDetailStatus.state === "success"
+                        ? rideDetailStatus.ride.name
+                        : route.rideSlug
+                  }
+                ]
+              : [];
+  const showRouteBar = route.view !== "home";
+  const routeBarChips =
+    route.view === "parks"
+      ? [
+          catalogStateChip(parksStatus),
+          hasActiveCatalogSearch ? "Search active" : "Browse surface"
+        ].filter(Boolean)
+      : route.view === "discover"
+        ? [heroCountLabel, riddenRideCountLabel]
+        : route.view === "journal"
+          ? ["Editorial roadmap", "No CMS yet"]
+          : route.view === "park"
+            ? [
+                activeParkProgress
+                  ? `${activeParkProgress.riddenRides}/${activeParkProgress.totalRides} ridden`
+                  : "Park detail"
+              ]
+            : route.view === "ride"
+              ? [
                   rideDetailStatus.state === "success"
-                    ? rideDetailStatus.park.slug
-                    : route.parkSlug
-                }`,
-                getRideBrowserParams()
-              ),
-              onClick: () => {
-                navigateBackToPark(
-                  rideDetailStatus.state === "success"
-                    ? rideDetailStatus.park.slug
-                    : route.parkSlug
-                );
-              }
-            },
-            {
-              label:
-                rideDetailStatus.state === "success"
-                  ? rideDetailStatus.ride.name
-                  : route.rideSlug
-            }
-          ];
-  const parkContextLabel =
-    route.view === "park"
-      ? activeParkProgress
-        ? `${activeParkProgress.riddenRides}/${activeParkProgress.totalRides} rides ridden`
-        : "Park detail"
-      : null;
-  const rideContextLabel =
-    route.view === "ride"
-      ? rideDetailStatus.state === "success"
-        ? `${rideDetailStatus.park.name} lineup`
-        : "Ride detail"
-      : null;
+                    ? `${rideDetailStatus.park.name} lineup`
+                    : "Ride detail",
+                  rideLineupPositionLabel
+                ].filter(Boolean)
+              : [];
+  const topNavigation = [
+    {
+      label: "Home",
+      href: "/",
+      active: route.view === "home",
+      onClick: navigateHome
+    },
+    {
+      label: "Parks",
+      href: buildPathWithQuery("/parks", getCatalogSearchParams()),
+      active: route.view === "parks" || route.view === "park" || route.view === "ride",
+      onClick: () => {
+        navigateToParks({ preserveSearch: true });
+      }
+    },
+    {
+      label: "Discover",
+      href: "/discover",
+      active: route.view === "discover",
+      onClick: navigateToDiscover
+    },
+    {
+      label: "Journal",
+      href: "/journal",
+      active: route.view === "journal",
+      onClick: navigateToJournal
+    }
+  ];
 
   return (
     <main className="app-shell">
@@ -1266,13 +1387,23 @@ function App() {
         <button className="brand-link brand-link-image" type="button" onClick={navigateHome}>
           <img className="brand-logo" src={brandLogoDark} alt="Coasterly" />
         </button>
-        <div className="topbar-actions">
-          <div className="brand-block">
-            <span className="product-pill">Enthusiast catalog</span>
-            <p className="topbar-copy">
-              Parks, lineups, ride credits, and progress in one modern tracker.
-            </p>
-          </div>
+        <nav className="topbar-nav" aria-label="Primary">
+          {topNavigation.map((item) => (
+            <a
+              key={item.label}
+              className={`topbar-nav-link${item.active ? " topbar-nav-link-active" : ""}`}
+              href={item.href}
+              onClick={(event) => {
+                event.preventDefault();
+                item.onClick();
+              }}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+        <div className="topbar-meta">
+          <span className="product-pill">Theme park tracker</span>
           <div className="status-cluster" aria-live="polite">
             <span className={`status-chip status-chip-${apiStatus.state}`}>
               {apiStatusLabel}
@@ -1286,92 +1417,47 @@ function App() {
         </div>
       </header>
 
-      <section className="route-bar" aria-label="Current route">
-        <div className="route-bar-main">
-          {renderBreadcrumbs(breadcrumbItems)}
-          <div className="route-context">
-            <p className="route-context-label">
-              {route.view === "home"
-                ? catalogEyebrow
-                : route.view === "park"
-                  ? "Park detail"
-                  : "Ride detail"}
-            </p>
-            <strong className="route-context-value">
-              {route.view === "home"
-                ? currentSearchLabel
-                : route.view === "park"
-                  ? parkDetailStatus.state === "success"
-                    ? parkDetailStatus.park.name
-                    : route.slug
-                  : rideDetailStatus.state === "success"
-                    ? rideDetailStatus.ride.name
-                    : route.rideSlug}
-            </strong>
+      {showRouteBar ? (
+        <section className="route-bar" aria-label="Current route">
+          <div className="route-bar-main">
+            {renderBreadcrumbs(breadcrumbItems)}
+            <div className="route-context">
+              <p className="route-context-label">{routeBarLabel}</p>
+              <strong className="route-context-value">{routeBarTitle}</strong>
+            </div>
           </div>
-        </div>
-        <div className="route-bar-actions">
-          {route.view === "home" ? (
-            <>
-              <span className="catalog-chip route-chip">{catalogStateLabel}</span>
-              {hasActiveCatalogSearch ? (
-                <span className="catalog-chip route-chip">Search active</span>
-              ) : null}
-            </>
-          ) : null}
-          {parkContextLabel ? (
-            <span className="catalog-chip route-chip">{parkContextLabel}</span>
-          ) : null}
-          {rideContextLabel ? (
-            <span className="catalog-chip route-chip">{rideContextLabel}</span>
-          ) : null}
-          {route.view === "ride" && rideLineupPositionLabel ? (
-            <span className="catalog-chip route-chip">{rideLineupPositionLabel}</span>
-          ) : null}
-        </div>
-      </section>
+          <div className="route-bar-actions">
+            {routeBarChips.map((chip) => (
+              <span className="catalog-chip route-chip" key={chip}>
+                {chip}
+              </span>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {route.view === "home" ? (
         <>
-          <section className="hero-panel">
-            <div className="hero-copy">
+          <section className="hero-panel hero-panel-landing">
+            <div className="hero-copy hero-copy-landing">
               <div className="hero-brand">
                 <img className="hero-mark" src={brandIconDark} alt="" />
-                <p className="eyebrow">Coasterly public catalog</p>
+                <p className="eyebrow">Coasterly</p>
               </div>
-              <h1>Plan the next park day around rides that actually matter.</h1>
+              <h1>Track parks, lineups, and ride progress without the clutter.</h1>
               <p className="hero-text">
-                Browse Europe&apos;s major parks, move through headline lineups,
-                and turn ride credits into visible progress built for enthusiasts.
+                A cleaner public entry into Europe&apos;s major theme parks, with
+                progress tracking and catalog depth ready behind the landing page.
               </p>
-              <div className="hero-search">
-                <label className="search-label" htmlFor="park-search">
-                  Search by park name, country, or city
-                </label>
-                <div className="hero-search-row">
-                  <input
-                    id="park-search"
-                    className="search-input search-input-hero"
-                    type="search"
-                    name="park-search"
-                    value={searchQuery}
-                    onChange={(event) => {
-                      setSearchQuery(event.target.value);
-                    }}
-                    placeholder="Search the catalog"
-                  />
-                  {searchQuery ? (
-                    <button
-                      className="ghost-button"
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery("");
-                      }}
-                    >
-                      Clear
-                    </button>
-                  ) : null}
-                </div>
+              <div className="hero-actions">
+                <button className="primary-button" type="button" onClick={() => {
+                  navigateToParks({ preserveSearch: true });
+                }}>
+                  Browse parks
+                </button>
+                <button className="secondary-button" type="button" onClick={navigateToDiscover}>
+                  Discover next stops
+                </button>
               </div>
               <div className="hero-stats" aria-label="Catalog summary">
                 <div className="hero-stat">
@@ -1416,9 +1502,7 @@ function App() {
                     </div>
                     <p className="eyebrow">Featured park</p>
                     <h2>{spotlightPark.name}</h2>
-                    <p>
-                      {spotlightPark.city}, {spotlightPark.country}
-                    </p>
+                    <p>{spotlightPark.city}, {spotlightPark.country}</p>
                   </div>
                 </button>
               ) : (
@@ -1426,7 +1510,7 @@ function App() {
                   <div className="spotlight-copy">
                     <p className="eyebrow">Featured park</p>
                     <h2>Catalog loading</h2>
-                    <p>The latest parks will appear here once the API responds.</p>
+                    <p>The current catalog will appear here once the API responds.</p>
                   </div>
                 </div>
               )}
@@ -1459,29 +1543,217 @@ function App() {
             </div>
           </section>
 
-          <section className="catalog-panel" aria-live="polite">
-            <div className="catalog-header catalog-header-home">
+          <section className="landing-grid">
+            <section className="catalog-panel landing-panel">
+              <div className="catalog-header landing-header">
+                <div className="catalog-copy">
+                  <p className="status-label">Start with parks</p>
+                  <h2 className="section-title">Use the landing page to choose a direction, not to operate the whole app.</h2>
+                  <p className="section-copy">
+                    Featured parks stay visible here. Search and deeper catalog work now live in the dedicated parks surface.
+                  </p>
+                </div>
+                <div className="landing-actions">
+                  <button
+                    className="catalog-inline-button"
+                    type="button"
+                    onClick={() => {
+                      navigateToParks({ preserveSearch: true });
+                    }}
+                  >
+                    Open parks
+                  </button>
+                </div>
+              </div>
+              <div className="parks-list parks-list-featured">
+                {featuredParks.map((park) => {
+                  const parkProgress = parkProgressBySlug?.get(park.slug);
+
+                  return (
+                    <article className="park-card" key={park.id}>
+                      {park.imageUrl ? (
+                        <div className="media-frame media-frame-park">
+                          <img
+                            className="media-image"
+                            src={park.imageUrl}
+                            alt={`${park.name} park view`}
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="card-header">
+                        <a
+                          className="park-link"
+                          href={`/parks/${park.slug}`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            navigateToPark(park.slug);
+                          }}
+                        >
+                          <p className="park-name">{park.name}</p>
+                        </a>
+                        <span className="catalog-chip">{park.status}</span>
+                      </div>
+                      <p className="park-location">
+                        {park.city}, {park.country}
+                      </p>
+                      {parkProgress ? (
+                        <div className="park-progress">
+                          <div className="progress-copy">
+                            <span className="progress-label">Demo progress</span>
+                            <strong className="progress-value">
+                              {parkProgress.completionPercentage}%
+                            </strong>
+                          </div>
+                          <div className="progress-rail" aria-hidden="true">
+                            <span
+                              className="progress-fill"
+                              style={{
+                                width: `${parkProgress.completionPercentage}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="catalog-panel landing-panel">
+              <div className="catalog-header landing-header">
+                <div className="catalog-copy">
+                  <p className="status-label">Progress</p>
+                  <h2 className="section-title">Keep the value visible without dropping users into browse controls immediately.</h2>
+                  <p className="section-copy">
+                    Demo ride credits and park completion stay visible as a product signal, while the landing page stays compact.
+                  </p>
+                </div>
+                <div className="landing-actions">
+                  <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
+                    Open discover
+                  </button>
+                </div>
+              </div>
+              {demoUserStatsStatus.state === "success" ? (
+                <div className="stats-panel stats-panel-compact" aria-label="Demo user stats">
+                  <div className="stats-grid">
+                    <article className="stats-card">
+                      <span className="stats-card-label">Ridden rides</span>
+                      <strong className="stats-card-value">
+                        {demoUserStatsStatus.totalRiddenRides}
+                      </strong>
+                    </article>
+                    <article className="stats-card">
+                      <span className="stats-card-label">Parks ridden</span>
+                      <strong className="stats-card-value">
+                        {demoUserStatsStatus.totalParksWithRiddenRides}
+                      </strong>
+                    </article>
+                  </div>
+                  <div className="stats-breakdown">
+                    {rankedProgressParks.map((park) => (
+                      <button
+                        className="stats-park-card"
+                        key={park.parkId}
+                        type="button"
+                        onClick={() => {
+                          navigateToPark(park.parkSlug);
+                        }}
+                      >
+                        <span className="stats-park-name">{park.parkName}</span>
+                        <span className="stats-park-value">
+                          {`${park.riddenRides}/${park.totalRides} ridden`}
+                        </span>
+                        <div className="progress-rail" aria-hidden="true">
+                          <span
+                            className="progress-fill"
+                            style={{
+                              width: `${park.completionPercentage}%`
+                            }}
+                          />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : demoUserStatsStatus.state === "loading" ? (
+                <div className="state-message state-message-loading">
+                  <p>Loading demo rider stats...</p>
+                </div>
+              ) : (
+                <div className="state-message state-message-error">
+                  <p>Unable to load demo rider stats.</p>
+                  <p>{demoUserStatsStatus.message}</p>
+                </div>
+              )}
+            </section>
+          </section>
+
+          <section className="catalog-panel editorial-panel">
+            <div className="catalog-header landing-header">
               <div className="catalog-copy">
-                <p className="status-label">{catalogEyebrow}</p>
-                <h2 className="section-title">{catalogTitle}</h2>
+                <p className="status-label">Future journal</p>
+                <h2 className="section-title">Leave room for rankings, guides, and park news without building a CMS yet.</h2>
                 <p className="section-copy">
-                  {catalogDescription}
+                  The product structure now has a clear place for editorial and SEO-oriented content.
                 </p>
               </div>
-              <div className="catalog-support">
-                <p className="catalog-note">{homeSummary}</p>
-                <p className="catalog-note">
-                  Search updates the live API and keeps the next park or ride page one step away.
-                </p>
+              <div className="landing-actions">
+                <button className="catalog-inline-button" type="button" onClick={navigateToJournal}>
+                  Open journal
+                </button>
               </div>
             </div>
-            <div className="catalog-state-row" aria-label="Catalog state">
-              <span className="catalog-chip">{catalogStateLabel}</span>
-              {hasActiveCatalogSearch ? (
-                <>
-                  <span className="catalog-chip route-chip">
-                    Query: {normalizedSearchQuery}
-                  </span>
+            <div className="editorial-grid">
+              {journalTeasers.map((entry) => (
+                <article className="editorial-card" key={entry.title}>
+                  <span className="editorial-tag">{entry.category}</span>
+                  <h3>{entry.title}</h3>
+                  <p>{entry.summary}</p>
+                  <span className="catalog-chip route-chip">{entry.status}</span>
+                </article>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
+
+      {route.view === "parks" ? (
+        <section className="catalog-panel browse-panel" aria-live="polite">
+          <div className="catalog-header">
+            <div className="catalog-copy">
+              <p className="status-label">Parks browse</p>
+              <h2 className="section-title">Search the park catalog without mixing it into the landing page.</h2>
+              <p className="section-copy">
+                Search is URL-backed here, so results, refreshes, and direct links stay consistent.
+              </p>
+            </div>
+            <div className="catalog-support">
+              <p className="catalog-note">{browseSummary}</p>
+              <p className="catalog-note">Open a park to move into the lineup and ride flow.</p>
+            </div>
+          </div>
+
+          <div className="toolbar-panel browse-toolbar">
+            <div className="browse-toolbar-main">
+              <label className="search-label" htmlFor="park-search">
+                Search parks
+              </label>
+              <div className="hero-search-row">
+                <input
+                  id="park-search"
+                  className="search-input"
+                  type="search"
+                  name="park-search"
+                  value={searchQuery}
+                  onChange={(event) => {
+                    setSearchQuery(event.target.value);
+                  }}
+                  placeholder="Park name, country, or city"
+                />
+                {searchQuery ? (
                   <button
                     className="catalog-inline-button"
                     type="button"
@@ -1489,182 +1761,302 @@ function App() {
                       setSearchQuery("");
                     }}
                   >
-                    Clear search
+                    Clear
                   </button>
-                </>
+                ) : null}
+              </div>
+            </div>
+            <div className="catalog-state-row" aria-label="Browse state">
+              <span className="catalog-chip">
+                {parksStatus.state === "success"
+                  ? `${parksStatus.parks.length} results`
+                  : "Loading results"}
+              </span>
+              {hasActiveCatalogSearch ? (
+                <span className="catalog-chip route-chip">
+                  Query: {normalizedSearchQuery}
+                </span>
               ) : (
-                <span className="catalog-chip route-chip">Search state is URL-backed</span>
+                <span className="catalog-chip route-chip">Search state is active here</span>
               )}
             </div>
+          </div>
 
-            {parksStatus.state === "loading" ? (
-              <div className="state-message state-message-loading">
-                <p>Loading parks...</p>
-                <p>Pulling the current catalog and progress surfaces from the API.</p>
+          {parksStatus.state === "loading" ? (
+            <div className="state-message state-message-loading">
+              <p>Loading parks...</p>
+              <p>Refreshing the current catalog view from the API.</p>
+            </div>
+          ) : null}
+          {parksStatus.state === "success" ? (
+            parksStatus.parks.length > 0 ? (
+              <div className="parks-list">
+                {parksStatus.parks.map((park) => {
+                  const parkProgress = parkProgressBySlug?.get(park.slug);
+
+                  return (
+                    <article className="park-card" key={park.id}>
+                      {park.imageUrl ? (
+                        <div className="media-frame media-frame-park">
+                          <img
+                            className="media-image"
+                            src={park.imageUrl}
+                            alt={`${park.name} park view`}
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="card-header">
+                        <a
+                          className="park-link"
+                          href={`/parks/${park.slug}`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            navigateToPark(park.slug);
+                          }}
+                        >
+                          <p className="park-name">{park.name}</p>
+                        </a>
+                        <span className="catalog-chip">{park.status}</span>
+                      </div>
+                      <p className="park-location">
+                        {park.city}, {park.country}
+                      </p>
+                      {parkProgress ? (
+                        <div className="park-progress">
+                          <div className="progress-copy">
+                            <span className="progress-label">Demo progress</span>
+                            <strong className="progress-value">
+                              {parkProgress.completionPercentage}%
+                            </strong>
+                          </div>
+                          <div className="progress-rail" aria-hidden="true">
+                            <span
+                              className="progress-fill"
+                              style={{
+                                width: `${parkProgress.completionPercentage}%`
+                              }}
+                            />
+                          </div>
+                          <p className="park-meta">
+                            {`${parkProgress.riddenRides} of ${parkProgress.totalRides} rides ridden`}
+                          </p>
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
               </div>
-            ) : null}
-            {parksStatus.state === "success" ? (
-              <div className="catalog-content">
-                {parksStatus.parks.length > 0 ? (
-                  <>
-                    {demoUserStatsStatus.state === "success" ? (
-                      <section className="stats-panel" aria-label="Demo user stats">
-                        <div className="section-row">
-                          <div>
-                            <p className="status-label">Demo rider progress</p>
-                            <p className="section-copy">
-                              {demoUserStatsStatus.userName}&apos;s current ride-credit footprint across the catalog.
-                            </p>
-                          </div>
-                          <img className="stats-mark" src={brandIconDark} alt="" />
-                        </div>
-                        <div className="stats-grid">
-                          <article className="stats-card">
-                            <span className="stats-card-label">Ridden rides</span>
-                            <strong className="stats-card-value">
-                              {demoUserStatsStatus.totalRiddenRides}
-                            </strong>
-                          </article>
-                          <article className="stats-card">
-                            <span className="stats-card-label">Parks ridden</span>
-                            <strong className="stats-card-value">
-                              {demoUserStatsStatus.totalParksWithRiddenRides}
-                            </strong>
-                          </article>
-                        </div>
-                        {rankedProgressParks.length > 0 ? (
-                          <div className="stats-breakdown">
-                            {rankedProgressParks.map((park) => (
-                              <button
-                                className="stats-park-card"
-                                key={park.parkId}
-                                type="button"
-                                onClick={() => {
-                                  navigateToPark(park.parkSlug);
-                                }}
-                              >
-                                <span className="stats-park-name">{park.parkName}</span>
-                                <span className="stats-park-value">
-                                  {`${park.riddenRides}/${park.totalRides} ridden`}
-                                </span>
-                                <div className="progress-rail" aria-hidden="true">
-                                  <span
-                                    className="progress-fill"
-                                    style={{
-                                      width: `${park.completionPercentage}%`
-                                    }}
-                                  />
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="state-message state-message-empty">
-                            <p>No ridden rides yet.</p>
-                            <p>Open a ride and mark it as ridden to start building momentum.</p>
-                          </div>
-                        )}
-                      </section>
-                    ) : null}
-                    {demoUserStatsStatus.state === "loading" ? (
-                      <div className="state-message state-message-loading">
-                        <p>Loading demo user stats...</p>
-                      </div>
-                    ) : null}
-                    {demoUserStatsStatus.state === "error" ? (
-                      <div className="state-message state-message-error">
-                        <p>Unable to load demo user stats.</p>
-                        <p>{demoUserStatsStatus.message}</p>
-                      </div>
-                    ) : null}
-                    <div className="parks-list">
-                      {parksStatus.parks.map((park) => {
-                        const parkProgress = parkProgressBySlug?.get(park.slug);
+            ) : (
+              <div className="state-message state-message-empty">
+                <p>No parks match this search yet.</p>
+                <p>Try a broader park name, city, or country query.</p>
+              </div>
+            )
+          ) : null}
+          {parksStatus.state === "error" ? (
+            <div className="state-message state-message-error">
+              <p>Unable to load parks.</p>
+              <p>{parksStatus.message}</p>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
-                        return (
-                          <article className="park-card" key={park.id}>
-                            {park.imageUrl ? (
-                              <div className="media-frame media-frame-park">
-                                <img
-                                  className="media-image"
-                                  src={park.imageUrl}
-                                  alt={`${park.name} park view`}
-                                  loading="lazy"
-                                />
-                              </div>
-                            ) : null}
-                            <div className="card-header">
-                              <a
-                                className="park-link"
-                                href={`/parks/${park.slug}`}
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  navigateToPark(park.slug);
-                                }}
-                              >
-                                <p className="park-name">{park.name}</p>
-                              </a>
-                              <span className="catalog-chip">{park.status}</span>
-                            </div>
-                            <p className="park-location">
-                              {park.city}, {park.country}
-                            </p>
-                            <p className="park-meta">
-                              Open the lineup, media, and progress for <code>{park.slug}</code>.
-                            </p>
-                            {parkProgress ? (
-                              <div className="park-progress">
-                                <div className="progress-copy">
-                                  <span className="progress-label">Demo progress</span>
-                                  <strong className="progress-value">
-                                    {parkProgress.completionPercentage}%
-                                  </strong>
-                                </div>
-                                <div className="progress-rail" aria-hidden="true">
-                                  <span
-                                    className="progress-fill"
-                                    style={{
-                                      width: `${parkProgress.completionPercentage}%`
-                                    }}
-                                  />
-                                </div>
-                                <p className="park-meta">
-                                  {`${parkProgress.riddenRides} of ${parkProgress.totalRides} rides ridden`}
-                                </p>
-                              </div>
-                            ) : null}
-                          </article>
-                        );
-                      })}
+      {route.view === "discover" ? (
+        <section className="catalog-panel browse-panel" aria-live="polite">
+          <div className="catalog-header">
+            <div className="catalog-copy">
+              <p className="status-label">Discover</p>
+              <h2 className="section-title">Use progress and featured parks to decide where to go deeper next.</h2>
+              <p className="section-copy">
+                This surface stays lighter than the full browse view and points back into parks and ride detail.
+              </p>
+            </div>
+            <div className="catalog-support">
+              <p className="catalog-note">{heroCountLabel}</p>
+              <p className="catalog-note">{riddenRideCountLabel}</p>
+            </div>
+          </div>
+
+          {demoUserStatsStatus.state === "success" ? (
+            <section className="stats-panel" aria-label="Demo rider progress">
+              <div className="section-row">
+                <div>
+                  <p className="status-label">Demo rider progress</p>
+                  <p className="section-copy">
+                    Keep the next few parks visible while the public product stays compact.
+                  </p>
+                </div>
+                <button className="catalog-inline-button" type="button" onClick={() => {
+                  navigateToParks({ preserveSearch: true });
+                }}>
+                  Open parks
+                </button>
+              </div>
+              <div className="stats-grid">
+                <article className="stats-card">
+                  <span className="stats-card-label">Ridden rides</span>
+                  <strong className="stats-card-value">
+                    {demoUserStatsStatus.totalRiddenRides}
+                  </strong>
+                </article>
+                <article className="stats-card">
+                  <span className="stats-card-label">Parks ridden</span>
+                  <strong className="stats-card-value">
+                    {demoUserStatsStatus.totalParksWithRiddenRides}
+                  </strong>
+                </article>
+              </div>
+              <div className="stats-breakdown">
+                {rankedProgressParks.map((park) => (
+                  <button
+                    className="stats-park-card"
+                    key={park.parkId}
+                    type="button"
+                    onClick={() => {
+                      navigateToPark(park.parkSlug);
+                    }}
+                  >
+                    <span className="stats-park-name">{park.parkName}</span>
+                    <span className="stats-park-value">
+                      {`${park.riddenRides}/${park.totalRides} ridden`}
+                    </span>
+                    <div className="progress-rail" aria-hidden="true">
+                      <span
+                        className="progress-fill"
+                        style={{
+                          width: `${park.completionPercentage}%`
+                        }}
+                      />
                     </div>
-                  </>
-                ) : (
-                  <div className="state-message state-message-empty">
-                    <p>No parks match this search yet.</p>
-                    <p>Try a broader park name, city, or country query.</p>
-                  </div>
-                )}
+                  </button>
+                ))}
               </div>
-            ) : null}
-            {parksStatus.state === "error" ? (
-              <div className="state-message state-message-error">
-                <p>Unable to load parks.</p>
-                <p>{parksStatus.message}</p>
+            </section>
+          ) : null}
+
+          <section className="catalog-panel nested-panel">
+            <div className="catalog-header landing-header">
+              <div className="catalog-copy">
+                <p className="status-label">Featured now</p>
+                <h2 className="section-title">Highlighted parks keep discovery visual and lightweight.</h2>
               </div>
-            ) : null}
+            </div>
+            <div className="parks-list parks-list-featured">
+              {featuredProgressParks.length > 0
+                ? featuredProgressParks.map(({ park, progress }) => (
+                    <article className="park-card" key={park.id}>
+                      {park.imageUrl ? (
+                        <div className="media-frame media-frame-park">
+                          <img
+                            className="media-image"
+                            src={park.imageUrl}
+                            alt={`${park.name} park view`}
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="card-header">
+                        <a
+                          className="park-link"
+                          href={`/parks/${park.slug}`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            navigateToPark(park.slug);
+                          }}
+                        >
+                          <p className="park-name">{park.name}</p>
+                        </a>
+                        <span className="catalog-chip catalog-chip-ridden">
+                          {progress.completionPercentage}% complete
+                        </span>
+                      </div>
+                      <p className="park-location">
+                        {park.city}, {park.country}
+                      </p>
+                    </article>
+                  ))
+                : featuredParks.map((park) => (
+                    <article className="park-card" key={park.id}>
+                      {park.imageUrl ? (
+                        <div className="media-frame media-frame-park">
+                          <img
+                            className="media-image"
+                            src={park.imageUrl}
+                            alt={`${park.name} park view`}
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="card-header">
+                        <a
+                          className="park-link"
+                          href={`/parks/${park.slug}`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            navigateToPark(park.slug);
+                          }}
+                        >
+                          <p className="park-name">{park.name}</p>
+                        </a>
+                        <span className="catalog-chip">{park.status}</span>
+                      </div>
+                      <p className="park-location">
+                        {park.city}, {park.country}
+                      </p>
+                    </article>
+                  ))}
+            </div>
           </section>
-        </>
+        </section>
+      ) : null}
+
+      {route.view === "journal" ? (
+        <section className="catalog-panel browse-panel" aria-live="polite">
+          <div className="catalog-header">
+            <div className="catalog-copy">
+              <p className="status-label">Journal</p>
+              <h2 className="section-title">A future home for rankings, guides, and park news.</h2>
+              <p className="section-copy">
+                The route exists now so the product structure can scale into editorial and SEO-oriented content later.
+              </p>
+            </div>
+            <div className="catalog-support">
+              <p className="catalog-note">No CMS or publishing backend yet.</p>
+              <p className="catalog-note">This is an information architecture placeholder, not a dead-end landing panel.</p>
+            </div>
+          </div>
+          <div className="editorial-grid">
+            {journalTeasers.map((entry) => (
+              <article className="editorial-card" key={entry.title}>
+                <span className="editorial-tag">{entry.category}</span>
+                <h3>{entry.title}</h3>
+                <p>{entry.summary}</p>
+                <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
+                  Explore discover
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       {route.view === "park" ? (
         <section className="catalog-panel detail-surface" aria-live="polite">
           <div className="detail-layout">
             <div className="detail-nav">
-              <button className="back-link" type="button" onClick={navigateHome}>
-                Back to catalog
+              <button
+                className="back-link"
+                type="button"
+                onClick={() => {
+                  navigateToParks({ preserveSearch: true });
+                }}
+              >
+                Back to parks
               </button>
               <p className="detail-nav-copy">
-                Return to the park catalog or continue through this park&apos;s lineup below.
+                Return to the parks surface or stay here to work through this park&apos;s lineup.
               </p>
             </div>
             {parkDetailStatus.state === "loading" ? (
@@ -1680,10 +2072,10 @@ function App() {
                     <p className="status-label">Park profile</p>
                     <h2 className="detail-title">{parkDetailStatus.park.name}</h2>
                     <p className="section-copy detail-summary">
-                      {parkDetailStatus.park.city}, {parkDetailStatus.park.country}. Review the lineup, filter rides quickly, and keep progress visible while browsing.
+                      {parkDetailStatus.park.city}, {parkDetailStatus.park.country}. Review the lineup, keep filters close, and move into ride detail when needed.
                     </p>
                     <div className="detail-micro-nav" aria-label="Park route context">
-                      <span className="detail-micro-item">Catalog to park</span>
+                      <span className="detail-micro-item">Parks to park</span>
                       <span className="detail-micro-item">
                         {activeParkProgress
                           ? `${activeParkProgress.totalRides} tracked rides`
@@ -1757,7 +2149,7 @@ function App() {
                     <div>
                       <p className="status-label">Ride lineup</p>
                       <p className="section-copy">
-                        Filter and sort the tracked rides without losing progress context.
+                        Filter and sort the tracked rides inside the park surface.
                       </p>
                     </div>
                     <div className="detail-chip-row">
@@ -1910,9 +2302,6 @@ function App() {
                             {ride.manufacturer ? (
                               <p className="park-meta">Maker: {ride.manufacturer}</p>
                             ) : null}
-                            <p className="park-meta">
-                              Open the ride sheet for specs, imagery, and ride credit controls.
-                            </p>
                           </article>
                         ))}
                       </div>
@@ -1961,10 +2350,10 @@ function App() {
                   navigateBackToPark(route.parkSlug);
                 }}
               >
-                Back to park
+                Back to lineup
               </button>
               <p className="detail-nav-copy">
-                Return to the lineup to keep browsing this park, or stay here to manage the ride credit.
+                Return to the park lineup or move through rides without leaving this park context.
               </p>
             </div>
             {rideDetailStatus.state === "loading" ? (
@@ -1980,7 +2369,7 @@ function App() {
                     <p className="status-label">Ride profile</p>
                     <h2 className="detail-title">{rideDetailStatus.ride.name}</h2>
                     <p className="section-copy detail-summary">
-                      Inside {rideDetailStatus.park.name}. Review the core ride specs and keep ride credits close to the content.
+                      Inside {rideDetailStatus.park.name}. Ride detail stays focused while the surrounding park context remains visible.
                     </p>
                     <div className="detail-micro-nav" aria-label="Ride route context">
                       <span className="detail-micro-item">
@@ -2123,6 +2512,18 @@ function App() {
       </footer>
     </main>
   );
+}
+
+function catalogStateChip(status: ParksStatus) {
+  if (status.state === "success") {
+    return `${status.parks.length} results`;
+  }
+
+  if (status.state === "loading") {
+    return "Loading results";
+  }
+
+  return "Catalog unavailable";
 }
 
 export default App;
