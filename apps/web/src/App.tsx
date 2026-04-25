@@ -350,6 +350,7 @@ type Route =
   | { view: "rides" }
   | { view: "discover" }
   | { view: "profile" }
+  | { view: "user-profile"; slug: string }
   | { view: "journal" }
   | { view: "park"; slug: string }
   | { view: "ride"; parkSlug: string; rideSlug: string };
@@ -615,6 +616,15 @@ const getRoute = (pathname: string): Route => {
     return { view: "profile" };
   }
 
+  const userProfileMatch = pathname.match(/^\/users\/([^/]+)\/?$/);
+
+  if (userProfileMatch?.[1]) {
+    return {
+      view: "user-profile",
+      slug: decodeURIComponent(userProfileMatch[1])
+    };
+  }
+
   if (pathname === "/journal" || pathname === "/journal/") {
     return { view: "journal" };
   }
@@ -820,6 +830,150 @@ function ProgressionPanel({
   );
 }
 
+function ProfileSurface({
+  profile,
+  isCurrentUser,
+  onOpenPark,
+  onOpenRide,
+  onOpenPublicProfile,
+  onCopyPublicProfile
+}: {
+  profile: UserProfileResponse;
+  isCurrentUser: boolean;
+  onOpenPark: (parkSlug: string) => void;
+  onOpenRide: (parkSlug: string, rideSlug: string) => void;
+  onOpenPublicProfile?: (userSlug: string) => void;
+  onCopyPublicProfile?: (userSlug: string) => void;
+}) {
+  return (
+    <div className="profile-layout">
+      <section className="profile-hero">
+        <div className="profile-hero-copy">
+          <p className="status-label">{isCurrentUser ? "Current rider" : "Public profile"}</p>
+          <h3 className="section-title">{profile.user.name}</h3>
+          <p className="catalog-note">
+            Building a credit list across European parks, one lineup at a time.
+          </p>
+        </div>
+        <div className="detail-chip-row">
+          <span className="catalog-chip">{profile.user.role}</span>
+          {profile.user.isSeeded ? (
+            <span className="catalog-chip route-chip">Seeded fallback</span>
+          ) : null}
+          {isCurrentUser && onOpenPublicProfile ? (
+            <button
+              className="catalog-inline-button"
+              type="button"
+              onClick={() => {
+                onOpenPublicProfile(profile.user.slug);
+              }}
+            >
+              Open public profile
+            </button>
+          ) : null}
+          {isCurrentUser && onCopyPublicProfile ? (
+            <button
+              className="catalog-inline-button"
+              type="button"
+              onClick={() => {
+                onCopyPublicProfile(profile.user.slug);
+              }}
+            >
+              Copy public link
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="stats-panel" aria-label="Profile stats">
+        <div className="stats-grid">
+          <article className="stats-card">
+            <span className="stats-card-label">Ridden rides</span>
+            <strong className="stats-card-value">{profile.totalRiddenRides}</strong>
+          </article>
+          <article className="stats-card">
+            <span className="stats-card-label">Parks ridden</span>
+            <strong className="stats-card-value">{profile.totalParksWithRiddenRides}</strong>
+          </article>
+        </div>
+        <div className="stats-breakdown">
+          {profile.parks.slice(0, 4).map((park) => (
+            <button
+              className="stats-park-card"
+              key={park.parkId}
+              type="button"
+              onClick={() => {
+                onOpenPark(park.parkSlug);
+              }}
+            >
+              <span className="stats-park-name">{park.parkName}</span>
+              <span className="stats-park-value">
+                {`${park.riddenRides}/${park.totalRides} ridden`}
+              </span>
+              <div className="progress-rail" aria-hidden="true">
+                <span
+                  className="progress-fill"
+                  style={{ width: `${park.completionPercentage}%` }}
+                />
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="stats-panel" aria-label="Profile progression">
+        <ProgressionPanel
+          userProgressionStatus={{
+            state: "success",
+            userName: profile.user.name,
+            badges: profile.badges,
+            activeMissions: profile.activeMissions
+          }}
+        />
+      </section>
+
+      <section className="catalog-panel nested-panel">
+        <div className="catalog-header landing-header">
+          <div className="catalog-copy">
+            <p className="status-label">Recent activity</p>
+            <h2 className="section-title">Latest credits</h2>
+          </div>
+        </div>
+        {profile.recentActivity.length > 0 ? (
+          <div className="activity-list">
+            {profile.recentActivity.map((entry) => (
+              <article className="activity-card" key={`${entry.rideId}-${entry.riddenAt}`}>
+                <div className="activity-copy">
+                  <strong className="mission-title">{entry.rideName}</strong>
+                  <p className="card-summary">{entry.parkName}</p>
+                </div>
+                <div className="activity-meta">
+                  <span className="badge-earned-at">
+                    {new Date(entry.riddenAt).toLocaleDateString()}
+                  </span>
+                  <button
+                    className="catalog-inline-button"
+                    type="button"
+                    onClick={() => {
+                      onOpenRide(entry.parkSlug, entry.rideSlug);
+                    }}
+                  >
+                    Open ride
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="state-message state-message-empty">
+            <p>Recent ride credits will appear here.</p>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 type CuratedCollectionCardProps = {
   collection: CuratedCollection;
   isActive?: boolean;
@@ -972,6 +1126,7 @@ function App() {
   });
   const [isUpdatingRideCredit, setIsUpdatingRideCredit] = useState(false);
   const [rideCreditMessage, setRideCreditMessage] = useState<string | null>(null);
+  const [profileShareMessage, setProfileShareMessage] = useState<string | null>(null);
 
   const loadDemoUserStats = async (signal?: AbortSignal) => {
     if (!apiBaseUrl) {
@@ -1088,6 +1243,60 @@ function App() {
       const response = await fetch(new URL("/me/profile", apiBaseUrl), {
         ...(signal ? { signal } : {})
       });
+
+      if (!response.ok) {
+        setUserProfileStatus({
+          state: "error",
+          message: `Profile request failed with status ${response.status}.`
+        });
+
+        return;
+      }
+
+      const payload = (await response.json()) as UserProfileResponse;
+
+      setUserProfileStatus({
+        state: "success",
+        profile: payload
+      });
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setUserProfileStatus({
+        state: "error",
+        message:
+          error instanceof Error ? error.message : "The profile request failed."
+      });
+    }
+  };
+
+  const loadPublicUserProfile = async (userSlug: string, signal?: AbortSignal) => {
+    if (!apiBaseUrl) {
+      setUserProfileStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    setUserProfileStatus({ state: "loading" });
+
+    try {
+      const response = await fetch(new URL(`/users/${userSlug}/profile`, apiBaseUrl), {
+        ...(signal ? { signal } : {})
+      });
+
+      if (response.status === 404) {
+        setUserProfileStatus({
+          state: "error",
+          message: "User not found."
+        });
+
+        return;
+      }
 
       if (!response.ok) {
         setUserProfileStatus({
@@ -1273,15 +1482,20 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (route.view !== "profile") {
+    if (route.view !== "profile" && route.view !== "user-profile") {
       setUserProfileStatus({ state: "idle" });
+      setProfileShareMessage(null);
 
       return;
     }
 
     const controller = new AbortController();
 
-    void loadUserProfile(controller.signal);
+    if (route.view === "profile") {
+      void loadUserProfile(controller.signal);
+    } else {
+      void loadPublicUserProfile(route.slug, controller.signal);
+    }
 
     return () => {
       controller.abort();
@@ -2211,6 +2425,21 @@ function App() {
     navigateWithParams("/profile", new URLSearchParams());
   };
 
+  const navigateToPublicProfile = (userSlug: string) => {
+    navigateWithParams(`/users/${userSlug}`, new URLSearchParams());
+  };
+
+  const copyPublicProfileLink = async (userSlug: string) => {
+    const profileUrl = `${window.location.origin}/users/${userSlug}`;
+
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      setProfileShareMessage("Public profile link copied.");
+    } catch {
+      setProfileShareMessage(profileUrl);
+    }
+  };
+
   const navigateToJournal = () => {
     navigateWithParams("/journal", new URLSearchParams());
   };
@@ -2582,6 +2811,10 @@ function App() {
         ? "Discover"
         : route.view === "profile"
           ? "Profile"
+        : route.view === "user-profile"
+          ? userProfileStatus.state === "success"
+            ? userProfileStatus.profile.user.name
+            : route.slug
         : route.view === "journal"
           ? "Journal"
           : route.view === "park"
@@ -2602,6 +2835,8 @@ function App() {
         ? "Discovery"
         : route.view === "profile"
           ? "Profile"
+        : route.view === "user-profile"
+          ? "Public profile"
         : route.view === "journal"
           ? "Journal"
           : route.view === "park"
@@ -2620,10 +2855,24 @@ function App() {
             { label: "Rides" },
             { label: ridesSearchLabel }
           ]
-      : route.view === "discover"
+        : route.view === "discover"
         ? [{ label: "Discover" }]
         : route.view === "profile"
           ? [{ label: "Profile" }]
+        : route.view === "user-profile"
+          ? [
+              {
+                label: "Profile",
+                href: "/profile",
+                onClick: navigateToProfile
+              },
+              {
+                label:
+                  userProfileStatus.state === "success"
+                    ? userProfileStatus.profile.user.name
+                    : route.slug
+              }
+            ]
         : route.view === "journal"
           ? [{ label: "Journal" }]
           : route.view === "park"
@@ -2712,6 +2961,13 @@ function App() {
         ? [heroCountLabel, riddenRideCountLabel]
       : route.view === "profile"
         ? [riddenRideCountLabel, riddenParkCountLabel]
+      : route.view === "user-profile"
+        ? userProfileStatus.state === "success"
+          ? [
+              userProfileStatus.profile.user.role,
+              `${userProfileStatus.profile.totalRiddenRides} ridden`
+            ]
+          : ["Public profile"]
       : route.view === "journal"
           ? ["Coming soon"]
           : route.view === "park"
@@ -2763,7 +3019,7 @@ function App() {
     {
       label: "Profile",
       href: "/profile",
-      active: route.view === "profile",
+      active: route.view === "profile" || route.view === "user-profile",
       onClick: navigateToProfile
     },
     {
@@ -3866,118 +4122,60 @@ function App() {
           ) : null}
 
           {userProfileStatus.state === "success" ? (
-            <div className="profile-layout">
-              <section className="profile-hero">
-                <div className="profile-hero-copy">
-                  <p className="status-label">Current rider</p>
-                  <h3 className="section-title">{userProfileStatus.profile.user.name}</h3>
-                  <p className="catalog-note">
-                    Building a credit list across European parks, one lineup at a time.
-                  </p>
+            <>
+              {profileShareMessage ? (
+                <div className="state-message state-message-compact">
+                  <p>{profileShareMessage}</p>
                 </div>
-                <div className="detail-chip-row">
-                  <span className="catalog-chip">{userProfileStatus.profile.user.role}</span>
-                  {userProfileStatus.profile.user.isSeeded ? (
-                    <span className="catalog-chip route-chip">Seeded fallback</span>
-                  ) : null}
-                </div>
-              </section>
-
-              <section className="stats-panel" aria-label="Profile stats">
-                <div className="stats-grid">
-                  <article className="stats-card">
-                    <span className="stats-card-label">Ridden rides</span>
-                    <strong className="stats-card-value">
-                      {userProfileStatus.profile.totalRiddenRides}
-                    </strong>
-                  </article>
-                  <article className="stats-card">
-                    <span className="stats-card-label">Parks ridden</span>
-                    <strong className="stats-card-value">
-                      {userProfileStatus.profile.totalParksWithRiddenRides}
-                    </strong>
-                  </article>
-                </div>
-                <div className="stats-breakdown">
-                  {userProfileStatus.profile.parks.slice(0, 4).map((park) => (
-                    <button
-                      className="stats-park-card"
-                      key={park.parkId}
-                      type="button"
-                      onClick={() => {
-                        navigateToPark(park.parkSlug);
-                      }}
-                    >
-                      <span className="stats-park-name">{park.parkName}</span>
-                      <span className="stats-park-value">
-                        {`${park.riddenRides}/${park.totalRides} ridden`}
-                      </span>
-                      <div className="progress-rail" aria-hidden="true">
-                        <span
-                          className="progress-fill"
-                          style={{ width: `${park.completionPercentage}%` }}
-                        />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section className="stats-panel" aria-label="Profile progression">
-                <ProgressionPanel
-                  userProgressionStatus={{
-                    state: "success",
-                    userName: userProfileStatus.profile.user.name,
-                    badges: userProfileStatus.profile.badges,
-                    activeMissions: userProfileStatus.profile.activeMissions
-                  }}
-                />
-              </section>
-
-              <section className="catalog-panel nested-panel">
-                <div className="catalog-header landing-header">
-                  <div className="catalog-copy">
-                    <p className="status-label">Recent activity</p>
-                    <h2 className="section-title">Latest credits</h2>
-                  </div>
-                </div>
-                {userProfileStatus.profile.recentActivity.length > 0 ? (
-                  <div className="activity-list">
-                    {userProfileStatus.profile.recentActivity.map((entry) => (
-                      <article className="activity-card" key={`${entry.rideId}-${entry.riddenAt}`}>
-                        <div className="activity-copy">
-                          <strong className="mission-title">{entry.rideName}</strong>
-                          <p className="card-summary">{entry.parkName}</p>
-                        </div>
-                        <div className="activity-meta">
-                          <span className="badge-earned-at">
-                            {new Date(entry.riddenAt).toLocaleDateString()}
-                          </span>
-                          <button
-                            className="catalog-inline-button"
-                            type="button"
-                            onClick={() => {
-                              navigateToRide(entry.parkSlug, entry.rideSlug);
-                            }}
-                          >
-                            Open ride
-                          </button>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="state-message state-message-empty">
-                    <p>Your recent ride credits will appear here.</p>
-                  </div>
-                )}
-              </section>
-            </div>
+              ) : null}
+              <ProfileSurface
+                profile={userProfileStatus.profile}
+                isCurrentUser
+                onOpenPark={(parkSlug) => {
+                  navigateToPark(parkSlug);
+                }}
+                onOpenRide={(parkSlug, rideSlug) => {
+                  navigateToRide(parkSlug, rideSlug);
+                }}
+                onOpenPublicProfile={navigateToPublicProfile}
+                onCopyPublicProfile={copyPublicProfileLink}
+              />
+            </>
           ) : null}
 
           {userProfileStatus.state === "error" ? (
             <div className="state-message state-message-error">
               <p>Unable to load your profile.</p>
+              <p>{userProfileStatus.message}</p>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {route.view === "user-profile" ? (
+        <section className="catalog-panel browse-panel" aria-live="polite">
+          {userProfileStatus.state === "loading" ? (
+            <div className="state-message state-message-loading">
+              <p>Loading profile...</p>
+            </div>
+          ) : null}
+
+          {userProfileStatus.state === "success" ? (
+            <ProfileSurface
+              profile={userProfileStatus.profile}
+              isCurrentUser={false}
+              onOpenPark={(parkSlug) => {
+                navigateToPark(parkSlug);
+              }}
+              onOpenRide={(parkSlug, rideSlug) => {
+                navigateToRide(parkSlug, rideSlug);
+              }}
+            />
+          ) : null}
+
+          {userProfileStatus.state === "error" ? (
+            <div className="state-message state-message-error">
+              <p>Unable to load this profile.</p>
               <p>{userProfileStatus.message}</p>
             </div>
           ) : null}
