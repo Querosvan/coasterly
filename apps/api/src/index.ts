@@ -9,6 +9,7 @@ import {
   getDemoUserRideStats,
   getExternalSourceMapping,
   getUserProfile,
+  getUserProfileBySlug,
   getUserProgression,
   getRideStatsForUser,
   getParkBySlug,
@@ -354,6 +355,20 @@ app.get("/me/profile", async (request, reply) => {
 
     throw error;
   }
+});
+
+app.get<{ Params: { slug: string } }>("/users/:slug/profile", async (request, reply) => {
+  const profile = await getUserProfileBySlug(request.params.slug);
+
+  if (!profile) {
+    return reply.code(404).send({
+      message: "User not found."
+    });
+  }
+
+  const response: UserProfileResponse = profile;
+
+  return response;
 });
 
 app.get<{ Params: { slug: string; rideSlug: string } }>(

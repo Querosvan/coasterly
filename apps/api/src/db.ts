@@ -1574,6 +1574,18 @@ export const getDemoUserProfile = async () => {
   return getUserProfile(user);
 };
 
+export const getUserProfileBySlug = async (
+  userSlug: string
+): Promise<UserProfileResponse | null> => {
+  const user = await getUserBySlug(userSlug);
+
+  if (!user) {
+    return null;
+  }
+
+  return getUserProfile(user);
+};
+
 export const addRideCreditForUser = async (
   user: UserSummary,
   parkSlug: string,
