@@ -182,6 +182,54 @@ export interface CommunityHighlightsResponse {
   profiles: CommunityHighlight[];
 }
 
+export interface DailyChallengeOption {
+  id: string;
+  label: string;
+}
+
+export interface DailyChallengeQuestionRide {
+  id: number;
+  name: string;
+  slug: string;
+  parkSlug: string;
+  imageUrl?: string;
+}
+
+export interface DailyChallengeQuestion {
+  id: string;
+  challengeDate: string;
+  title: string;
+  prompt: string;
+  ride: DailyChallengeQuestionRide;
+  options: DailyChallengeOption[];
+}
+
+export interface DailyChallengeAttempt {
+  selectedOptionId: string;
+  correctOptionId: string;
+  isCorrect: boolean;
+  earnedXp: number;
+  answeredAt: string;
+}
+
+export interface DailyChallengeSummary {
+  totalXp: number;
+  level: number;
+  currentStreak: number;
+  completedDays: number;
+}
+
+export interface DailyChallengeResponse {
+  user: UserSummary;
+  summary: DailyChallengeSummary;
+  challenge: DailyChallengeQuestion;
+  attempt?: DailyChallengeAttempt;
+}
+
+export interface DailyChallengeAnswerRequest {
+  optionId: string;
+}
+
 export type AdminEditableEntityKind =
   | "park"
   | "ride"

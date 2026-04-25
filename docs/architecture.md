@@ -146,6 +146,13 @@ Coasterly now has a lightweight user-progression layer built on top of the exist
 
 This gives the product a repeat-use foundation without committing too early to a larger achievement or seasonal-events system.
 
+The next retention layer now adds a daily challenge foundation:
+
+- `/me/daily-challenge` resolves a single daily question for the current user
+- `/me/daily-challenge/answer` locks in one answer per UTC day and awards XP
+- the same seeded fallback behavior remains available through the current-user resolution path
+- challenge state is intentionally small: one persisted attempt per user per day, plus derived XP and streak
+
 The next profile layer now builds on top of that:
 
 - `/me/profile` aggregates current-user stats, progression, and recent ride activity
