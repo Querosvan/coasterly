@@ -15,6 +15,7 @@ import {
   getParkBySlug,
   getRideBySlugs,
   initializeDatabase,
+  listCommunityHighlights,
   listRideCreditsForUser,
   listRideCatalog,
   listDemoUserRideCredits,
@@ -35,6 +36,7 @@ import {
 } from "./integrations/queue-times.js";
 
 import type {
+  CommunityHighlightsResponse,
   CurrentUserResponse,
   DemoUserStatsResponse,
   HealthResponse,
@@ -255,6 +257,14 @@ app.get("/demo-user/progression", async () => {
 
 app.get("/demo-user/profile", async () => {
   const response: UserProfileResponse = await getDemoUserProfile();
+
+  return response;
+});
+
+app.get("/community/highlights", async () => {
+  const response: CommunityHighlightsResponse = {
+    profiles: await listCommunityHighlights()
+  };
 
   return response;
 });
