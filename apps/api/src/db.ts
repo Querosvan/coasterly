@@ -7,6 +7,7 @@ import type {
   ExternalSourceName,
   Park,
   ParkStatus,
+  UserProfileResponse,
   UserProgressionResponse,
   RideCatalogItem,
   RideSort,
@@ -1503,6 +1504,71 @@ export const getDemoUserProgression = async () => {
   const user = await getPrimarySeedUser();
 
   return getUserProgression(user);
+};
+
+const listRecentRideActivityForUser = async (
+  user: UserSummary
+): Promise<UserProfileResponse["recentActivity"]> => {
+  const result = await pool.query<{
+    ride_id: number;
+    ride_name: string;
+    ride_slug: string;
+    park_name: string;
+    park_slug: string;
+    ridden_at: string;
+  }>(
+    `
+      SELECT
+        rides.id AS ride_id,
+        rides.name AS ride_name,
+        rides.slug AS ride_slug,
+        parks.name AS park_name,
+        parks.slug AS park_slug,
+        user_ride_credits.created_at AS ridden_at
+      FROM user_ride_credits
+      INNER JOIN rides ON rides.id = user_ride_credits.ride_id
+      INNER JOIN parks ON parks.id = rides.park_id
+      WHERE user_ride_credits.user_id = $1
+      ORDER BY user_ride_credits.created_at DESC, rides.name ASC
+      LIMIT 8
+    `,
+    [user.id]
+  );
+
+  return result.rows.map((row) => ({
+    rideId: row.ride_id,
+    rideName: row.ride_name,
+    rideSlug: row.ride_slug,
+    parkName: row.park_name,
+    parkSlug: row.park_slug,
+    riddenAt: row.ridden_at
+  }));
+};
+
+export const getUserProfile = async (
+  user: UserSummary
+): Promise<UserProfileResponse> => {
+  const [stats, progression, recentActivity] = await Promise.all([
+    getRideStatsForUser(user),
+    getUserProgression(user),
+    listRecentRideActivityForUser(user)
+  ]);
+
+  return {
+    user,
+    totalRiddenRides: stats.totalRiddenRides,
+    totalParksWithRiddenRides: stats.totalParksWithRiddenRides,
+    parks: stats.parks,
+    badges: progression.badges,
+    activeMissions: progression.activeMissions,
+    recentActivity
+  };
+};
+
+export const getDemoUserProfile = async () => {
+  const user = await getPrimarySeedUser();
+
+  return getUserProfile(user);
 };
 
 export const addRideCreditForUser = async (
