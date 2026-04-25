@@ -14,7 +14,8 @@ import type {
   RideCreditMutationResponse,
   RideCreditsResponse,
   RideResponse,
-  RidesResponse
+  RidesResponse,
+  UserProgressionResponse
 } from "@coasterly/types";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -419,6 +420,16 @@ type DemoUserStatsStatus =
     }
   | { state: "error"; message: string };
 
+type UserProgressionStatus =
+  | { state: "loading" }
+  | {
+      state: "success";
+      userName: string;
+      badges: UserProgressionResponse["badges"];
+      activeMissions: UserProgressionResponse["activeMissions"];
+    }
+  | { state: "error"; message: string };
+
 type RideDetailStatus =
   | { state: "idle" }
   | { state: "loading" }
@@ -707,6 +718,96 @@ function QueueTimesAttribution() {
   );
 }
 
+function ProgressionPanel({
+  userProgressionStatus
+}: {
+  userProgressionStatus: UserProgressionStatus;
+}) {
+  if (userProgressionStatus.state === "loading") {
+    return (
+      <div className="state-message state-message-loading">
+        <p>Loading missions...</p>
+      </div>
+    );
+  }
+
+  if (userProgressionStatus.state === "error") {
+    return (
+      <div className="state-message state-message-error">
+        <p>Unable to load missions.</p>
+        <p>{userProgressionStatus.message}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="progression-panel">
+      <div className="progression-section">
+        <div className="section-row section-row-compact">
+          <div>
+            <p className="status-label">Active missions</p>
+          </div>
+          <span className="catalog-chip">
+            {formatCountLabel(userProgressionStatus.activeMissions.length, "mission")}
+          </span>
+        </div>
+        <div className="mission-grid">
+          {userProgressionStatus.activeMissions.map((mission) => (
+            <article className="mission-card" key={mission.id}>
+              <div className="mission-copy">
+                <strong className="mission-title">{mission.title}</strong>
+                <p className="card-summary">{mission.summary}</p>
+              </div>
+              <div className="mission-progress-row">
+                <span className="progress-label">{mission.progressLabel}</span>
+                <strong className="mission-progress-value">
+                  {mission.completionPercentage}%
+                </strong>
+              </div>
+              <div className="progress-rail" aria-hidden="true">
+                <span
+                  className="progress-fill"
+                  style={{ width: `${mission.completionPercentage}%` }}
+                />
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className="progression-section">
+        <div className="section-row section-row-compact">
+          <div>
+            <p className="status-label">Recent badges</p>
+          </div>
+          <span className="catalog-chip catalog-chip-ridden">
+            {formatCountLabel(userProgressionStatus.badges.length, "badge")}
+          </span>
+        </div>
+        <div className="badge-grid">
+          {userProgressionStatus.badges.length > 0 ? (
+            userProgressionStatus.badges.slice(0, 4).map((badge) => (
+              <article className={`badge-card badge-card-${badge.tone}`} key={badge.id}>
+                <div className="badge-copy">
+                  <strong className="mission-title">{badge.title}</strong>
+                  <p className="card-summary">{badge.summary}</p>
+                </div>
+                <span className="badge-earned-at">
+                  Earned {new Date(badge.earnedAt).toLocaleDateString()}
+                </span>
+              </article>
+            ))
+          ) : (
+            <div className="state-message state-message-empty state-message-compact">
+              <p>Badges will appear as you log more rides.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type CuratedCollectionCardProps = {
   collection: CuratedCollection;
   isActive?: boolean;
@@ -811,6 +912,9 @@ function App() {
   const [demoUserStatsStatus, setDemoUserStatsStatus] = useState<DemoUserStatsStatus>({
     state: "loading"
   });
+  const [userProgressionStatus, setUserProgressionStatus] = useState<UserProgressionStatus>({
+    state: "loading"
+  });
   const [rideDetailStatus, setRideDetailStatus] = useState<RideDetailStatus>({
     state: "idle"
   });
@@ -866,6 +970,55 @@ function App() {
           error instanceof Error
             ? error.message
             : "The demo user stats request failed."
+      });
+    }
+  };
+
+  const loadUserProgression = async (signal?: AbortSignal) => {
+    if (!apiBaseUrl) {
+      setUserProgressionStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    setUserProgressionStatus({ state: "loading" });
+
+    try {
+      const response = await fetch(new URL("/me/progression", apiBaseUrl), {
+        ...(signal ? { signal } : {})
+      });
+
+      if (!response.ok) {
+        setUserProgressionStatus({
+          state: "error",
+          message: `Progression request failed with status ${response.status}.`
+        });
+
+        return;
+      }
+
+      const payload = (await response.json()) as UserProgressionResponse;
+
+      setUserProgressionStatus({
+        state: "success",
+        userName: payload.user.name,
+        badges: payload.badges,
+        activeMissions: payload.activeMissions
+      });
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setUserProgressionStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The progression request failed."
       });
     }
   };
@@ -1016,6 +1169,7 @@ function App() {
     const controller = new AbortController();
 
     void loadDemoUserStats(controller.signal);
+    void loadUserProgression(controller.signal);
 
     return () => {
       controller.abort();
@@ -2044,6 +2198,7 @@ function App() {
 
       updateRiddenRide(payload.rideId, payload.ridden);
       await loadDemoUserStats();
+      await loadUserProgression();
       setRideCreditMessage(
         payload.ridden ? "Ride marked as ridden." : "Ride marked as not ridden."
       );
@@ -2488,7 +2643,6 @@ function App() {
       onClick: navigateToJournal
     }
   ];
-
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -2807,6 +2961,7 @@ function App() {
                       </button>
                     ))}
                   </div>
+                  <ProgressionPanel userProgressionStatus={userProgressionStatus} />
                 </div>
               ) : demoUserStatsStatus.state === "loading" ? (
                 <div className="state-message state-message-loading">
@@ -3410,6 +3565,7 @@ function App() {
                   </button>
                 ))}
               </div>
+              <ProgressionPanel userProgressionStatus={userProgressionStatus} />
             </section>
           ) : null}
 

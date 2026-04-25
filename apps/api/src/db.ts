@@ -7,6 +7,7 @@ import type {
   ExternalSourceName,
   Park,
   ParkStatus,
+  UserProgressionResponse,
   RideCatalogItem,
   RideSort,
   Ride,
@@ -20,6 +21,10 @@ import {
   queueTimesParkSeedMappings,
   queueTimesRideSeedMappings
 } from "./integrations/queue-times.js";
+import {
+  buildUserProgression,
+  type ProgressionRideCreditRecord
+} from "./progression.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -1440,6 +1445,65 @@ const getUserRideStatsBySlug = async (userSlug: string): Promise<{
 
 export const getDemoUserRideStats = async () =>
   getUserRideStatsBySlug(demoUserSeed.slug);
+
+const listRideCreditDetailsForUser = async (
+  user: UserSummary
+): Promise<ProgressionRideCreditRecord[]> => {
+  const result = await pool.query<{
+    created_at: string;
+    park_slug: string;
+    ride_type: string;
+    manufacturer: string | null;
+  }>(
+    `
+      SELECT
+        user_ride_credits.created_at,
+        parks.slug AS park_slug,
+        rides.ride_type,
+        rides.manufacturer
+      FROM user_ride_credits
+      INNER JOIN rides ON rides.id = user_ride_credits.ride_id
+      INNER JOIN parks ON parks.id = rides.park_id
+      WHERE user_ride_credits.user_id = $1
+      ORDER BY user_ride_credits.created_at ASC, rides.id ASC
+    `,
+    [user.id]
+  );
+
+  return result.rows.map((row) => ({
+    createdAt: row.created_at,
+    parkSlug: row.park_slug,
+    rideType: row.ride_type,
+    ...(row.manufacturer ? { manufacturer: row.manufacturer } : {})
+  }));
+};
+
+export const getUserProgression = async (
+  user: UserSummary
+): Promise<UserProgressionResponse> => {
+  const [stats, rideCredits] = await Promise.all([
+    getRideStatsForUser(user),
+    listRideCreditDetailsForUser(user)
+  ]);
+  const progression = buildUserProgression({
+    rideCredits,
+    parkProgress: stats.parks,
+    totalRiddenRides: stats.totalRiddenRides,
+    totalParksWithRiddenRides: stats.totalParksWithRiddenRides
+  });
+
+  return {
+    user,
+    badges: progression.badges,
+    activeMissions: progression.activeMissions
+  };
+};
+
+export const getDemoUserProgression = async () => {
+  const user = await getPrimarySeedUser();
+
+  return getUserProgression(user);
+};
 
 export const addRideCreditForUser = async (
   user: UserSummary,

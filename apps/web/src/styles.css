@@ -1008,6 +1008,72 @@ img {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.progression-panel,
+.progression-section,
+.mission-grid,
+.badge-grid,
+.mission-card,
+.badge-card,
+.mission-copy,
+.mission-progress-row {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.progression-panel {
+  gap: 1rem;
+}
+
+.progression-section {
+  padding-top: 0.25rem;
+}
+
+.mission-grid,
+.badge-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.mission-card,
+.badge-card {
+  padding: 0.95rem;
+  border-radius: 20px;
+  border: 1px solid rgba(19, 37, 59, 0.07);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.mission-title {
+  color: var(--brand-navy-strong);
+  font-weight: 800;
+}
+
+.mission-progress-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mission-progress-value,
+.badge-earned-at {
+  color: #566971;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.badge-card-milestone {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 243, 236, 0.96));
+}
+
+.badge-card-explorer {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(240, 245, 248, 0.96));
+}
+
+.badge-card-lineup {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 245, 240, 0.96));
+}
+
 .stats-park-card,
 .park-card,
 .ride-card,

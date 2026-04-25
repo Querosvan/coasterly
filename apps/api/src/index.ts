@@ -4,8 +4,10 @@ import cors from "@fastify/cors";
 import {
   addRideCreditForUser,
   closeDatabase,
+  getDemoUserProgression,
   getDemoUserRideStats,
   getExternalSourceMapping,
+  getUserProgression,
   getRideStatsForUser,
   getParkBySlug,
   getRideBySlugs,
@@ -36,6 +38,7 @@ import type {
   ParkResponse,
   ParkLiveWaitsResponse,
   ParksResponse,
+  UserProgressionResponse,
   RideCatalogResponse,
   RideCreditMutationResponse,
   RideCreditsResponse,
@@ -240,6 +243,12 @@ app.get("/demo-user/stats", async () => {
   return response;
 });
 
+app.get("/demo-user/progression", async () => {
+  const response: UserProgressionResponse = await getDemoUserProgression();
+
+  return response;
+});
+
 app.get("/me", async (request, reply) => {
   try {
     const response: CurrentUserResponse = await resolveRequestCurrentUser(request);
@@ -289,6 +298,25 @@ app.get("/me/stats", async (request, reply) => {
       totalParksWithRiddenRides: stats.totalParksWithRiddenRides,
       parks: stats.parks
     };
+
+    return response;
+  } catch (error) {
+    if (error instanceof CurrentUserResolutionError) {
+      return reply.code(error.statusCode).send({
+        message: error.message
+      });
+    }
+
+    throw error;
+  }
+});
+
+app.get("/me/progression", async (request, reply) => {
+  try {
+    const currentUser = await resolveRequestCurrentUser(request);
+    const response: UserProgressionResponse = await getUserProgression(
+      currentUser.user
+    );
 
     return response;
   } catch (error) {

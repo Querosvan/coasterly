@@ -124,6 +124,32 @@ export interface DemoUserStatsResponse {
   parks: DemoUserParkProgress[];
 }
 
+export type ProgressionBadgeTone = "milestone" | "explorer" | "lineup";
+
+export interface UserProgressionBadge {
+  id: string;
+  title: string;
+  summary: string;
+  tone: ProgressionBadgeTone;
+  earnedAt: string;
+}
+
+export interface UserProgressionMission {
+  id: string;
+  title: string;
+  summary: string;
+  progressCurrent: number;
+  progressTarget: number;
+  progressLabel: string;
+  completionPercentage: number;
+}
+
+export interface UserProgressionResponse {
+  user: UserSummary;
+  badges: UserProgressionBadge[];
+  activeMissions: UserProgressionMission[];
+}
+
 export type AdminEditableEntityKind =
   | "park"
   | "ride"

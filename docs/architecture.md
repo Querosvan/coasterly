@@ -135,6 +135,17 @@ The API now also has a minimal current-user resolution layer:
 
 This makes future auth integration much cleaner because a later provider-specific middleware layer only needs to supply claims, not redesign the user model.
 
+## Progression Foundations
+
+Coasterly now has a lightweight user-progression layer built on top of the existing ride-credit data.
+
+- progression is derived from `user_ride_credits` and park completion data
+- the first version exposes badges and active missions through `/me/progression`
+- `/demo-user/progression` remains available as a compatibility layer for non-auth and seeded-user flows
+- no separate gamification tables were introduced yet, which keeps the first version easy to evolve while the product loop is still being validated
+
+This gives the product a repeat-use foundation without committing too early to a larger achievement or seasonal-events system.
+
 The intended future backoffice editing areas are:
 
 - parks
