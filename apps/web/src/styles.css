@@ -923,6 +923,17 @@ img {
   background: rgba(255, 255, 255, 1);
 }
 
+.catalog-inline-button-accent {
+  border-color: rgba(245, 130, 32, 0.24);
+  background: rgba(255, 244, 233, 0.98);
+  color: var(--brand-orange-strong);
+}
+
+.catalog-inline-button:disabled {
+  cursor: default;
+  opacity: 0.68;
+}
+
 .filter-disclosure {
   display: contents;
 }
@@ -1958,6 +1969,11 @@ img {
 .state-message-error {
   background: rgba(251, 238, 238, 0.96);
   color: #8f3434;
+}
+
+.state-message-success {
+  background: rgba(239, 247, 240, 0.96);
+  color: #2f6d44;
 }
 
 .state-message-empty {

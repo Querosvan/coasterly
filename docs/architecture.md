@@ -150,6 +150,7 @@ The next retention layer now adds a daily challenge foundation:
 
 - `/me/daily-challenge` resolves a single daily question for the current user
 - `/me/daily-challenge/answer` locks in one answer per UTC day and awards XP
+- `/me/daily-challenge/reward` allows one daily reward claim and feeds the same XP summary
 - the same seeded fallback behavior remains available through the current-user resolution path
 - challenge state is intentionally small: one persisted attempt per user per day, plus derived XP and streak
 

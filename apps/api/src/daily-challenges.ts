@@ -15,6 +15,7 @@ export type DailyChallengeCatalogItem = {
 
 export const DAILY_CHALLENGE_CORRECT_XP = 25;
 export const DAILY_CHALLENGE_INCORRECT_XP = 10;
+export const DAILY_REWARD_XP = 15;
 
 const toUtcDateKey = (value: Date) => value.toISOString().slice(0, 10);
 
@@ -92,12 +93,14 @@ export const buildDailyChallengeQuestion = (
 };
 
 export const buildDailyChallengeSummary = (
-  attempts: Array<Pick<DailyChallengeAttempt, "earnedXp"> & { challengeDate: string }>
+  attempts: Array<Pick<DailyChallengeAttempt, "earnedXp"> & { challengeDate: string }>,
+  bonusXpTotal = 0
 ): DailyChallengeSummary => {
   const sortedAttempts = [...attempts].sort((left, right) =>
     left.challengeDate.localeCompare(right.challengeDate)
   );
-  const totalXp = sortedAttempts.reduce((total, attempt) => total + attempt.earnedXp, 0);
+  const totalXp =
+    sortedAttempts.reduce((total, attempt) => total + attempt.earnedXp, 0) + bonusXpTotal;
   const level = Math.floor(totalXp / 100) + 1;
   let currentStreak = 0;
   const todayDayNumber = toDayNumber(getTodayChallengeDateKey());
