@@ -107,6 +107,12 @@ const missionDefinitions: MissionDefinition[] = [
 const clampPercentage = (value: number) =>
   Math.max(0, Math.min(100, Math.round(value)));
 
+const toTimestampValue = (value: string) => {
+  const timestamp = Date.parse(value);
+
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+};
+
 export const buildUserProgression = (input: {
   rideCredits: ProgressionRideCreditRecord[];
   parkProgress: DemoUserParkProgress[];
@@ -195,7 +201,10 @@ export const buildUserProgression = (input: {
       };
     })
     .filter((badge): badge is UserProgressionBadge => Boolean(badge))
-    .sort((left, right) => right.earnedAt.localeCompare(left.earnedAt));
+    .sort(
+      (left, right) =>
+        toTimestampValue(right.earnedAt) - toTimestampValue(left.earnedAt)
+    );
 
   const distinctManufacturers = new Set(
     input.rideCredits

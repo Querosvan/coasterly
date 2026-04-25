@@ -1450,7 +1450,7 @@ const listRideCreditDetailsForUser = async (
   user: UserSummary
 ): Promise<ProgressionRideCreditRecord[]> => {
   const result = await pool.query<{
-    created_at: string;
+    created_at: string | Date;
     park_slug: string;
     ride_type: string;
     manufacturer: string | null;
@@ -1471,7 +1471,10 @@ const listRideCreditDetailsForUser = async (
   );
 
   return result.rows.map((row) => ({
-    createdAt: row.created_at,
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : row.created_at,
     parkSlug: row.park_slug,
     rideType: row.ride_type,
     ...(row.manufacturer ? { manufacturer: row.manufacturer } : {})
