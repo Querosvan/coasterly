@@ -1,6 +1,7 @@
 import type {
   DailyChallengeAttempt,
   DailyChallengeQuestion,
+  DailyChallengeQuestionKind,
   DailyChallengeSummary
 } from "@coasterly/types";
 
@@ -11,6 +12,8 @@ export type DailyChallengeCatalogItem = {
   rideImageUrl?: string;
   parkSlug: string;
   parkName: string;
+  rideType: string;
+  manufacturer?: string;
 };
 
 export const DAILY_CHALLENGE_CORRECT_XP = 25;
@@ -37,6 +40,130 @@ const shuffleDeterministically = <T>(items: T[], seed: number) => {
 
 export const getTodayChallengeDateKey = (now = new Date()) => toUtcDateKey(now);
 
+type ChallengeTemplate = {
+  kind: DailyChallengeQuestionKind;
+  title: string;
+  buildOptions: (
+    catalog: DailyChallengeCatalogItem[],
+    selectedRide: DailyChallengeCatalogItem,
+    seed: number
+  ) => {
+    prompt: string;
+    correctOptionId: string;
+    options: DailyChallengeQuestion["options"];
+  } | null;
+};
+
+const buildDistinctOptions = (
+  values: Array<{ id: string; label: string }>,
+  correctOption: { id: string; label: string },
+  seed: number
+) => {
+  const distractors = values.filter((option) => option.id !== correctOption.id);
+  const chosenDistractors = shuffleDeterministically(distractors, seed).slice(0, 3);
+
+  return shuffleDeterministically([...chosenDistractors, correctOption], seed + 13);
+};
+
+const challengeTemplates: ChallengeTemplate[] = [
+  {
+    kind: "ride_to_park",
+    title: "Daily park challenge",
+    buildOptions: (catalog, selectedRide, seed) => {
+      const values = Array.from(
+        new Map(
+          catalog.map((item) => [
+            item.parkSlug,
+            {
+              id: item.parkSlug,
+              label: item.parkName
+            }
+          ])
+        ).values()
+      ).sort((left, right) => left.label.localeCompare(right.label));
+
+      return {
+        prompt: `Which park is ${selectedRide.rideName} in?`,
+        correctOptionId: selectedRide.parkSlug,
+        options: buildDistinctOptions(
+          values,
+          {
+            id: selectedRide.parkSlug,
+            label: selectedRide.parkName
+          },
+          seed
+        )
+      };
+    }
+  },
+  {
+    kind: "ride_to_manufacturer",
+    title: "Daily manufacturer challenge",
+    buildOptions: (catalog, selectedRide, seed) => {
+      if (!selectedRide.manufacturer) {
+        return null;
+      }
+
+      const values = Array.from(
+        new Map(
+          catalog
+            .filter((item) => item.manufacturer)
+            .map((item) => [
+              item.manufacturer!,
+              {
+                id: item.manufacturer!,
+                label: item.manufacturer!
+              }
+            ])
+        ).values()
+      ).sort((left, right) => left.label.localeCompare(right.label));
+
+      return {
+        prompt: `Who manufactured ${selectedRide.rideName}?`,
+        correctOptionId: selectedRide.manufacturer,
+        options: buildDistinctOptions(
+          values,
+          {
+            id: selectedRide.manufacturer,
+            label: selectedRide.manufacturer
+          },
+          seed
+        )
+      };
+    }
+  },
+  {
+    kind: "ride_to_type",
+    title: "Daily ride type challenge",
+    buildOptions: (catalog, selectedRide, seed) => {
+      const values = Array.from(
+        new Map(
+          catalog.map((item) => [
+            item.rideType,
+            {
+              id: item.rideType,
+              label: item.rideType
+            }
+          ])
+        ).values()
+      ).sort((left, right) => left.label.localeCompare(right.label));
+
+      return {
+        prompt: `What type of coaster is ${selectedRide.rideName}?`,
+        correctOptionId: selectedRide.rideType,
+        options: buildDistinctOptions(
+          values,
+          {
+            id: selectedRide.rideType,
+            label: selectedRide.rideType
+          },
+          seed
+        )
+      };
+    }
+  }
+];
+
 export const buildDailyChallengeQuestion = (
   catalog: DailyChallengeCatalogItem[],
   challengeDate: string
@@ -51,36 +178,26 @@ export const buildDailyChallengeQuestion = (
       left.parkName.localeCompare(right.parkName)
   );
   const challengeSeed = toDayNumber(challengeDate);
-  const selectedRide = sortedCatalog[challengeSeed % sortedCatalog.length]!;
-  const allParkOptions = Array.from(
-    new Map(
-      sortedCatalog.map((item) => [
-        item.parkSlug,
-        {
-          id: item.parkSlug,
-          label: item.parkName
-        }
-      ])
-    ).values()
-  ).sort((left, right) => left.label.localeCompare(right.label));
-  const distractors = allParkOptions.filter((option) => option.id !== selectedRide.parkSlug);
-  const chosenDistractors = shuffleDeterministically(distractors, challengeSeed).slice(0, 3);
-  const options = shuffleDeterministically(
-    [
-      ...chosenDistractors,
-      {
-        id: selectedRide.parkSlug,
-        label: selectedRide.parkName
-      }
-    ],
-    challengeSeed + 13
-  );
+  const template = challengeTemplates[challengeSeed % challengeTemplates.length]!;
+  const templateEligibleCatalog =
+    template.kind === "ride_to_manufacturer"
+      ? sortedCatalog.filter((item) => item.manufacturer)
+      : sortedCatalog;
+  const eligibleCatalog =
+    templateEligibleCatalog.length > 0 ? templateEligibleCatalog : sortedCatalog;
+  const selectedRide = eligibleCatalog[challengeSeed % eligibleCatalog.length]!;
+  const builtQuestion = template.buildOptions(sortedCatalog, selectedRide, challengeSeed);
+
+  if (!builtQuestion) {
+    return null;
+  }
 
   return {
-    id: `ride-park-${challengeDate}`,
+    id: `${template.kind}-${challengeDate}`,
     challengeDate,
-    title: "Daily ride challenge",
-    prompt: `Which park is ${selectedRide.rideName} in?`,
+    kind: template.kind,
+    title: template.title,
+    prompt: builtQuestion.prompt,
     ride: {
       id: selectedRide.rideId,
       name: selectedRide.rideName,
@@ -88,7 +205,7 @@ export const buildDailyChallengeQuestion = (
       parkSlug: selectedRide.parkSlug,
       ...(selectedRide.rideImageUrl ? { imageUrl: selectedRide.rideImageUrl } : {})
     },
-    options
+    options: builtQuestion.options
   };
 };
 

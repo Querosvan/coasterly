@@ -1597,6 +1597,8 @@ const listDailyChallengeCatalogItems = async (): Promise<DailyChallengeCatalogIt
     ride_image_url: string | null;
     park_slug: string;
     park_name: string;
+    ride_type: string;
+    manufacturer: string | null;
   }>(
     `
       SELECT
@@ -1605,7 +1607,9 @@ const listDailyChallengeCatalogItems = async (): Promise<DailyChallengeCatalogIt
         rides.slug AS ride_slug,
         rides.image_url AS ride_image_url,
         parks.slug AS park_slug,
-        parks.name AS park_name
+        parks.name AS park_name,
+        rides.ride_type AS ride_type,
+        rides.manufacturer AS manufacturer
       FROM rides
       INNER JOIN parks ON parks.id = rides.park_id
       ORDER BY rides.name ASC, parks.name ASC
@@ -1618,7 +1622,9 @@ const listDailyChallengeCatalogItems = async (): Promise<DailyChallengeCatalogIt
     rideSlug: row.ride_slug,
     ...(row.ride_image_url ? { rideImageUrl: row.ride_image_url } : {}),
     parkSlug: row.park_slug,
-    parkName: row.park_name
+    parkName: row.park_name,
+    rideType: row.ride_type,
+    ...(row.manufacturer ? { manufacturer: row.manufacturer } : {})
   }));
 };
 
@@ -1921,13 +1927,20 @@ export const submitDailyChallengeAnswerForUser = async (
     throw new Error("Invalid daily challenge option.");
   }
 
-  const rideCatalogItem = catalog.find((item) => item.rideId === challenge.ride.id);
+  const attemptCorrectOptionId =
+    challenge.kind === "ride_to_park"
+      ? challenge.ride.parkSlug
+      : challenge.kind === "ride_to_manufacturer"
+        ? catalog.find((item) => item.rideId === challenge.ride.id)?.manufacturer ?? ""
+        : catalog.find((item) => item.rideId === challenge.ride.id)?.rideType ?? "";
+  const correctOptionId = challenge.options.find(
+    (option) => option.id === attemptCorrectOptionId
+  )?.id ?? attemptCorrectOptionId;
 
-  if (!rideCatalogItem) {
-    throw new Error("Daily challenge ride is not available.");
+  if (!correctOptionId) {
+    throw new Error("Daily challenge answer is not available.");
   }
 
-  const correctOptionId = rideCatalogItem.parkSlug;
   const isCorrect = optionId === correctOptionId;
   const earnedXp = isCorrect
     ? DAILY_CHALLENGE_CORRECT_XP
