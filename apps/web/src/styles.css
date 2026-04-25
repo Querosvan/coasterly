@@ -364,12 +364,6 @@ img {
   align-content: center;
 }
 
-.hero-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-}
-
 .hero-mark,
 .stats-mark {
   display: block;
@@ -966,6 +960,7 @@ img {
   color: var(--brand-navy-strong);
   font-weight: 800;
   letter-spacing: -0.05em;
+  text-wrap: balance;
 }
 
 .section-title {
@@ -1088,7 +1083,7 @@ img {
 
 .profile-hero {
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+  align-items: center;
   padding: 1rem 1.05rem;
   border-radius: 24px;
   border: 1px solid rgba(19, 37, 59, 0.07);
@@ -1143,6 +1138,7 @@ img {
   color: var(--brand-navy-strong);
   font-size: 1.05rem;
   font-weight: 800;
+  text-wrap: balance;
 }
 
 .community-profile-link:hover,
@@ -1176,6 +1172,7 @@ img {
 .community-activity-meta {
   color: #63757e;
   font-size: 0.88rem;
+  overflow-wrap: anywhere;
 }
 
 .daily-challenge-panel {
@@ -1236,6 +1233,11 @@ img {
 .daily-challenge-option-correct {
   border-color: rgba(245, 130, 32, 0.28);
   background: rgba(255, 244, 233, 0.98);
+}
+
+.daily-challenge-feedback {
+  border: 1px solid rgba(19, 37, 59, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .daily-challenge-option-meta {
@@ -1358,6 +1360,15 @@ img {
   text-align: left;
 }
 
+.park-card-button,
+.ride-card-button {
+  width: 100%;
+  appearance: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
 .park-card::before,
 .ride-card::before {
   content: "";
@@ -1373,14 +1384,6 @@ img {
 .ride-card:hover {
   border-color: rgba(19, 37, 59, 0.16);
   box-shadow: 0 26px 48px rgba(20, 34, 41, 0.1);
-}
-
-.park-link::after,
-.ride-link::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
 }
 
 .park-card .catalog-chip,
@@ -1448,12 +1451,13 @@ img {
   font-size: 1.28rem;
   font-weight: 800;
   line-height: 1.08;
+  text-wrap: balance;
 }
 
-.park-link:hover .park-name,
-.park-link:focus-visible .park-name,
-.ride-link:hover .ride-name,
-.ride-link:focus-visible .ride-name {
+.park-card:hover .park-name,
+.park-card:focus-visible .park-name,
+.ride-card:hover .ride-name,
+.ride-card:focus-visible .ride-name {
   color: var(--brand-orange-strong);
 }
 
@@ -1462,6 +1466,8 @@ img {
 .brand-link:focus-visible,
 .back-link:focus-visible,
 .collection-card:focus-visible,
+.park-card-button:focus-visible,
+.ride-card-button:focus-visible,
 .stats-park-card:focus-visible,
 .ghost-button:focus-visible,
 .catalog-inline-button:focus-visible,
@@ -1485,6 +1491,7 @@ img {
   margin: 0;
   color: #596c74;
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .park-meta {

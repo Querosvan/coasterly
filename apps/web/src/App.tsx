@@ -858,44 +858,41 @@ function ProfileSurface({
   onOpenPublicProfile?: (userSlug: string) => void;
   onCopyPublicProfile?: (userSlug: string) => void;
 }) {
+  const showProfileActions =
+    isCurrentUser && (onOpenPublicProfile !== undefined || onCopyPublicProfile !== undefined);
+
   return (
     <div className="profile-layout">
       <section className="profile-hero">
         <div className="profile-hero-copy">
-          <p className="status-label">{isCurrentUser ? "Current rider" : "Public profile"}</p>
           <h3 className="section-title">{profile.user.name}</h3>
-          <p className="catalog-note">
-            Building a credit list across European parks, one lineup at a time.
-          </p>
         </div>
-        <div className="detail-chip-row">
-          <span className="catalog-chip">{profile.user.role}</span>
-          {profile.user.isSeeded ? (
-            <span className="catalog-chip route-chip">Seeded fallback</span>
-          ) : null}
-          {isCurrentUser && onOpenPublicProfile ? (
-            <button
-              className="catalog-inline-button"
-              type="button"
-              onClick={() => {
-                onOpenPublicProfile(profile.user.slug);
-              }}
-            >
-              Open public profile
-            </button>
-          ) : null}
-          {isCurrentUser && onCopyPublicProfile ? (
-            <button
-              className="catalog-inline-button"
-              type="button"
-              onClick={() => {
-                onCopyPublicProfile(profile.user.slug);
-              }}
-            >
-              Copy public link
-            </button>
-          ) : null}
-        </div>
+        {showProfileActions ? (
+          <div className="detail-chip-row">
+            {isCurrentUser && onOpenPublicProfile ? (
+              <button
+                className="catalog-inline-button"
+                type="button"
+                onClick={() => {
+                  onOpenPublicProfile(profile.user.slug);
+                }}
+              >
+                View public page
+              </button>
+            ) : null}
+            {isCurrentUser && onCopyPublicProfile ? (
+              <button
+                className="catalog-inline-button"
+                type="button"
+                onClick={() => {
+                  onCopyPublicProfile(profile.user.slug);
+                }}
+              >
+                Copy link
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       <section className="stats-panel" aria-label="Profile stats">
@@ -1002,7 +999,6 @@ function CommunityHighlightCard({
     <article className="community-card">
       <div className="community-card-header">
         <div className="community-card-copy">
-          <p className="status-label">Community</p>
           <button
             className="community-profile-link"
             type="button"
@@ -1014,7 +1010,6 @@ function CommunityHighlightCard({
           </button>
         </div>
         <div className="detail-chip-row">
-          <span className="catalog-chip">{profile.user.role}</span>
           {profile.featuredPark ? (
             <button
               className="catalog-chip route-chip"
@@ -1056,14 +1051,14 @@ function CommunityHighlightCard({
             >
               <span className="community-activity-ride">{entry.rideName}</span>
               <span className="community-activity-meta">
-                {entry.parkName} · {new Date(entry.riddenAt).toLocaleDateString()}
+                {entry.parkName} / {new Date(entry.riddenAt).toLocaleDateString()}
               </span>
             </button>
           ))}
         </div>
       ) : (
         <div className="state-message state-message-empty state-message-compact">
-          <p>Public activity will appear here as more rides are logged.</p>
+          <p>No recent ride activity yet.</p>
         </div>
       )}
     </article>
@@ -1119,8 +1114,8 @@ function DailyChallengePanel({
     <section className="stats-panel daily-challenge-panel" aria-label="Daily challenge">
       <div className="section-row">
         <div>
-          <p className="status-label">Daily challenge</p>
-          <h2 className="section-title">One quick play for today&apos;s streak.</h2>
+          <p className="status-label">Today</p>
+          <h2 className="section-title">Daily challenge</h2>
         </div>
         <div className="detail-chip-row">
           <span className="catalog-chip">{`Level ${summary.level}`}</span>
@@ -1136,7 +1131,7 @@ function DailyChallengePanel({
               ? isClaimingReward
                 ? "Claiming..."
                 : `Claim ${reward.availableXp} XP`
-              : `Reward claimed${reward.claimedXp ? ` · ${reward.claimedXp} XP` : ""}`}
+              : `Reward claimed${reward.claimedXp ? ` / ${reward.claimedXp} XP` : ""}`}
           </button>
         </div>
       </div>
@@ -1166,13 +1161,13 @@ function DailyChallengePanel({
           <p className="status-label">{challenge.title}</p>
           <h3 className="section-title">{challenge.prompt}</h3>
 
-          <div className={`state-message state-message-compact ${resultTone}`}>
+          <div className={`state-message state-message-compact daily-challenge-feedback ${resultTone}`}>
             <p>
               {attempt
                 ? attempt.isCorrect
-                  ? `Correct answer. ${attempt.earnedXp} XP added from the challenge.`
-                  : `Answer locked for today. ${attempt.earnedXp} XP added from the challenge.`
-                : "Answer once per day, then claim the reward to keep the loop moving."}
+                  ? `Correct. +${attempt.earnedXp} XP from the challenge.`
+                  : `Answer locked. +${attempt.earnedXp} XP from the challenge.`
+                : "Answer once today, then claim the reward."}
             </p>
             <p>
               {canClaimReward
@@ -1209,9 +1204,7 @@ function DailyChallengePanel({
             })}
           </div>
 
-          <p className="catalog-note">
-            {`${summary.completedDays} daily challenges completed so far.`}
-          </p>
+          <p className="catalog-note">{`${summary.completedDays} challenges completed.`}</p>
         </div>
       </div>
     </section>
@@ -3035,22 +3028,6 @@ function App() {
         selectedRideCollection.itemSlugs.includes(entry.ride.slug)
       )
     : allRideCatalogItems;
-  const browseSummary =
-    parksStatus.state === "success"
-      ? selectedParkCollection
-        ? `${formatCountLabel(displayedParks.length, "park")} in ${selectedParkCollection.title.toLowerCase()}.`
-        : hasActiveCatalogSearch
-          ? `Showing ${formatCountLabel(displayedParks.length, "result")} for "${normalizedSearchQuery}".`
-          : `${formatCountLabel(displayedParks.length, "park")} available right now.`
-      : null;
-  const ridesBrowseSummary =
-    ridesCatalogStatus.state === "success"
-      ? selectedRideCollection
-        ? `${formatCountLabel(displayedRideCatalogItems.length, "ride")} in ${selectedRideCollection.title.toLowerCase()}.`
-        : hasActiveRideCatalogSearch
-          ? `Showing ${formatCountLabel(displayedRideCatalogItems.length, "ride")} for "${normalizedRideCatalogSearchQuery}".`
-          : `${formatCountLabel(displayedRideCatalogItems.length, "ride")} available right now.`
-      : null;
   const hasActiveParkCollection = Boolean(selectedParkCollection);
   const hasActiveRideCollection = Boolean(selectedRideCollection);
   const featuredParks = allParks.slice(0, 4);
@@ -3106,18 +3083,6 @@ function App() {
         ]
       : []
   );
-  const parkRideSortLabel =
-    parkRideSort === "name"
-      ? "Name"
-      : parkRideSort === "opening_year"
-        ? "Opening year"
-        : "Top speed";
-  const rideCatalogSortLabel =
-    rideCatalogSort === "name"
-      ? "Name"
-      : rideCatalogSort === "opening_year"
-        ? "Opening year"
-        : "Top speed";
   const rideLineup =
     rideLineupStatus.state === "success" ? rideLineupStatus.rides : [];
   const activeRideIndex =
@@ -3510,13 +3475,7 @@ function App() {
           ))}
         </nav>
         <div className="topbar-meta">
-          <span className="product-pill">Park catalog</span>
           <div className="status-cluster" aria-live="polite">
-            {demoUserStatsStatus.state === "success" ? (
-              <span className="catalog-chip">
-                {demoUserStatsStatus.totalRiddenRides} logged
-              </span>
-            ) : null}
             {apiStatus.state === "error" ? (
               <span className="status-chip status-chip-error">Service issue</span>
             ) : null}
@@ -3547,14 +3506,10 @@ function App() {
         <>
           <section className="hero-panel hero-panel-landing">
             <div className="hero-copy hero-copy-landing">
-              <div className="hero-brand">
-                <img className="hero-mark" src={brandIconDark} alt="" />
-                <p className="eyebrow">Coasterly</p>
-              </div>
               <h1>Europe&apos;s park catalog, built for coaster people.</h1>
               <p className="hero-text">
-                Browse standout parks, track what you&apos;ve ridden, and move through each
-                lineup with less noise.
+                Browse standout parks, track what you&apos;ve ridden, and move through each lineup
+                with less noise.
               </p>
               <div className="hero-actions">
                 <button className="primary-button" type="button" onClick={() => {
@@ -3562,22 +3517,18 @@ function App() {
                 }}>
                   Browse parks
                 </button>
-                <button className="secondary-button" type="button" onClick={navigateToDiscover}>
-                  See progress
+                <button className="secondary-button" type="button" onClick={navigateToProfile}>
+                  Open profile
                 </button>
               </div>
               <div className="hero-stats" aria-label="Catalog summary">
                 <div className="hero-stat">
-                  <span className="hero-stat-label">Catalog</span>
+                  <span className="hero-stat-label">Parks</span>
                   <strong>{heroCountLabel}</strong>
                 </div>
                 <div className="hero-stat">
-                  <span className="hero-stat-label">Ridden rides</span>
+                  <span className="hero-stat-label">Rides logged</span>
                   <strong>{riddenRideCountLabel}</strong>
-                </div>
-                <div className="hero-stat">
-                  <span className="hero-stat-label">Parks ridden</span>
-                  <strong>{riddenParkCountLabel}</strong>
                 </div>
               </div>
             </div>
@@ -3666,10 +3617,7 @@ function App() {
               <div className="catalog-header landing-header">
                 <div className="catalog-copy">
                   <p className="status-label">Featured parks</p>
-                  <h2 className="section-title">Start with the parks worth opening next.</h2>
-                  <p className="section-copy">
-                    A tighter view into the catalog, led by imagery and momentum.
-                  </p>
+                  <h2 className="section-title">Parks worth opening next.</h2>
                 </div>
                 <div className="landing-actions">
                   <button
@@ -3689,7 +3637,14 @@ function App() {
                   const parkEditorial = parkEditorialBySlug[park.slug];
 
                   return (
-                    <article className="park-card" key={park.id}>
+                    <button
+                      className="park-card park-card-button"
+                      key={park.id}
+                      type="button"
+                      onClick={() => {
+                        navigateToPark(park.slug);
+                      }}
+                    >
                       <MediaAsset
                         kind="park"
                         slug={park.slug}
@@ -3699,16 +3654,9 @@ function App() {
                         imageClassName="media-image"
                       />
                       <div className="card-header">
-                        <a
-                          className="park-link"
-                          href={`/parks/${park.slug}`}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            navigateToPark(park.slug);
-                          }}
-                        >
+                        <div className="park-link">
                           <p className="park-name">{park.name}</p>
-                        </a>
+                        </div>
                         <span className="catalog-chip">{park.status}</span>
                       </div>
                       <p className="park-location">
@@ -3744,7 +3692,7 @@ function App() {
                           </div>
                         </div>
                       ) : null}
-                    </article>
+                    </button>
                   );
                 })}
               </div>
@@ -3755,9 +3703,6 @@ function App() {
                 <div className="catalog-copy">
                   <p className="status-label">Progress</p>
                   <h2 className="section-title">Keep your collection in view.</h2>
-                  <p className="section-copy">
-                    A compact snapshot of where momentum is building.
-                  </p>
                 </div>
                 <div className="landing-actions">
                   <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
@@ -3826,9 +3771,6 @@ function App() {
               <div className="catalog-copy">
                 <p className="status-label">Collections</p>
                 <h2 className="section-title">Curated ways into the catalog.</h2>
-                <p className="section-copy">
-                  A few quick entry points for launch fans, lineup chasers, and first-time Europe trips.
-                </p>
               </div>
             </div>
             <div className="collection-grid">
@@ -3861,17 +3803,17 @@ function App() {
           />
 
           <section className="catalog-panel landing-panel">
-            <div className="catalog-header landing-header">
-              <div className="catalog-copy">
-                <p className="status-label">Community</p>
-                <h2 className="section-title">Profiles with fresh ride activity.</h2>
+              <div className="catalog-header landing-header">
+                <div className="catalog-copy">
+                  <p className="status-label">Community</p>
+                  <h2 className="section-title">Recent rider profiles.</h2>
+                </div>
+                <div className="landing-actions">
+                  <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
+                    See more
+                  </button>
+                </div>
               </div>
-              <div className="landing-actions">
-                <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
-                  Open discover
-                </button>
-              </div>
-            </div>
             {communityHighlightsStatus.state === "loading" ? (
               <div className="state-message state-message-loading state-message-compact">
                 <p>Loading community activity...</p>
@@ -3894,7 +3836,7 @@ function App() {
                 </div>
               ) : (
                 <div className="state-message state-message-empty state-message-compact">
-                  <p>Community profiles will surface here as activity grows.</p>
+                  <p>No public activity yet.</p>
                 </div>
               )
             ) : null}
@@ -3938,9 +3880,6 @@ function App() {
             <div className="catalog-copy">
               <p className="status-label">Browse</p>
               <h2 className="section-title">Parks</h2>
-            </div>
-            <div className="catalog-support">
-              <p className="catalog-note">{browseSummary}</p>
             </div>
           </div>
 
@@ -4022,7 +3961,14 @@ function App() {
                   const parkEditorial = parkEditorialBySlug[park.slug];
 
                   return (
-                    <article className="park-card" key={park.id}>
+                    <button
+                      className="park-card park-card-button"
+                      key={park.id}
+                      type="button"
+                      onClick={() => {
+                        navigateToPark(park.slug);
+                      }}
+                    >
                       <MediaAsset
                         kind="park"
                         slug={park.slug}
@@ -4032,16 +3978,9 @@ function App() {
                         imageClassName="media-image"
                       />
                       <div className="card-header">
-                        <a
-                          className="park-link"
-                          href={`/parks/${park.slug}`}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            navigateToPark(park.slug);
-                          }}
-                        >
+                        <div className="park-link">
                           <p className="park-name">{park.name}</p>
-                        </a>
+                        </div>
                         <span className="catalog-chip">{park.status}</span>
                       </div>
                       <p className="park-location">
@@ -4080,7 +4019,7 @@ function App() {
                           </p>
                         </div>
                       ) : null}
-                    </article>
+                    </button>
                   );
                 })}
               </div>
@@ -4118,9 +4057,6 @@ function App() {
             <div className="catalog-copy">
               <p className="status-label">Browse</p>
               <h2 className="section-title">Rides</h2>
-            </div>
-            <div className="catalog-support">
-              <p className="catalog-note">{ridesBrowseSummary}</p>
             </div>
           </div>
 
@@ -4260,18 +4196,6 @@ function App() {
               </div>
             </div>
 
-            <p className="parks-summary">
-              <span>
-                {rideCatalogParkFilter
-                  ? ridesCatalogOptions.parks.find((park) => park.slug === rideCatalogParkFilter)
-                      ?.name ?? rideCatalogParkFilter
-                  : "All parks"}
-              </span>
-              <span>{rideCatalogRideTypeFilter || "All ride types"}</span>
-              <span>{rideCatalogManufacturerFilter || "All manufacturers"}</span>
-              <span>Sorted by {rideCatalogSortLabel}</span>
-            </p>
-
             <div className="catalog-state-row" aria-label="Ride browse state">
               <span className="catalog-chip">
                 {ridesCatalogStatus.state === "success"
@@ -4325,9 +4249,15 @@ function App() {
                   const rideEditorial = rideEditorialBySlug[entry.ride.slug];
 
                   return (
-                    <article
-                      className={`ride-card${isRidden ? " ride-card-ridden" : ""}`}
+                    <button
+                      className={`ride-card ride-card-button${isRidden ? " ride-card-ridden" : ""}`}
                       key={`${entry.park.slug}-${entry.ride.slug}`}
+                      type="button"
+                      onClick={() => {
+                        navigateToRide(entry.park.slug, entry.ride.slug, {
+                          origin: "rides"
+                        });
+                      }}
                     >
                       <MediaAsset
                         kind="ride"
@@ -4340,25 +4270,9 @@ function App() {
                       <div className="card-header">
                         <div className="ride-card-heading">
                           <p className="ride-card-kicker">{entry.park.name}</p>
-                          <a
-                            className="ride-link"
-                            href={buildPathWithQuery(
-                              `/parks/${entry.park.slug}/rides/${entry.ride.slug}`,
-                              (() => {
-                                const params = getRidesCatalogParams();
-                                params.set("origin", "rides");
-                                return params;
-                              })()
-                            )}
-                            onClick={(event) => {
-                              event.preventDefault();
-                              navigateToRide(entry.park.slug, entry.ride.slug, {
-                                origin: "rides"
-                              });
-                            }}
-                          >
+                          <div className="ride-link">
                             <p className="ride-name">{entry.ride.name}</p>
-                          </a>
+                          </div>
                         </div>
                         <div className="ride-card-chips">
                           {isRidden ? (
@@ -4392,7 +4306,7 @@ function App() {
                           </span>
                         ) : null}
                       </div>
-                    </article>
+                    </button>
                   );
                 })}
               </div>
@@ -4433,10 +4347,6 @@ function App() {
             <div className="catalog-copy">
               <p className="status-label">Discover</p>
               <h2 className="section-title">Pick the next park worth opening.</h2>
-            </div>
-            <div className="catalog-support">
-              <p className="catalog-note">{heroCountLabel}</p>
-              <p className="catalog-note">{riddenRideCountLabel}</p>
             </div>
           </div>
 
@@ -4510,7 +4420,7 @@ function App() {
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
                 <p className="status-label">Collections</p>
-                <h2 className="section-title">Browse by taste, not only by search.</h2>
+                <h2 className="section-title">Browse by collection.</h2>
               </div>
             </div>
             <div className="collection-grid">
@@ -4535,13 +4445,20 @@ function App() {
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
                 <p className="status-label">Featured now</p>
-                <h2 className="section-title">Highlighted parks keep discovery visual and lightweight.</h2>
+                <h2 className="section-title">Highlighted parks.</h2>
               </div>
             </div>
             <div className="parks-list parks-list-featured">
               {featuredProgressParks.length > 0
                 ? featuredProgressParks.map(({ park, progress }) => (
-                    <article className="park-card" key={park.id}>
+                    <button
+                      className="park-card park-card-button"
+                      key={park.id}
+                      type="button"
+                      onClick={() => {
+                        navigateToPark(park.slug);
+                      }}
+                    >
                       <MediaAsset
                         kind="park"
                         slug={park.slug}
@@ -4551,16 +4468,9 @@ function App() {
                         imageClassName="media-image"
                       />
                       <div className="card-header">
-                        <a
-                          className="park-link"
-                          href={`/parks/${park.slug}`}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            navigateToPark(park.slug);
-                          }}
-                        >
+                        <div className="park-link">
                           <p className="park-name">{park.name}</p>
-                        </a>
+                        </div>
                         <span className="catalog-chip catalog-chip-ridden">
                           {progress.completionPercentage}% complete
                         </span>
@@ -4568,10 +4478,17 @@ function App() {
                       <p className="park-location">
                         {park.city}, {park.country}
                       </p>
-                    </article>
+                    </button>
                   ))
                 : featuredParks.map((park) => (
-                    <article className="park-card" key={park.id}>
+                    <button
+                      className="park-card park-card-button"
+                      key={park.id}
+                      type="button"
+                      onClick={() => {
+                        navigateToPark(park.slug);
+                      }}
+                    >
                       <MediaAsset
                         kind="park"
                         slug={park.slug}
@@ -4581,22 +4498,15 @@ function App() {
                         imageClassName="media-image"
                       />
                       <div className="card-header">
-                        <a
-                          className="park-link"
-                          href={`/parks/${park.slug}`}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            navigateToPark(park.slug);
-                          }}
-                        >
+                        <div className="park-link">
                           <p className="park-name">{park.name}</p>
-                        </a>
+                        </div>
                         <span className="catalog-chip">{park.status}</span>
                       </div>
                       <p className="park-location">
                         {park.city}, {park.country}
                       </p>
-                    </article>
+                    </button>
                   ))}
             </div>
           </section>
@@ -4605,7 +4515,7 @@ function App() {
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
                 <p className="status-label">Community</p>
-                <h2 className="section-title">Public profiles with recent ride credits.</h2>
+                <h2 className="section-title">Recent rider activity.</h2>
               </div>
             </div>
             {communityHighlightsStatus.state === "loading" ? (
@@ -4630,7 +4540,7 @@ function App() {
                 </div>
               ) : (
                 <div className="state-message state-message-empty state-message-compact">
-                  <p>Public activity will show up here as more riders log credits.</p>
+                  <p>No recent ride activity yet.</p>
                 </div>
               )
             ) : null}
@@ -4649,12 +4559,7 @@ function App() {
           <div className="catalog-header">
             <div className="catalog-copy">
               <p className="status-label">Profile</p>
-              <h2 className="section-title">Your coaster profile</h2>
-            </div>
-            <div className="catalog-support">
-              <p className="catalog-note">
-                Your progress, current missions, and recent activity in one place.
-              </p>
+              <h2 className="section-title">Your profile</h2>
             </div>
           </div>
 
@@ -4741,9 +4646,6 @@ function App() {
             <div className="catalog-copy">
               <p className="status-label">Journal</p>
               <h2 className="section-title">Rankings, guides, and park news will live here.</h2>
-            </div>
-            <div className="catalog-support">
-              <p className="catalog-note">More editorial depth is on the way.</p>
             </div>
           </div>
           <div className="editorial-grid">
@@ -5026,11 +4928,6 @@ function App() {
                         </select>
                       </div>
                     </div>
-                    <p className="parks-summary">
-                      <span>{rideTypeFilter || "All ride types"}</span>
-                      <span>{manufacturerFilter || "All manufacturers"}</span>
-                      <span>Sorted by {parkRideSortLabel}</span>
-                    </p>
                     <div className="catalog-state-row">
                       {parkRidesStatus.state === "success" ? (
                         <span className="catalog-chip">
@@ -5066,9 +4963,13 @@ function App() {
                           const rideEditorial = rideEditorialBySlug[ride.slug];
 
                           return (
-                            <article
-                              className={`ride-card${riddenRideIds?.has(ride.id) ? " ride-card-ridden" : ""}`}
+                            <button
+                              className={`ride-card ride-card-button${riddenRideIds?.has(ride.id) ? " ride-card-ridden" : ""}`}
                               key={ride.id}
+                              type="button"
+                              onClick={() => {
+                                navigateToRide(route.slug, ride.slug);
+                              }}
                             >
                               <MediaAsset
                                 kind="ride"
@@ -5079,19 +4980,9 @@ function App() {
                                 imageClassName="media-image"
                               />
                               <div className="card-header">
-                                <a
-                                  className="ride-link"
-                                  href={buildPathWithQuery(
-                                    `/parks/${route.slug}/rides/${ride.slug}`,
-                                    getRideBrowserParams()
-                                  )}
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    navigateToRide(route.slug, ride.slug);
-                                  }}
-                                >
+                                <div className="ride-link">
                                   <p className="ride-name">{ride.name}</p>
-                                </a>
+                                </div>
                                 <div className="ride-card-chips">
                                   {riddenRideIds?.has(ride.id) ? (
                                     <span className="catalog-chip catalog-chip-ridden">
@@ -5115,7 +5006,7 @@ function App() {
                                   <span className="ride-fact-pill">{ride.manufacturer}</span>
                                 ) : null}
                               </div>
-                            </article>
+                            </button>
                           );
                         })}
                       </div>
@@ -5218,12 +5109,12 @@ function App() {
 
                 <div className="credit-panel">
                   <div>
-                    <p className="status-label">Ridden status</p>
+                    <p className="status-label">Ride log</p>
                     <p className="credit-copy">
                       {rideCreditsStatus.state === "success"
                         ? isCurrentRideRidden
                           ? "Saved to your ridden list."
-                          : "Add this ride to your ridden list."
+                          : "Save this ride to your ridden list."
                         : rideCreditsStatus.state === "error"
                           ? rideCreditsStatus.message
                           : "Checking ride status."}
@@ -5240,8 +5131,8 @@ function App() {
                     {isUpdatingRideCredit
                       ? "Saving..."
                       : isCurrentRideRidden
-                        ? "Remove ridden"
-                        : "Mark as ridden"}
+                        ? "Remove ride"
+                        : "Mark ridden"}
                   </button>
                 </div>
                 {rideCreditMessage ? (
@@ -5313,7 +5204,7 @@ function App() {
 
                 <div className="lineup-nav-panel">
                   <div>
-                    <p className="status-label">Lineup</p>
+                    <p className="status-label">Ride order</p>
                     <p className="credit-copy">
                       {rideLineupStatus.state === "success"
                         ? rideLineupPositionLabel || "Ride lineup"
@@ -5337,7 +5228,7 @@ function App() {
                       }}
                       disabled={!previousRide}
                     >
-                      Previous
+                      Previous ride
                     </button>
                     <button
                       className="lineup-nav-button"
@@ -5351,7 +5242,7 @@ function App() {
                       }}
                       disabled={!nextRide}
                     >
-                      Next
+                      Next ride
                     </button>
                   </div>
                 </div>
@@ -5402,3 +5293,4 @@ function catalogStateChip(status: ParksStatus | RidesCatalogStatus) {
 }
 
 export default App;
+
