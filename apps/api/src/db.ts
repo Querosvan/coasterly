@@ -3,6 +3,8 @@ import { Pool } from "pg";
 import type {
   CommunityHighlightsResponse,
   CurrentUserResponse,
+  DailyChallengeAttempt,
+  DailyChallengeResponse,
   DemoUserParkProgress,
   ExternalEntityType,
   ExternalSourceName,
@@ -23,6 +25,14 @@ import {
   queueTimesParkSeedMappings,
   queueTimesRideSeedMappings
 } from "./integrations/queue-times.js";
+import {
+  DAILY_CHALLENGE_CORRECT_XP,
+  DAILY_CHALLENGE_INCORRECT_XP,
+  buildDailyChallengeQuestion,
+  buildDailyChallengeSummary,
+  getTodayChallengeDateKey,
+  type DailyChallengeCatalogItem
+} from "./daily-challenges.js";
 import {
   buildUserProgression,
   type ProgressionRideCreditRecord
@@ -563,6 +573,22 @@ export const initializeDatabase = async () => {
         ride_id INTEGER NOT NULL REFERENCES rides (id) ON DELETE CASCADE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         PRIMARY KEY (user_id, ride_id)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_daily_challenge_attempts (
+        id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        challenge_date DATE NOT NULL,
+        challenge_type TEXT NOT NULL,
+        question_ride_id INTEGER NOT NULL REFERENCES rides (id) ON DELETE CASCADE,
+        correct_option_id TEXT NOT NULL,
+        selected_option_id TEXT NOT NULL,
+        is_correct BOOLEAN NOT NULL,
+        earned_xp INTEGER NOT NULL CHECK (earned_xp >= 0),
+        answered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, challenge_date)
       )
     `);
 
@@ -1549,6 +1575,146 @@ const listRecentRideActivityForUser = async (
   }));
 };
 
+const listDailyChallengeCatalogItems = async (): Promise<DailyChallengeCatalogItem[]> => {
+  const result = await pool.query<{
+    ride_id: number;
+    ride_name: string;
+    ride_slug: string;
+    ride_image_url: string | null;
+    park_slug: string;
+    park_name: string;
+  }>(
+    `
+      SELECT
+        rides.id AS ride_id,
+        rides.name AS ride_name,
+        rides.slug AS ride_slug,
+        rides.image_url AS ride_image_url,
+        parks.slug AS park_slug,
+        parks.name AS park_name
+      FROM rides
+      INNER JOIN parks ON parks.id = rides.park_id
+      ORDER BY rides.name ASC, parks.name ASC
+    `
+  );
+
+  return result.rows.map((row) => ({
+    rideId: row.ride_id,
+    rideName: row.ride_name,
+    rideSlug: row.ride_slug,
+    ...(row.ride_image_url ? { rideImageUrl: row.ride_image_url } : {}),
+    parkSlug: row.park_slug,
+    parkName: row.park_name
+  }));
+};
+
+type DailyChallengeAttemptRecord = DailyChallengeAttempt & {
+  challengeDate: string;
+};
+
+const listDailyChallengeAttemptsForUser = async (
+  user: UserSummary
+): Promise<DailyChallengeAttemptRecord[]> => {
+  const result = await pool.query<{
+    challenge_date: string;
+    selected_option_id: string;
+    correct_option_id: string;
+    is_correct: boolean;
+    earned_xp: number;
+    answered_at: string | Date;
+  }>(
+    `
+      SELECT
+        challenge_date::text AS challenge_date,
+        selected_option_id,
+        correct_option_id,
+        is_correct,
+        earned_xp,
+        answered_at
+      FROM user_daily_challenge_attempts
+      WHERE user_id = $1
+      ORDER BY challenge_date ASC
+    `,
+    [user.id]
+  );
+
+  return result.rows.map((row) => ({
+    challengeDate: row.challenge_date,
+    selectedOptionId: row.selected_option_id,
+    correctOptionId: row.correct_option_id,
+    isCorrect: row.is_correct,
+    earnedXp: row.earned_xp,
+    answeredAt:
+      row.answered_at instanceof Date ? row.answered_at.toISOString() : row.answered_at
+  }));
+};
+
+const getDailyChallengeAttemptForUser = async (
+  user: UserSummary,
+  challengeDate: string
+): Promise<DailyChallengeAttempt | null> => {
+  const result = await pool.query<{
+    selected_option_id: string;
+    correct_option_id: string;
+    is_correct: boolean;
+    earned_xp: number;
+    answered_at: string | Date;
+  }>(
+    `
+      SELECT
+        selected_option_id,
+        correct_option_id,
+        is_correct,
+        earned_xp,
+        answered_at
+      FROM user_daily_challenge_attempts
+      WHERE user_id = $1 AND challenge_date = $2::date
+      LIMIT 1
+    `,
+    [user.id, challengeDate]
+  );
+
+  const attempt = result.rows[0];
+
+  if (!attempt) {
+    return null;
+  }
+
+  return {
+    selectedOptionId: attempt.selected_option_id,
+    correctOptionId: attempt.correct_option_id,
+    isCorrect: attempt.is_correct,
+    earnedXp: attempt.earned_xp,
+    answeredAt:
+      attempt.answered_at instanceof Date
+        ? attempt.answered_at.toISOString()
+        : attempt.answered_at
+  };
+};
+
+const buildDailyChallengeResponseForUser = async (
+  user: UserSummary
+): Promise<DailyChallengeResponse> => {
+  const challengeDate = getTodayChallengeDateKey();
+  const [catalog, attempts, attempt] = await Promise.all([
+    listDailyChallengeCatalogItems(),
+    listDailyChallengeAttemptsForUser(user),
+    getDailyChallengeAttemptForUser(user, challengeDate)
+  ]);
+  const challenge = buildDailyChallengeQuestion(catalog, challengeDate);
+
+  if (!challenge) {
+    throw new Error("Daily challenge catalog is not available.");
+  }
+
+  return {
+    user,
+    summary: buildDailyChallengeSummary(attempts),
+    challenge,
+    ...(attempt ? { attempt } : {})
+  };
+};
+
 export const getUserProfile = async (
   user: UserSummary
 ): Promise<UserProfileResponse> => {
@@ -1573,6 +1739,16 @@ export const getDemoUserProfile = async () => {
   const user = await getPrimarySeedUser();
 
   return getUserProfile(user);
+};
+
+export const getDailyChallengeForUser = async (
+  user: UserSummary
+): Promise<DailyChallengeResponse> => buildDailyChallengeResponseForUser(user);
+
+export const getDemoUserDailyChallenge = async () => {
+  const user = await getPrimarySeedUser();
+
+  return buildDailyChallengeResponseForUser(user);
 };
 
 export const getUserProfileBySlug = async (
@@ -1634,6 +1810,79 @@ export const listCommunityHighlights = async (
     badges: profile.badges.slice(0, 2),
     recentActivity: profile.recentActivity.slice(0, 2)
   }));
+};
+
+export const submitDailyChallengeAnswerForUser = async (
+  user: UserSummary,
+  optionId: string
+): Promise<DailyChallengeResponse> => {
+  const challengeDate = getTodayChallengeDateKey();
+  const [catalog, existingAttempt] = await Promise.all([
+    listDailyChallengeCatalogItems(),
+    getDailyChallengeAttemptForUser(user, challengeDate)
+  ]);
+  const challenge = buildDailyChallengeQuestion(catalog, challengeDate);
+
+  if (!challenge) {
+    throw new Error("Daily challenge catalog is not available.");
+  }
+
+  if (existingAttempt) {
+    return buildDailyChallengeResponseForUser(user);
+  }
+
+  const selectedOption = challenge.options.find((option) => option.id === optionId);
+
+  if (!selectedOption) {
+    throw new Error("Invalid daily challenge option.");
+  }
+
+  const rideCatalogItem = catalog.find((item) => item.rideId === challenge.ride.id);
+
+  if (!rideCatalogItem) {
+    throw new Error("Daily challenge ride is not available.");
+  }
+
+  const correctOptionId = rideCatalogItem.parkSlug;
+  const isCorrect = optionId === correctOptionId;
+  const earnedXp = isCorrect
+    ? DAILY_CHALLENGE_CORRECT_XP
+    : DAILY_CHALLENGE_INCORRECT_XP;
+
+  await pool.query(
+    `
+      INSERT INTO user_daily_challenge_attempts (
+        user_id,
+        challenge_date,
+        challenge_type,
+        question_ride_id,
+        correct_option_id,
+        selected_option_id,
+        is_correct,
+        earned_xp
+      )
+      VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8)
+      ON CONFLICT (user_id, challenge_date) DO NOTHING
+    `,
+    [
+      user.id,
+      challengeDate,
+      challenge.id,
+      challenge.ride.id,
+      correctOptionId,
+      optionId,
+      isCorrect,
+      earnedXp
+    ]
+  );
+
+  return buildDailyChallengeResponseForUser(user);
+};
+
+export const submitDemoUserDailyChallengeAnswer = async (optionId: string) => {
+  const user = await getPrimarySeedUser();
+
+  return submitDailyChallengeAnswerForUser(user, optionId);
 };
 
 export const addRideCreditForUser = async (

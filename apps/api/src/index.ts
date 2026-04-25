@@ -4,8 +4,10 @@ import cors from "@fastify/cors";
 import {
   addRideCreditForUser,
   closeDatabase,
+  getDailyChallengeForUser,
   getDemoUserProgression,
   getDemoUserProfile,
+  getDemoUserDailyChallenge,
   getDemoUserRideStats,
   getExternalSourceMapping,
   getUserProfile,
@@ -21,6 +23,8 @@ import {
   listDemoUserRideCredits,
   listParks,
   listRidesForPark,
+  submitDailyChallengeAnswerForUser,
+  submitDemoUserDailyChallengeAnswer,
   removeRideCreditForUser
 } from "./db.js";
 import {
@@ -38,6 +42,8 @@ import {
 import type {
   CommunityHighlightsResponse,
   CurrentUserResponse,
+  DailyChallengeAnswerRequest,
+  DailyChallengeResponse,
   DemoUserStatsResponse,
   HealthResponse,
   ParkResponse,
@@ -261,6 +267,41 @@ app.get("/demo-user/profile", async () => {
   return response;
 });
 
+app.get("/demo-user/daily-challenge", async () => {
+  const response: DailyChallengeResponse = await getDemoUserDailyChallenge();
+
+  return response;
+});
+
+app.post<{ Body: DailyChallengeAnswerRequest }>(
+  "/demo-user/daily-challenge/answer",
+  async (request, reply) => {
+    const optionId = request.body?.optionId?.trim();
+
+    if (!optionId) {
+      return reply.code(400).send({
+        message: "optionId is required."
+      });
+    }
+
+    try {
+      const response: DailyChallengeResponse = await submitDemoUserDailyChallengeAnswer(
+        optionId
+      );
+
+      return response;
+    } catch (error) {
+      if (error instanceof Error && error.message === "Invalid daily challenge option.") {
+        return reply.code(400).send({
+          message: error.message
+        });
+      }
+
+      throw error;
+    }
+  }
+);
+
 app.get("/community/highlights", async () => {
   const response: CommunityHighlightsResponse = {
     profiles: await listCommunityHighlights()
@@ -366,6 +407,62 @@ app.get("/me/profile", async (request, reply) => {
     throw error;
   }
 });
+
+app.get("/me/daily-challenge", async (request, reply) => {
+  try {
+    const currentUser = await resolveRequestCurrentUser(request);
+    const response: DailyChallengeResponse = await getDailyChallengeForUser(
+      currentUser.user
+    );
+
+    return response;
+  } catch (error) {
+    if (error instanceof CurrentUserResolutionError) {
+      return reply.code(error.statusCode).send({
+        message: error.message
+      });
+    }
+
+    throw error;
+  }
+});
+
+app.post<{ Body: DailyChallengeAnswerRequest }>(
+  "/me/daily-challenge/answer",
+  async (request, reply) => {
+    const optionId = request.body?.optionId?.trim();
+
+    if (!optionId) {
+      return reply.code(400).send({
+        message: "optionId is required."
+      });
+    }
+
+    try {
+      const currentUser = await resolveRequestCurrentUser(request);
+      const response: DailyChallengeResponse = await submitDailyChallengeAnswerForUser(
+        currentUser.user,
+        optionId
+      );
+
+      return response;
+    } catch (error) {
+      if (error instanceof CurrentUserResolutionError) {
+        return reply.code(error.statusCode).send({
+          message: error.message
+        });
+      }
+
+      if (error instanceof Error && error.message === "Invalid daily challenge option.") {
+        return reply.code(400).send({
+          message: error.message
+        });
+      }
+
+      throw error;
+    }
+  }
+);
 
 app.get<{ Params: { slug: string } }>("/users/:slug/profile", async (request, reply) => {
   const profile = await getUserProfileBySlug(request.params.slug);

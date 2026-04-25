@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 
 import type {
   CommunityHighlightsResponse,
+  DailyChallengeAnswerRequest,
+  DailyChallengeResponse,
   DemoUserStatsResponse,
   HealthResponse,
   Park,
@@ -443,6 +445,11 @@ type UserProfileStatus =
 type CommunityHighlightsStatus =
   | { state: "loading" }
   | { state: "success"; profiles: CommunityHighlightsResponse["profiles"] }
+  | { state: "error"; message: string };
+
+type DailyChallengeStatus =
+  | { state: "loading" }
+  | { state: "success"; response: DailyChallengeResponse }
   | { state: "error"; message: string };
 
 type RideDetailStatus =
@@ -1063,6 +1070,124 @@ function CommunityHighlightCard({
   );
 }
 
+function DailyChallengePanel({
+  dailyChallengeStatus,
+  isSubmitting,
+  onAnswer,
+  onOpenRide
+}: {
+  dailyChallengeStatus: DailyChallengeStatus;
+  isSubmitting: boolean;
+  onAnswer: (optionId: string) => void;
+  onOpenRide: (parkSlug: string, rideSlug: string) => void;
+}) {
+  if (dailyChallengeStatus.state === "loading") {
+    return (
+      <section className="stats-panel" aria-label="Daily challenge">
+        <div className="state-message state-message-loading">
+          <p>Loading daily challenge...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (dailyChallengeStatus.state === "error") {
+    return (
+      <section className="stats-panel" aria-label="Daily challenge">
+        <div className="state-message state-message-error">
+          <p>Unable to load the daily challenge.</p>
+          <p>{dailyChallengeStatus.message}</p>
+        </div>
+      </section>
+    );
+  }
+
+  const { response } = dailyChallengeStatus;
+  const { challenge, summary, attempt } = response;
+
+  return (
+    <section className="stats-panel daily-challenge-panel" aria-label="Daily challenge">
+      <div className="section-row">
+        <div>
+          <p className="status-label">Daily challenge</p>
+          <h2 className="section-title">One quick play for today&apos;s streak.</h2>
+        </div>
+        <div className="detail-chip-row">
+          <span className="catalog-chip">{`Level ${summary.level}`}</span>
+          <span className="catalog-chip catalog-chip-ridden">{`${summary.totalXp} XP`}</span>
+          <span className="catalog-chip route-chip">{`${summary.currentStreak} day streak`}</span>
+        </div>
+      </div>
+
+      <div className="daily-challenge-layout">
+        <div className="daily-challenge-media-column">
+          <MediaAsset
+            kind="ride"
+            slug={challenge.ride.slug}
+            imageUrl={challenge.ride.imageUrl}
+            alt={`${challenge.ride.name} ride view`}
+            frameClassName="media-frame media-frame-ride-card"
+            imageClassName="media-image"
+          />
+          <button
+            className="catalog-inline-button"
+            type="button"
+            onClick={() => {
+              onOpenRide(challenge.ride.parkSlug, challenge.ride.slug);
+            }}
+          >
+            Open ride
+          </button>
+        </div>
+
+        <div className="daily-challenge-copy">
+          <p className="status-label">{challenge.title}</p>
+          <h3 className="section-title">{challenge.prompt}</h3>
+          <p className="catalog-note">
+            {attempt
+              ? attempt.isCorrect
+                ? `Correct. ${attempt.earnedXp} XP added today.`
+                : `Locked in for today. ${attempt.earnedXp} XP added.`
+              : "Answer once per day to build XP and keep the streak moving."}
+          </p>
+
+          <div className="daily-challenge-options">
+            {challenge.options.map((option) => {
+              const isSelected = attempt?.selectedOptionId === option.id;
+              const isCorrect = attempt?.correctOptionId === option.id;
+
+              return (
+                <button
+                  key={option.id}
+                  className={`daily-challenge-option${
+                    isSelected ? " daily-challenge-option-selected" : ""
+                  }${isCorrect ? " daily-challenge-option-correct" : ""}`}
+                  type="button"
+                  disabled={Boolean(attempt) || isSubmitting}
+                  onClick={() => {
+                    onAnswer(option.id);
+                  }}
+                >
+                  <span>{option.label}</span>
+                  {attempt ? (
+                    <span className="daily-challenge-option-meta">
+                      {isCorrect ? "Answer" : isSelected ? "Your pick" : ""}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="catalog-note">
+            {`${summary.completedDays} daily challenges completed so far.`}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 type CuratedCollectionCardProps = {
   collection: CuratedCollection;
   isActive?: boolean;
@@ -1211,6 +1336,9 @@ function App() {
     useState<CommunityHighlightsStatus>({
       state: "loading"
     });
+  const [dailyChallengeStatus, setDailyChallengeStatus] = useState<DailyChallengeStatus>({
+    state: "loading"
+  });
   const [rideDetailStatus, setRideDetailStatus] = useState<RideDetailStatus>({
     state: "idle"
   });
@@ -1218,6 +1346,7 @@ function App() {
     state: "idle"
   });
   const [isUpdatingRideCredit, setIsUpdatingRideCredit] = useState(false);
+  const [isSubmittingDailyChallenge, setIsSubmittingDailyChallenge] = useState(false);
   const [rideCreditMessage, setRideCreditMessage] = useState<string | null>(null);
   const [profileShareMessage, setProfileShareMessage] = useState<string | null>(null);
 
@@ -1406,6 +1535,53 @@ function App() {
         state: "error",
         message:
           error instanceof Error ? error.message : "The community request failed."
+      });
+    }
+  };
+
+  const loadDailyChallenge = async (signal?: AbortSignal) => {
+    if (!apiBaseUrl) {
+      setDailyChallengeStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    setDailyChallengeStatus({ state: "loading" });
+
+    try {
+      const response = await fetch(new URL("/me/daily-challenge", apiBaseUrl), {
+        ...(signal ? { signal } : {})
+      });
+
+      if (!response.ok) {
+        setDailyChallengeStatus({
+          state: "error",
+          message: `Daily challenge request failed with status ${response.status}.`
+        });
+
+        return;
+      }
+
+      const payload = (await response.json()) as DailyChallengeResponse;
+
+      setDailyChallengeStatus({
+        state: "success",
+        response: payload
+      });
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setDailyChallengeStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The daily challenge request failed."
       });
     }
   };
@@ -1614,6 +1790,7 @@ function App() {
     void loadDemoUserStats(controller.signal);
     void loadUserProgression(controller.signal);
     void loadCommunityHighlights(controller.signal);
+    void loadDailyChallenge(controller.signal);
 
     return () => {
       controller.abort();
@@ -2576,6 +2753,52 @@ function App() {
       setProfileShareMessage("Public profile link copied.");
     } catch {
       setProfileShareMessage(profileUrl);
+    }
+  };
+
+  const submitDailyChallengeAnswer = async (optionId: string) => {
+    if (!apiBaseUrl || dailyChallengeStatus.state !== "success") {
+      return;
+    }
+
+    setIsSubmittingDailyChallenge(true);
+
+    try {
+      const response = await fetch(new URL("/me/daily-challenge/answer", apiBaseUrl), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          optionId
+        } satisfies DailyChallengeAnswerRequest)
+      });
+
+      if (!response.ok) {
+        setDailyChallengeStatus({
+          state: "error",
+          message: `Daily challenge answer failed with status ${response.status}.`
+        });
+
+        return;
+      }
+
+      const payload = (await response.json()) as DailyChallengeResponse;
+
+      setDailyChallengeStatus({
+        state: "success",
+        response: payload
+      });
+    } catch (error) {
+      setDailyChallengeStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The daily challenge answer failed."
+      });
+    } finally {
+      setIsSubmittingDailyChallenge(false);
     }
   };
 
@@ -3557,6 +3780,15 @@ function App() {
             </div>
           </section>
 
+          <DailyChallengePanel
+            dailyChallengeStatus={dailyChallengeStatus}
+            isSubmitting={isSubmittingDailyChallenge}
+            onAnswer={submitDailyChallengeAnswer}
+            onOpenRide={(parkSlug, rideSlug) => {
+              navigateToRide(parkSlug, rideSlug);
+            }}
+          />
+
           <section className="catalog-panel landing-panel">
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
@@ -4137,6 +4369,15 @@ function App() {
             </div>
           </div>
 
+          <DailyChallengePanel
+            dailyChallengeStatus={dailyChallengeStatus}
+            isSubmitting={isSubmittingDailyChallenge}
+            onAnswer={submitDailyChallengeAnswer}
+            onOpenRide={(parkSlug, rideSlug) => {
+              navigateToRide(parkSlug, rideSlug);
+            }}
+          />
+
           {demoUserStatsStatus.state === "success" ? (
             <section className="stats-panel" aria-label="Ride progress">
               <div className="section-row">
@@ -4357,6 +4598,14 @@ function App() {
                   <p>{profileShareMessage}</p>
                 </div>
               ) : null}
+              <DailyChallengePanel
+                dailyChallengeStatus={dailyChallengeStatus}
+                isSubmitting={isSubmittingDailyChallenge}
+                onAnswer={submitDailyChallengeAnswer}
+                onOpenRide={(parkSlug, rideSlug) => {
+                  navigateToRide(parkSlug, rideSlug);
+                }}
+              />
               <ProfileSurface
                 profile={userProfileStatus.profile}
                 isCurrentUser

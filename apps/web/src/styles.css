@@ -1167,6 +1167,72 @@ img {
   font-size: 0.88rem;
 }
 
+.daily-challenge-panel {
+  gap: 1rem;
+}
+
+.daily-challenge-layout,
+.daily-challenge-copy,
+.daily-challenge-media-column,
+.daily-challenge-options {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.daily-challenge-layout {
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.daily-challenge-media-column {
+  align-content: start;
+}
+
+.daily-challenge-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.daily-challenge-option {
+  display: grid;
+  gap: 0.3rem;
+  align-items: start;
+  min-height: 4.2rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(19, 37, 59, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--brand-navy-strong);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.daily-challenge-option:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(245, 130, 32, 0.28);
+  box-shadow: 0 14px 28px rgba(19, 37, 59, 0.08);
+}
+
+.daily-challenge-option:disabled {
+  cursor: default;
+}
+
+.daily-challenge-option-selected {
+  border-color: rgba(19, 37, 59, 0.18);
+  background: rgba(246, 248, 250, 0.98);
+}
+
+.daily-challenge-option-correct {
+  border-color: rgba(245, 130, 32, 0.28);
+  background: rgba(255, 244, 233, 0.98);
+}
+
+.daily-challenge-option-meta {
+  color: #60737b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .activity-card {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -2096,6 +2162,7 @@ img {
     grid-template-columns: 1fr;
   }
 
+  .daily-challenge-layout,
   .profile-hero,
   .activity-card {
     grid-template-columns: 1fr;
@@ -2105,6 +2172,7 @@ img {
     justify-items: start;
   }
 
+  .daily-challenge-options,
   .ride-toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2177,6 +2245,7 @@ img {
 
   .parks-list,
   .rides-list,
+  .daily-challenge-options,
   .ride-toolbar {
     grid-template-columns: 1fr;
   }
