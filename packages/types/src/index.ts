@@ -24,6 +24,7 @@ export interface ParksResponse {
 
 export interface ParkResponse {
   park: Park;
+  queueTimes?: QueueTimesReference;
 }
 
 export type RideStatus = "operating" | "closed" | "planned";
@@ -53,6 +54,8 @@ export interface RidesResponse {
 export interface RideResponse {
   ride: Ride;
   park: Park;
+  parkQueueTimes?: QueueTimesReference;
+  rideQueueTimes?: QueueTimesReference;
 }
 
 export interface RideCatalogItem {
@@ -131,6 +134,13 @@ export type AdminEditableEntityKind =
   | "featured_flag";
 
 export type ExternalSourceName = "queue-times";
+
+export interface QueueTimesReference {
+  sourceName: "queue-times";
+  externalId: string;
+  queueUrl: string;
+  statsUrl: string;
+}
 
 export type ExternalEntityType = "park" | "ride";
 

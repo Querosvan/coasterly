@@ -21,6 +21,8 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const brandLogoDark = "/brand/coasterly-logo-horizontal-dark.png";
 const brandIconDark = "/brand/coasterly-logo-icon-dark.png";
 const placeholderImageHost = "placehold.co";
+const queueTimesAttributionLabel = "Powered by Queue-Times.com";
+const queueTimesAttributionUrl = "https://queue-times.com/";
 
 const journalTeasers = [
   {
@@ -362,7 +364,7 @@ type ParksStatus =
 type ParkDetailStatus =
   | { state: "idle" }
   | { state: "loading" }
-  | { state: "success"; park: Park }
+  | { state: "success"; park: Park; queueTimes?: ParkResponse["queueTimes"] }
   | { state: "error"; message: string };
 
 type ParkRidesStatus =
@@ -420,7 +422,13 @@ type DemoUserStatsStatus =
 type RideDetailStatus =
   | { state: "idle" }
   | { state: "loading" }
-  | { state: "success"; park: Park; ride: Ride }
+  | {
+      state: "success";
+      park: Park;
+      ride: Ride;
+      parkQueueTimes?: RideResponse["parkQueueTimes"];
+      rideQueueTimes?: RideResponse["rideQueueTimes"];
+    }
   | { state: "error"; message: string };
 
 type RideLineupStatus =
@@ -443,11 +451,15 @@ type BreadcrumbItem = {
 };
 
 type MediaKind = "park" | "ride";
+type ExternalInsightLink = {
+  label: string;
+  href: string;
+};
 
 type MediaAssetProps = {
   kind: MediaKind;
   slug: string;
-  imageUrl?: string;
+  imageUrl?: string | undefined;
   alt: string;
   frameClassName: string;
   imageClassName: string;
@@ -530,6 +542,22 @@ const getMediaSources = (kind: MediaKind, slug: string, imageUrl?: string) => {
   }
 
   return [localMediaPath];
+};
+
+const dedupeExternalLinks = (links: ExternalInsightLink[]) => {
+  const seen = new Set<string>();
+
+  return links.filter((link) => {
+    const key = `${link.label}|${link.href}`;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+
+    return true;
+  });
 };
 
 const getRoute = (pathname: string): Route => {
@@ -643,6 +671,39 @@ function MediaAsset({
         </div>
       )}
     </div>
+  );
+}
+
+function QueueTimesExternalLinks({ links }: { links: ExternalInsightLink[] }) {
+  if (links.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="queue-times-links">
+      {links.map((link) => (
+        <a
+          className="catalog-inline-button catalog-inline-link"
+          href={link.href}
+          key={`${link.label}-${link.href}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {link.label}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function QueueTimesAttribution() {
+  return (
+    <p className="source-note">
+      Source:{" "}
+      <a href={queueTimesAttributionUrl} target="_blank" rel="noreferrer">
+        {queueTimesAttributionLabel}
+      </a>
+    </p>
   );
 }
 
@@ -1329,7 +1390,8 @@ function App() {
 
         setParkDetailStatus({
           state: "success",
-          park: payload.park
+          park: payload.park,
+          ...(payload.queueTimes ? { queueTimes: payload.queueTimes } : {})
         });
       } catch (error) {
         if (controller.signal.aborted) {
@@ -1354,7 +1416,14 @@ function App() {
   }, [route]);
 
   useEffect(() => {
-    if (route.view !== "park") {
+    const liveWaitParkSlug =
+      route.view === "park"
+        ? route.slug
+        : route.view === "ride"
+          ? route.parkSlug
+          : null;
+
+    if (!liveWaitParkSlug) {
       setParkLiveWaitsStatus({ state: "idle" });
 
       return;
@@ -1376,7 +1445,7 @@ function App() {
 
       try {
         const response = await fetch(
-          new URL(`/parks/${route.slug}/live-waits`, apiBaseUrl),
+          new URL(`/parks/${liveWaitParkSlug}/live-waits`, apiBaseUrl),
           { signal: controller.signal }
         );
 
@@ -1702,7 +1771,13 @@ function App() {
         setRideDetailStatus({
           state: "success",
           park: payload.park,
-          ride: payload.ride
+          ride: payload.ride,
+          ...(payload.parkQueueTimes
+            ? { parkQueueTimes: payload.parkQueueTimes }
+            : {}),
+          ...(payload.rideQueueTimes
+            ? { rideQueueTimes: payload.rideQueueTimes }
+            : {})
         });
       } catch (error) {
         if (controller.signal.aborted) {
@@ -2082,11 +2157,21 @@ function App() {
     route.view === "park" && parkDetailStatus.state === "success"
       ? parkEditorialBySlug[parkDetailStatus.park.slug]
       : undefined;
+  const parkQueueTimesReference =
+    parkDetailStatus.state === "success" ? parkDetailStatus.queueTimes : undefined;
   const liveWaitSource =
     parkLiveWaitsStatus.state === "success" ? parkLiveWaitsStatus.source : null;
   const hasMappedLiveWaits = liveWaitSource?.state === "mapped";
   const liveWaitRides =
     parkLiveWaitsStatus.state === "success" ? parkLiveWaitsStatus.rides : [];
+  const parkQueueTimesLinks = dedupeExternalLinks(
+    parkQueueTimesReference
+      ? [
+          { label: "Park waits", href: parkQueueTimesReference.queueUrl },
+          { label: "Park stats", href: parkQueueTimesReference.statsUrl }
+        ]
+      : []
+  );
   const parkRideSortLabel =
     parkRideSort === "name"
       ? "Name"
@@ -2124,6 +2209,35 @@ function App() {
     route.view === "ride" && rideDetailStatus.state === "success"
       ? rideEditorialBySlug[rideDetailStatus.ride.slug]
       : undefined;
+  const currentRideLiveWait =
+    route.view === "ride" &&
+    rideDetailStatus.state === "success" &&
+    parkLiveWaitsStatus.state === "success"
+      ? parkLiveWaitsStatus.rides.find(
+          (ride) => ride.rideSlug === rideDetailStatus.ride.slug
+        ) ?? null
+      : null;
+  const rideQueueTimesLinks =
+    rideDetailStatus.state === "success"
+      ? dedupeExternalLinks([
+          ...(rideDetailStatus.rideQueueTimes
+            ? [
+                {
+                  label: "Ride stats",
+                  href: rideDetailStatus.rideQueueTimes.statsUrl
+                }
+              ]
+            : []),
+          ...(rideDetailStatus.parkQueueTimes
+            ? [
+                {
+                  label: "Park waits",
+                  href: rideDetailStatus.parkQueueTimes.queueUrl
+                }
+              ]
+            : [])
+        ])
+      : [];
   const rideSpecItems: RideSpecItem[] = [];
 
   if (rideDetailStatus.state === "success") {
@@ -3524,32 +3638,25 @@ function App() {
                   </div>
                 </div>
 
-                {parkLiveWaitsStatus.state === "loading" ||
-                parkLiveWaitsStatus.state === "error" ||
-                hasMappedLiveWaits ? (
+                {parkLiveWaitsStatus.state !== "idle" ||
+                parkQueueTimesLinks.length > 0 ? (
                   <div className="live-waits-section">
                     <div className="section-row">
                       <div>
-                        <p className="status-label">Live waits</p>
+                        <p className="status-label">Queue-Times</p>
                       </div>
-                      {liveWaitSource ? (
-                        <div className="detail-chip-row">
+                      <div className="detail-chip-row">
+                        {liveWaitSource ? (
                           <span className="catalog-chip">
                             {liveWaitSource.state === "mapped"
                               ? formatCountLabel(liveWaitRides.length, "live ride")
-                              : "Source unmapped"}
+                              : "Not mapped"}
                           </span>
-                          <a
-                            className="catalog-inline-button catalog-inline-link"
-                            href={liveWaitSource.attributionUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Queue-Times
-                          </a>
-                        </div>
-                      ) : null}
+                        ) : null}
+                      </div>
                     </div>
+
+                    <QueueTimesExternalLinks links={parkQueueTimesLinks} />
 
                     {parkLiveWaitsStatus.state === "loading" ? (
                       <div className="state-message state-message-loading state-message-compact">
@@ -3559,7 +3666,7 @@ function App() {
 
                     {parkLiveWaitsStatus.state === "error" ? (
                       <div className="state-message state-message-error state-message-compact">
-                        <p>Unable to load live waits.</p>
+                        <p>Live waits unavailable right now.</p>
                         <p>{parkLiveWaitsStatus.message}</p>
                       </div>
                     ) : null}
@@ -3605,25 +3712,19 @@ function App() {
                               </article>
                             ))}
                           </div>
-                          {parkLiveWaitsStatus.source.externalUrl ? (
-                            <p className="source-note">
-                              Source:{" "}
-                              <a
-                                href={parkLiveWaitsStatus.source.externalUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                {parkLiveWaitsStatus.source.attributionLabel}
-                              </a>
-                            </p>
-                          ) : null}
                         </>
                       ) : (
                         <div className="state-message state-message-empty state-message-compact">
-                          <p>Live waits are unavailable right now.</p>
+                          <p>No live ride updates right now.</p>
                         </div>
                       )
+                    ) : parkLiveWaitsStatus.state === "success" ? (
+                      <div className="state-message state-message-empty state-message-compact">
+                        <p>This park is not linked to Queue-Times yet.</p>
+                      </div>
                     ) : null}
+
+                    <QueueTimesAttribution />
                   </div>
                 ) : null}
 
@@ -3921,6 +4022,69 @@ function App() {
                 {rideCreditMessage ? (
                   <p className="credit-copy">{rideCreditMessage}</p>
                 ) : null}
+
+                <div className="queue-times-panel">
+                  <div className="section-row section-row-compact">
+                    <div>
+                      <p className="status-label">Queue-Times</p>
+                    </div>
+                    {currentRideLiveWait ? (
+                      <span
+                        className={`catalog-chip wait-time-chip${
+                          currentRideLiveWait.isOpen === false
+                            ? " wait-time-chip-closed"
+                            : currentRideLiveWait.isOpen === true
+                              ? " wait-time-chip-open"
+                              : ""
+                        }`}
+                      >
+                        {currentRideLiveWait.isOpen === false
+                          ? "Closed"
+                          : currentRideLiveWait.isOpen === true
+                            ? "Open"
+                            : "Unknown"}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <QueueTimesExternalLinks links={rideQueueTimesLinks} />
+
+                  {parkLiveWaitsStatus.state === "loading" ? (
+                    <div className="state-message state-message-loading state-message-compact">
+                      <p>Loading current wait.</p>
+                    </div>
+                  ) : currentRideLiveWait ? (
+                    <div className="queue-times-summary">
+                      <div className="queue-times-summary-copy">
+                        <strong className="queue-times-value">
+                          {formatLiveWaitLabel(currentRideLiveWait)}
+                        </strong>
+                        <p className="wait-time-meta">
+                          {currentRideLiveWait.sourceLastUpdated
+                            ? `Updated ${formatSourceTimeLabel(
+                                currentRideLiveWait.sourceLastUpdated
+                              )}`
+                            : "Current status from Queue-Times."}
+                        </p>
+                      </div>
+                    </div>
+                  ) : parkLiveWaitsStatus.state === "error" ? (
+                    <div className="state-message state-message-error state-message-compact">
+                      <p>Current wait unavailable right now.</p>
+                      <p>{parkLiveWaitsStatus.message}</p>
+                    </div>
+                  ) : rideDetailStatus.rideQueueTimes ? (
+                    <div className="state-message state-message-empty state-message-compact">
+                      <p>No live Queue-Times update is available for this ride.</p>
+                    </div>
+                  ) : (
+                    <div className="state-message state-message-empty state-message-compact">
+                      <p>This ride is not linked to Queue-Times yet.</p>
+                    </div>
+                  )}
+
+                  <QueueTimesAttribution />
+                </div>
 
                 <div className="lineup-nav-panel">
                   <div>
