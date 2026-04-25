@@ -78,6 +78,10 @@ img {
   box-shadow: var(--shadow-strong);
 }
 
+.topbar-primary {
+  display: contents;
+}
+
 .topbar-nav,
 .topbar-meta,
 .hero-actions,
@@ -124,6 +128,11 @@ img {
   flex: 0 0 auto;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.mobile-route-label,
+.mobile-menu-button {
+  display: none;
 }
 
 .brand-link {
@@ -201,6 +210,12 @@ img {
 .catalog-chip {
   background: var(--brand-navy-soft);
   color: var(--brand-navy);
+}
+
+.topbar-meta .catalog-chip {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(248, 250, 252, 0.94);
 }
 
 .status-chip-success {
@@ -908,6 +923,19 @@ img {
   background: rgba(255, 255, 255, 1);
 }
 
+.filter-disclosure {
+  display: contents;
+}
+
+.filter-summary {
+  display: none;
+  list-style: none;
+}
+
+.filter-summary::-webkit-details-marker {
+  display: none;
+}
+
 .lineup-nav-button:disabled {
   cursor: not-allowed;
   opacity: 0.52;
@@ -1148,6 +1176,23 @@ img {
 .ride-card:hover {
   border-color: rgba(19, 37, 59, 0.16);
   box-shadow: 0 26px 48px rgba(20, 34, 41, 0.1);
+}
+
+.park-link::after,
+.ride-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.park-card .catalog-chip,
+.ride-card .catalog-chip,
+.ride-facts-row,
+.card-cues,
+.park-progress {
+  position: relative;
+  z-index: 2;
 }
 
 .media-frame {
@@ -1734,6 +1779,73 @@ img {
   color: #51666d;
 }
 
+.catalog-skeleton-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.catalog-skeleton-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.92rem;
+  border: 1px solid rgba(19, 37, 59, 0.07);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 16px 32px rgba(20, 34, 41, 0.04);
+}
+
+.skeleton-block,
+.skeleton-row,
+.skeleton-chip {
+  background: linear-gradient(90deg, #eef2f4 0%, #f8fafb 50%, #eef2f4 100%);
+  background-size: 220% 100%;
+  animation: skeleton-pulse 1.35s ease-in-out infinite;
+}
+
+.skeleton-media {
+  aspect-ratio: 16 / 10;
+  border-radius: 18px;
+}
+
+.skeleton-row {
+  height: 0.9rem;
+  border-radius: 999px;
+}
+
+.skeleton-row-title {
+  width: 62%;
+  height: 1.35rem;
+}
+
+.skeleton-row-short {
+  width: 44%;
+}
+
+.skeleton-row-medium {
+  width: 72%;
+}
+
+.skeleton-chip-row {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.skeleton-chip {
+  width: 5.2rem;
+  height: 2rem;
+  border-radius: 999px;
+}
+
+@keyframes skeleton-pulse {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}
+
 @media (max-width: 1080px) {
   .hero-panel,
   .detail-overview {
@@ -1774,6 +1886,64 @@ img {
   .credit-panel {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    gap: 0.75rem;
+    padding: 0.8rem;
+  }
+
+  .topbar-primary {
+    display: grid;
+    grid-template-columns: minmax(0, auto) 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .brand-logo {
+    width: clamp(150px, 44vw, 210px);
+  }
+
+  .mobile-route-label {
+    display: inline-flex;
+    min-width: 0;
+    color: rgba(235, 240, 245, 0.78);
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .mobile-menu-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.55rem;
+    padding: 0.62rem 0.88rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    cursor: pointer;
+  }
+
+  .topbar-nav {
+    display: none;
+  }
+
+  .topbar-nav-open .topbar-nav {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .topbar-nav-link {
+    width: 100%;
+    min-height: 2.75rem;
+    padding-inline: 0.95rem;
+  }
+
+  .topbar-meta {
+    display: flex;
+    justify-content: space-between;
   }
 
   .status-cluster {
@@ -1839,6 +2009,38 @@ img {
     border-radius: 24px;
   }
 
+  .app-shell {
+    width: min(100% - 0.75rem, 1280px);
+  }
+
+  .topbar {
+    border-radius: 20px;
+  }
+
+  .topbar-primary {
+    grid-template-columns: 1fr auto;
+  }
+
+  .mobile-route-label {
+    display: none;
+  }
+
+  .topbar-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .product-pill,
+  .topbar-meta .catalog-chip {
+    width: 100%;
+  }
+
+  .route-bar,
+  .catalog-panel {
+    padding: 1rem;
+  }
+
   .hero-copy h1 {
     max-width: none;
     font-size: clamp(2.3rem, 12vw, 3.4rem);
@@ -1853,6 +2055,36 @@ img {
   .ride-toolbar-catalog,
   .rides-list-catalog {
     grid-template-columns: 1fr;
+  }
+
+  .filter-disclosure {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .filter-summary {
+    display: inline-flex;
+  }
+
+  .filter-disclosure:not(.filter-disclosure-open) .ride-toolbar {
+    display: none;
+  }
+
+  .browse-toolbar-main,
+  .catalog-state-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-state-row .catalog-chip,
+  .catalog-state-row .catalog-inline-button {
+    width: 100%;
+  }
+
+  .park-card,
+  .ride-card,
+  .catalog-skeleton-card {
+    border-radius: 20px;
   }
 
   .spotlight-card {
