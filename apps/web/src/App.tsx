@@ -842,8 +842,42 @@ function CuratedCollectionCard({
   );
 }
 
+function CatalogSkeletonGrid({
+  count,
+  variant
+}: {
+  count: number;
+  variant: "park" | "ride";
+}) {
+  return (
+    <div
+      className={`catalog-skeleton-grid ${
+        variant === "ride" ? "rides-list-catalog" : "parks-list"
+      }`}
+      aria-label={`${variant === "ride" ? "Rides" : "Parks"} loading`}
+      aria-busy="true"
+    >
+      {Array.from({ length: count }, (_, index) => (
+        <article className="catalog-skeleton-card" key={`${variant}-skeleton-${index}`}>
+          <div className="skeleton-block skeleton-media" />
+          <div className="skeleton-row skeleton-row-title" />
+          <div className="skeleton-row skeleton-row-short" />
+          <div className="skeleton-row" />
+          <div className="skeleton-row skeleton-row-medium" />
+          <div className="skeleton-chip-row">
+            <span className="skeleton-chip" />
+            <span className="skeleton-chip" />
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const [route, setRoute] = useState<Route>(() => getRoute(window.location.pathname));
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isRideFiltersOpen, setIsRideFiltersOpen] = useState(false);
   const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "loading" });
   const [searchQuery, setSearchQuery] = useState(() =>
     getSearchQueryFromUrl(window.location.search)
@@ -1026,6 +1060,8 @@ function App() {
   useEffect(() => {
     const syncRoute = () => {
       setRoute(getRoute(window.location.pathname));
+      setIsMobileNavOpen(false);
+      setIsRideFiltersOpen(false);
       setSearchQuery(getSearchQueryFromUrl(window.location.search));
       setParkCollectionId(getCollectionIdFromUrl(window.location.search));
       setRideCatalogSearchQuery(
@@ -2643,13 +2679,37 @@ function App() {
       onClick: navigateToJournal
     }
   ];
+  const activeNavigationLabel =
+    topNavigation.find((item) => item.active)?.label ?? routeBarTitle;
+
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <button className="brand-link brand-link-image" type="button" onClick={navigateHome}>
-          <img className="brand-logo" src={brandLogoDark} alt="Coasterly" />
-        </button>
-        <nav className="topbar-nav" aria-label="Primary">
+      <header className={`topbar${isMobileNavOpen ? " topbar-nav-open" : ""}`}>
+        <div className="topbar-primary">
+          <button
+            className="brand-link brand-link-image"
+            type="button"
+            onClick={() => {
+              setIsMobileNavOpen(false);
+              navigateHome();
+            }}
+          >
+            <img className="brand-logo" src={brandLogoDark} alt="Coasterly" />
+          </button>
+          <span className="mobile-route-label">{activeNavigationLabel}</span>
+          <button
+            className="mobile-menu-button"
+            type="button"
+            aria-expanded={isMobileNavOpen}
+            aria-controls="primary-navigation"
+            onClick={() => {
+              setIsMobileNavOpen((isOpen) => !isOpen);
+            }}
+          >
+            Menu
+          </button>
+        </div>
+        <nav className="topbar-nav" id="primary-navigation" aria-label="Primary">
           {topNavigation.map((item) => (
             <a
               key={item.label}
@@ -2657,6 +2717,7 @@ function App() {
               href={item.href}
               onClick={(event) => {
                 event.preventDefault();
+                setIsMobileNavOpen(false);
                 item.onClick();
               }}
             >
@@ -3111,11 +3172,7 @@ function App() {
             </div>
           </div>
 
-          {parksStatus.state === "loading" ? (
-            <div className="state-message state-message-loading">
-              <p>Loading parks...</p>
-            </div>
-          ) : null}
+          {parksStatus.state === "loading" ? <CatalogSkeletonGrid count={8} variant="park" /> : null}
           {parksStatus.state === "success" ? (
             displayedParks.length > 0 ? (
               <div className="parks-list">
@@ -3200,6 +3257,15 @@ function App() {
             <div className="state-message state-message-error">
               <p>Unable to load parks.</p>
               <p>{parksStatus.message}</p>
+              <button
+                className="catalog-inline-button"
+                type="button"
+                onClick={() => {
+                  window.location.reload();
+                }}
+              >
+                Try again
+              </button>
             </div>
           ) : null}
         </section>
@@ -3261,7 +3327,18 @@ function App() {
               </div>
             </div>
 
-            <div className="ride-toolbar ride-toolbar-catalog">
+            <div className={`filter-disclosure${isRideFiltersOpen ? " filter-disclosure-open" : ""}`}>
+              <button
+                className="catalog-inline-button filter-summary"
+                type="button"
+                aria-expanded={isRideFiltersOpen}
+                onClick={() => {
+                  setIsRideFiltersOpen((isOpen) => !isOpen);
+                }}
+              >
+                Filters
+              </button>
+              <div className="ride-toolbar ride-toolbar-catalog">
               <div className="toolbar-field">
                 <label className="search-label" htmlFor="ride-catalog-park">
                   Park
@@ -3339,6 +3416,7 @@ function App() {
                   <option value="speed_kmh">Top speed</option>
                 </select>
               </div>
+              </div>
             </div>
 
             <p className="parks-summary">
@@ -3396,9 +3474,7 @@ function App() {
           </div>
 
           {ridesCatalogStatus.state === "loading" ? (
-            <div className="state-message state-message-loading">
-              <p>Loading rides...</p>
-            </div>
+            <CatalogSkeletonGrid count={8} variant="ride" />
           ) : null}
           {ridesCatalogStatus.state === "success" ? (
             displayedRideCatalogItems.length > 0 ? (
@@ -3496,6 +3572,15 @@ function App() {
             <div className="state-message state-message-error">
               <p>Unable to load rides.</p>
               <p>{ridesCatalogStatus.message}</p>
+              <button
+                className="catalog-inline-button"
+                type="button"
+                onClick={() => {
+                  window.location.reload();
+                }}
+              >
+                Try again
+              </button>
             </div>
           ) : null}
         </section>
@@ -4326,7 +4411,7 @@ function catalogStateChip(status: ParksStatus | RidesCatalogStatus) {
   }
 
   if (status.state === "loading") {
-    return "Loading results";
+    return null;
   }
 
   return "Catalog unavailable";
