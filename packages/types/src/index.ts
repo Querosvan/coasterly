@@ -187,6 +187,11 @@ export interface DailyChallengeOption {
   label: string;
 }
 
+export type DailyChallengeQuestionKind =
+  | "ride_to_park"
+  | "ride_to_manufacturer"
+  | "ride_to_type";
+
 export interface DailyChallengeQuestionRide {
   id: number;
   name: string;
@@ -198,6 +203,7 @@ export interface DailyChallengeQuestionRide {
 export interface DailyChallengeQuestion {
   id: string;
   challengeDate: string;
+  kind: DailyChallengeQuestionKind;
   title: string;
   prompt: string;
   ride: DailyChallengeQuestionRide;
