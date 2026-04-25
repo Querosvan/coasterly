@@ -5,6 +5,7 @@ import {
   addRideCreditForUser,
   closeDatabase,
   getDemoUserRideStats,
+  getExternalSourceMapping,
   getRideStatsForUser,
   getParkBySlug,
   getRideBySlugs,
@@ -21,6 +22,12 @@ import {
   resolveRequestCurrentUser
 } from "./current-user.js";
 import { getQueueTimesLiveWaitsForPark } from "./services/wait-times.js";
+import {
+  QUEUE_TIMES_SOURCE_NAME,
+  buildQueueTimesPublicParkStatsUrl,
+  buildQueueTimesPublicParkUrl,
+  buildQueueTimesPublicRideUrl
+} from "./integrations/queue-times.js";
 
 import type {
   CurrentUserResponse,
@@ -123,7 +130,24 @@ app.get<{ Params: { slug: string } }>("/parks/:slug", async (request, reply) => 
   }
 
   const response: ParkResponse = {
-    park
+    park,
+    ...(await getExternalSourceMapping(
+      QUEUE_TIMES_SOURCE_NAME,
+      "park",
+      park.id
+    ).then((mapping) =>
+      mapping
+        ? {
+            queueTimes: {
+              sourceName: QUEUE_TIMES_SOURCE_NAME,
+              externalId: mapping.externalId,
+              queueUrl:
+                mapping.externalUrl ?? buildQueueTimesPublicParkUrl(mapping.externalId),
+              statsUrl: buildQueueTimesPublicParkStatsUrl(mapping.externalId)
+            }
+          }
+        : {}
+    ))
   };
 
   return response;
@@ -294,7 +318,50 @@ app.get<{ Params: { slug: string; rideSlug: string } }>(
 
     const response: RideResponse = {
       park: rideRecord.park,
-      ride: rideRecord.ride
+      ride: rideRecord.ride,
+      ...(await Promise.all([
+        getExternalSourceMapping(
+          QUEUE_TIMES_SOURCE_NAME,
+          "park",
+          rideRecord.park.id
+        ),
+        getExternalSourceMapping(
+          QUEUE_TIMES_SOURCE_NAME,
+          "ride",
+          rideRecord.ride.id
+        )
+      ]).then(([parkMapping, rideMapping]) => ({
+        ...(parkMapping
+          ? {
+              parkQueueTimes: {
+                sourceName: QUEUE_TIMES_SOURCE_NAME,
+                externalId: parkMapping.externalId,
+                queueUrl:
+                  parkMapping.externalUrl ??
+                  buildQueueTimesPublicParkUrl(parkMapping.externalId),
+                statsUrl: buildQueueTimesPublicParkStatsUrl(parkMapping.externalId)
+              }
+            }
+          : {}),
+        ...(parkMapping && rideMapping
+          ? {
+              rideQueueTimes: {
+                sourceName: QUEUE_TIMES_SOURCE_NAME,
+                externalId: rideMapping.externalId,
+                queueUrl:
+                  rideMapping.externalUrl ??
+                  buildQueueTimesPublicRideUrl(
+                    parkMapping.externalId,
+                    rideMapping.externalId
+                  ),
+                statsUrl: buildQueueTimesPublicRideUrl(
+                  parkMapping.externalId,
+                  rideMapping.externalId
+                )
+              }
+            }
+          : {})
+      })))
     };
 
     return response;

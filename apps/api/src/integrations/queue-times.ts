@@ -10,6 +10,14 @@ const queueTimesBaseUrl =
 const officialQueueTimesParkUrl = (externalParkId: string) =>
   `${QUEUE_TIMES_ATTRIBUTION_URL}parks/${externalParkId}/queue_times`;
 
+const officialQueueTimesParkStatsUrl = (externalParkId: string) =>
+  `${QUEUE_TIMES_ATTRIBUTION_URL}parks/${externalParkId}/stats`;
+
+const officialQueueTimesRideUrl = (
+  externalParkId: string,
+  externalRideId: string
+) => `${QUEUE_TIMES_ATTRIBUTION_URL}parks/${externalParkId}/rides/${externalRideId}`;
+
 export type QueueTimesParkSeedMapping = {
   parkSlug: string;
   externalId: string;
@@ -227,6 +235,8 @@ export type QueueTimesLiveRide = {
 };
 
 export const buildQueueTimesPublicParkUrl = officialQueueTimesParkUrl;
+export const buildQueueTimesPublicParkStatsUrl = officialQueueTimesParkStatsUrl;
+export const buildQueueTimesPublicRideUrl = officialQueueTimesRideUrl;
 
 export const fetchQueueTimesParkQueue = async (externalParkId: string) => {
   const response = await fetch(
