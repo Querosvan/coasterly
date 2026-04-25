@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 
 import type {
+  CommunityHighlightsResponse,
   CurrentUserResponse,
   DemoUserParkProgress,
   ExternalEntityType,
@@ -1584,6 +1585,55 @@ export const getUserProfileBySlug = async (
   }
 
   return getUserProfile(user);
+};
+
+export const listCommunityHighlights = async (
+  limit = 6
+): Promise<CommunityHighlightsResponse["profiles"]> => {
+  const result = await pool.query<{
+    id: number;
+    slug: string;
+    name: string;
+    role: string;
+    is_seeded: boolean;
+  }>(
+    `
+      SELECT
+        users.id,
+        users.slug,
+        users.name,
+        users.role,
+        users.is_seeded
+      FROM users
+      LEFT JOIN user_ride_credits ON user_ride_credits.user_id = users.id
+      GROUP BY users.id
+      ORDER BY
+        MAX(user_ride_credits.created_at) DESC NULLS LAST,
+        COUNT(user_ride_credits.ride_id) DESC,
+        users.name ASC
+      LIMIT $1
+    `,
+    [limit]
+  );
+
+  const users = result.rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    role: row.role as UserRole,
+    ...(row.is_seeded ? { isSeeded: true } : {})
+  }));
+
+  const profiles = await Promise.all(users.map((user) => getUserProfile(user)));
+
+  return profiles.map((profile) => ({
+    user: profile.user,
+    totalRiddenRides: profile.totalRiddenRides,
+    totalParksWithRiddenRides: profile.totalParksWithRiddenRides,
+    ...(profile.parks[0] ? { featuredPark: profile.parks[0] } : {}),
+    badges: profile.badges.slice(0, 2),
+    recentActivity: profile.recentActivity.slice(0, 2)
+  }));
 };
 
 export const addRideCreditForUser = async (

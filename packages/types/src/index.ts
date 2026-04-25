@@ -169,6 +169,19 @@ export interface UserProfileResponse {
   recentActivity: UserRecentActivityItem[];
 }
 
+export interface CommunityHighlight {
+  user: UserSummary;
+  totalRiddenRides: number;
+  totalParksWithRiddenRides: number;
+  featuredPark?: DemoUserParkProgress;
+  badges: UserProgressionBadge[];
+  recentActivity: UserRecentActivityItem[];
+}
+
+export interface CommunityHighlightsResponse {
+  profiles: CommunityHighlight[];
+}
+
 export type AdminEditableEntityKind =
   | "park"
   | "ride"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type {
+  CommunityHighlightsResponse,
   DemoUserStatsResponse,
   HealthResponse,
   Park,
@@ -437,6 +438,11 @@ type UserProfileStatus =
   | { state: "idle" }
   | { state: "loading" }
   | { state: "success"; profile: UserProfileResponse }
+  | { state: "error"; message: string };
+
+type CommunityHighlightsStatus =
+  | { state: "loading" }
+  | { state: "success"; profiles: CommunityHighlightsResponse["profiles"] }
   | { state: "error"; message: string };
 
 type RideDetailStatus =
@@ -974,6 +980,89 @@ function ProfileSurface({
   );
 }
 
+function CommunityHighlightCard({
+  profile,
+  onOpenProfile,
+  onOpenPark,
+  onOpenRide
+}: {
+  profile: CommunityHighlightsResponse["profiles"][number];
+  onOpenProfile: (userSlug: string) => void;
+  onOpenPark: (parkSlug: string) => void;
+  onOpenRide: (parkSlug: string, rideSlug: string) => void;
+}) {
+  return (
+    <article className="community-card">
+      <div className="community-card-header">
+        <div className="community-card-copy">
+          <p className="status-label">Community</p>
+          <button
+            className="community-profile-link"
+            type="button"
+            onClick={() => {
+              onOpenProfile(profile.user.slug);
+            }}
+          >
+            {profile.user.name}
+          </button>
+        </div>
+        <div className="detail-chip-row">
+          <span className="catalog-chip">{profile.user.role}</span>
+          {profile.featuredPark ? (
+            <button
+              className="catalog-chip route-chip"
+              type="button"
+              onClick={() => {
+                onOpenPark(profile.featuredPark!.parkSlug);
+              }}
+            >
+              {`${profile.featuredPark.completionPercentage}% at ${profile.featuredPark.parkName}`}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="community-card-stats">
+        <span className="ride-fact-pill">
+          {formatCountLabel(profile.totalRiddenRides, "ridden ride")}
+        </span>
+        <span className="ride-fact-pill">
+          {formatCountLabel(profile.totalParksWithRiddenRides, "park")}
+        </span>
+        {profile.badges.map((badge) => (
+          <span className="ride-fact-pill ride-fact-pill-accent" key={badge.id}>
+            {badge.title}
+          </span>
+        ))}
+      </div>
+
+      {profile.recentActivity.length > 0 ? (
+        <div className="community-activity-list">
+          {profile.recentActivity.map((entry) => (
+            <button
+              className="community-activity-item"
+              key={`${entry.rideId}-${entry.riddenAt}`}
+              type="button"
+              onClick={() => {
+                onOpenRide(entry.parkSlug, entry.rideSlug);
+              }}
+            >
+              <span className="community-activity-ride">{entry.rideName}</span>
+              <span className="community-activity-meta">
+                {entry.parkName} · {new Date(entry.riddenAt).toLocaleDateString()}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="state-message state-message-empty state-message-compact">
+          <p>Public activity will appear here as more rides are logged.</p>
+        </div>
+      )}
+    </article>
+  );
+}
+
 type CuratedCollectionCardProps = {
   collection: CuratedCollection;
   isActive?: boolean;
@@ -1118,6 +1207,10 @@ function App() {
   const [userProfileStatus, setUserProfileStatus] = useState<UserProfileStatus>({
     state: "idle"
   });
+  const [communityHighlightsStatus, setCommunityHighlightsStatus] =
+    useState<CommunityHighlightsStatus>({
+      state: "loading"
+    });
   const [rideDetailStatus, setRideDetailStatus] = useState<RideDetailStatus>({
     state: "idle"
   });
@@ -1268,6 +1361,51 @@ function App() {
         state: "error",
         message:
           error instanceof Error ? error.message : "The profile request failed."
+      });
+    }
+  };
+
+  const loadCommunityHighlights = async (signal?: AbortSignal) => {
+    if (!apiBaseUrl) {
+      setCommunityHighlightsStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    setCommunityHighlightsStatus({ state: "loading" });
+
+    try {
+      const response = await fetch(new URL("/community/highlights", apiBaseUrl), {
+        ...(signal ? { signal } : {})
+      });
+
+      if (!response.ok) {
+        setCommunityHighlightsStatus({
+          state: "error",
+          message: `Community request failed with status ${response.status}.`
+        });
+
+        return;
+      }
+
+      const payload = (await response.json()) as CommunityHighlightsResponse;
+
+      setCommunityHighlightsStatus({
+        state: "success",
+        profiles: payload.profiles
+      });
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setCommunityHighlightsStatus({
+        state: "error",
+        message:
+          error instanceof Error ? error.message : "The community request failed."
       });
     }
   };
@@ -1475,6 +1613,7 @@ function App() {
 
     void loadDemoUserStats(controller.signal);
     void loadUserProgression(controller.signal);
+    void loadCommunityHighlights(controller.signal);
 
     return () => {
       controller.abort();
@@ -2624,6 +2763,9 @@ function App() {
   const hasActiveRideCollection = Boolean(selectedRideCollection);
   const featuredParks = allParks.slice(0, 4);
   const landingFeaturedParks = featuredParks.slice(0, 3);
+  const communityHighlights =
+    communityHighlightsStatus.state === "success" ? communityHighlightsStatus.profiles : [];
+  const landingCommunityHighlights = communityHighlights.slice(0, 2);
   const spotlightPark = landingFeaturedParks[0];
   const spotlightProgress = spotlightPark
     ? parkProgressBySlug?.get(spotlightPark.slug)
@@ -3415,6 +3557,52 @@ function App() {
             </div>
           </section>
 
+          <section className="catalog-panel landing-panel">
+            <div className="catalog-header landing-header">
+              <div className="catalog-copy">
+                <p className="status-label">Community</p>
+                <h2 className="section-title">Profiles with fresh ride activity.</h2>
+              </div>
+              <div className="landing-actions">
+                <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
+                  Open discover
+                </button>
+              </div>
+            </div>
+            {communityHighlightsStatus.state === "loading" ? (
+              <div className="state-message state-message-loading state-message-compact">
+                <p>Loading community activity...</p>
+              </div>
+            ) : null}
+            {communityHighlightsStatus.state === "success" ? (
+              landingCommunityHighlights.length > 0 ? (
+                <div className="community-grid">
+                  {landingCommunityHighlights.map((profile) => (
+                    <CommunityHighlightCard
+                      key={profile.user.id}
+                      profile={profile}
+                      onOpenProfile={navigateToPublicProfile}
+                      onOpenPark={navigateToPark}
+                      onOpenRide={(parkSlug, rideSlug) => {
+                        navigateToRide(parkSlug, rideSlug);
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="state-message state-message-empty state-message-compact">
+                  <p>Community profiles will surface here as activity grows.</p>
+                </div>
+              )
+            ) : null}
+            {communityHighlightsStatus.state === "error" ? (
+              <div className="state-message state-message-error state-message-compact">
+                <p>Unable to load community activity.</p>
+                <p>{communityHighlightsStatus.message}</p>
+              </div>
+            ) : null}
+          </section>
+
           <section className="catalog-panel editorial-panel">
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
@@ -4097,6 +4285,47 @@ function App() {
                     </article>
                   ))}
             </div>
+          </section>
+
+          <section className="catalog-panel nested-panel">
+            <div className="catalog-header landing-header">
+              <div className="catalog-copy">
+                <p className="status-label">Community</p>
+                <h2 className="section-title">Public profiles with recent ride credits.</h2>
+              </div>
+            </div>
+            {communityHighlightsStatus.state === "loading" ? (
+              <div className="state-message state-message-loading state-message-compact">
+                <p>Loading community activity...</p>
+              </div>
+            ) : null}
+            {communityHighlightsStatus.state === "success" ? (
+              communityHighlights.length > 0 ? (
+                <div className="community-grid">
+                  {communityHighlights.map((profile) => (
+                    <CommunityHighlightCard
+                      key={profile.user.id}
+                      profile={profile}
+                      onOpenProfile={navigateToPublicProfile}
+                      onOpenPark={navigateToPark}
+                      onOpenRide={(parkSlug, rideSlug) => {
+                        navigateToRide(parkSlug, rideSlug);
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="state-message state-message-empty state-message-compact">
+                  <p>Public activity will show up here as more riders log credits.</p>
+                </div>
+              )
+            ) : null}
+            {communityHighlightsStatus.state === "error" ? (
+              <div className="state-message state-message-error state-message-compact">
+                <p>Unable to load community activity.</p>
+                <p>{communityHighlightsStatus.message}</p>
+              </div>
+            ) : null}
           </section>
         </section>
       ) : null}
