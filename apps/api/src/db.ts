@@ -983,7 +983,11 @@ export const listParks = async (search?: string): Promise<Park[]> => {
       );
 
   return result.rows.map((park) => ({
-    ...park,
+    id: park.id,
+    name: park.name,
+    slug: park.slug,
+    country: park.country,
+    city: park.city,
     status: park.status as ParkStatus,
     ...(park.image_url ? { imageUrl: park.image_url } : {})
   }));
@@ -1015,7 +1019,11 @@ export const getParkBySlug = async (slug: string): Promise<Park | null> => {
   }
 
   return {
-    ...park,
+    id: park.id,
+    name: park.name,
+    slug: park.slug,
+    country: park.country,
+    city: park.city,
     status: park.status as ParkStatus,
     ...(park.image_url ? { imageUrl: park.image_url } : {})
   };
