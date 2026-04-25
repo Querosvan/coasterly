@@ -1073,12 +1073,16 @@ function CommunityHighlightCard({
 function DailyChallengePanel({
   dailyChallengeStatus,
   isSubmitting,
+  isClaimingReward,
   onAnswer,
+  onClaimReward,
   onOpenRide
 }: {
   dailyChallengeStatus: DailyChallengeStatus;
   isSubmitting: boolean;
+  isClaimingReward: boolean;
   onAnswer: (optionId: string) => void;
+  onClaimReward: () => void;
   onOpenRide: (parkSlug: string, rideSlug: string) => void;
 }) {
   if (dailyChallengeStatus.state === "loading") {
@@ -1103,7 +1107,13 @@ function DailyChallengePanel({
   }
 
   const { response } = dailyChallengeStatus;
-  const { challenge, summary, attempt } = response;
+  const { challenge, summary, attempt, reward } = response;
+  const canClaimReward = reward.claimedAt === undefined;
+  const resultTone = attempt?.isCorrect
+    ? "state-message-success"
+    : attempt
+      ? "state-message-empty"
+      : "state-message-loading";
 
   return (
     <section className="stats-panel daily-challenge-panel" aria-label="Daily challenge">
@@ -1116,6 +1126,18 @@ function DailyChallengePanel({
           <span className="catalog-chip">{`Level ${summary.level}`}</span>
           <span className="catalog-chip catalog-chip-ridden">{`${summary.totalXp} XP`}</span>
           <span className="catalog-chip route-chip">{`${summary.currentStreak} day streak`}</span>
+          <button
+            className={`catalog-inline-button${canClaimReward ? " catalog-inline-button-accent" : ""}`}
+            type="button"
+            disabled={!canClaimReward || isClaimingReward}
+            onClick={onClaimReward}
+          >
+            {canClaimReward
+              ? isClaimingReward
+                ? "Claiming..."
+                : `Claim ${reward.availableXp} XP`
+              : `Reward claimed${reward.claimedXp ? ` · ${reward.claimedXp} XP` : ""}`}
+          </button>
         </div>
       </div>
 
@@ -1143,13 +1165,21 @@ function DailyChallengePanel({
         <div className="daily-challenge-copy">
           <p className="status-label">{challenge.title}</p>
           <h3 className="section-title">{challenge.prompt}</h3>
-          <p className="catalog-note">
-            {attempt
-              ? attempt.isCorrect
-                ? `Correct. ${attempt.earnedXp} XP added today.`
-                : `Locked in for today. ${attempt.earnedXp} XP added.`
-              : "Answer once per day to build XP and keep the streak moving."}
-          </p>
+
+          <div className={`state-message state-message-compact ${resultTone}`}>
+            <p>
+              {attempt
+                ? attempt.isCorrect
+                  ? `Correct answer. ${attempt.earnedXp} XP added from the challenge.`
+                  : `Answer locked for today. ${attempt.earnedXp} XP added from the challenge.`
+                : "Answer once per day, then claim the reward to keep the loop moving."}
+            </p>
+            <p>
+              {canClaimReward
+                ? `Daily reward available: ${reward.availableXp} XP.`
+                : `Daily reward claimed${reward.claimedAt ? ` on ${new Date(reward.claimedAt).toLocaleDateString()}` : ""}.`}
+            </p>
+          </div>
 
           <div className="daily-challenge-options">
             {challenge.options.map((option) => {
@@ -1163,7 +1193,7 @@ function DailyChallengePanel({
                     isSelected ? " daily-challenge-option-selected" : ""
                   }${isCorrect ? " daily-challenge-option-correct" : ""}`}
                   type="button"
-                  disabled={Boolean(attempt) || isSubmitting}
+                  disabled={Boolean(attempt) || isSubmitting || isClaimingReward}
                   onClick={() => {
                     onAnswer(option.id);
                   }}
@@ -1347,6 +1377,7 @@ function App() {
   });
   const [isUpdatingRideCredit, setIsUpdatingRideCredit] = useState(false);
   const [isSubmittingDailyChallenge, setIsSubmittingDailyChallenge] = useState(false);
+  const [isClaimingDailyReward, setIsClaimingDailyReward] = useState(false);
   const [rideCreditMessage, setRideCreditMessage] = useState<string | null>(null);
   const [profileShareMessage, setProfileShareMessage] = useState<string | null>(null);
 
@@ -2802,6 +2833,44 @@ function App() {
     }
   };
 
+  const claimDailyReward = async () => {
+    if (!apiBaseUrl || dailyChallengeStatus.state !== "success") {
+      return;
+    }
+
+    setIsClaimingDailyReward(true);
+
+    try {
+      const response = await fetch(new URL("/me/daily-challenge/reward", apiBaseUrl), {
+        method: "POST"
+      });
+
+      if (!response.ok) {
+        setDailyChallengeStatus({
+          state: "error",
+          message: `Daily reward claim failed with status ${response.status}.`
+        });
+
+        return;
+      }
+
+      const payload = (await response.json()) as DailyChallengeResponse;
+
+      setDailyChallengeStatus({
+        state: "success",
+        response: payload
+      });
+    } catch (error) {
+      setDailyChallengeStatus({
+        state: "error",
+        message:
+          error instanceof Error ? error.message : "The daily reward claim failed."
+      });
+    } finally {
+      setIsClaimingDailyReward(false);
+    }
+  };
+
   const navigateToJournal = () => {
     navigateWithParams("/journal", new URLSearchParams());
   };
@@ -3783,7 +3852,9 @@ function App() {
           <DailyChallengePanel
             dailyChallengeStatus={dailyChallengeStatus}
             isSubmitting={isSubmittingDailyChallenge}
+            isClaimingReward={isClaimingDailyReward}
             onAnswer={submitDailyChallengeAnswer}
+            onClaimReward={claimDailyReward}
             onOpenRide={(parkSlug, rideSlug) => {
               navigateToRide(parkSlug, rideSlug);
             }}
@@ -4372,7 +4443,9 @@ function App() {
           <DailyChallengePanel
             dailyChallengeStatus={dailyChallengeStatus}
             isSubmitting={isSubmittingDailyChallenge}
+            isClaimingReward={isClaimingDailyReward}
             onAnswer={submitDailyChallengeAnswer}
+            onClaimReward={claimDailyReward}
             onOpenRide={(parkSlug, rideSlug) => {
               navigateToRide(parkSlug, rideSlug);
             }}
@@ -4601,7 +4674,9 @@ function App() {
               <DailyChallengePanel
                 dailyChallengeStatus={dailyChallengeStatus}
                 isSubmitting={isSubmittingDailyChallenge}
+                isClaimingReward={isClaimingDailyReward}
                 onAnswer={submitDailyChallengeAnswer}
+                onClaimReward={claimDailyReward}
                 onOpenRide={(parkSlug, rideSlug) => {
                   navigateToRide(parkSlug, rideSlug);
                 }}

@@ -3,6 +3,8 @@ import cors from "@fastify/cors";
 
 import {
   addRideCreditForUser,
+  claimDailyRewardForUser,
+  claimDemoUserDailyReward,
   closeDatabase,
   getDailyChallengeForUser,
   getDemoUserProgression,
@@ -302,6 +304,12 @@ app.post<{ Body: DailyChallengeAnswerRequest }>(
   }
 );
 
+app.post("/demo-user/daily-challenge/reward", async () => {
+  const response: DailyChallengeResponse = await claimDemoUserDailyReward();
+
+  return response;
+});
+
 app.get("/community/highlights", async () => {
   const response: CommunityHighlightsResponse = {
     profiles: await listCommunityHighlights()
@@ -463,6 +471,25 @@ app.post<{ Body: DailyChallengeAnswerRequest }>(
     }
   }
 );
+
+app.post("/me/daily-challenge/reward", async (request, reply) => {
+  try {
+    const currentUser = await resolveRequestCurrentUser(request);
+    const response: DailyChallengeResponse = await claimDailyRewardForUser(
+      currentUser.user
+    );
+
+    return response;
+  } catch (error) {
+    if (error instanceof CurrentUserResolutionError) {
+      return reply.code(error.statusCode).send({
+        message: error.message
+      });
+    }
+
+    throw error;
+  }
+});
 
 app.get<{ Params: { slug: string } }>("/users/:slug/profile", async (request, reply) => {
   const profile = await getUserProfileBySlug(request.params.slug);

@@ -218,6 +218,12 @@ export interface DailyChallengeAttempt {
   answeredAt: string;
 }
 
+export interface DailyRewardClaim {
+  availableXp: number;
+  claimedXp?: number;
+  claimedAt?: string;
+}
+
 export interface DailyChallengeSummary {
   totalXp: number;
   level: number;
@@ -230,6 +236,7 @@ export interface DailyChallengeResponse {
   summary: DailyChallengeSummary;
   challenge: DailyChallengeQuestion;
   attempt?: DailyChallengeAttempt;
+  reward: DailyRewardClaim;
 }
 
 export interface DailyChallengeAnswerRequest {

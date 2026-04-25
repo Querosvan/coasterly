@@ -4,6 +4,7 @@ import type {
   CommunityHighlightsResponse,
   CurrentUserResponse,
   DailyChallengeAttempt,
+  DailyRewardClaim,
   DailyChallengeResponse,
   DemoUserParkProgress,
   ExternalEntityType,
@@ -28,6 +29,7 @@ import {
 import {
   DAILY_CHALLENGE_CORRECT_XP,
   DAILY_CHALLENGE_INCORRECT_XP,
+  DAILY_REWARD_XP,
   buildDailyChallengeQuestion,
   buildDailyChallengeSummary,
   getTodayChallengeDateKey,
@@ -589,6 +591,18 @@ export const initializeDatabase = async () => {
         earned_xp INTEGER NOT NULL CHECK (earned_xp >= 0),
         answered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE (user_id, challenge_date)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_daily_reward_claims (
+        id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        reward_date DATE NOT NULL,
+        reward_type TEXT NOT NULL,
+        earned_xp INTEGER NOT NULL CHECK (earned_xp >= 0),
+        claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, reward_date)
       )
     `);
 
@@ -1618,6 +1632,10 @@ type DailyChallengeAttemptRecord = DailyChallengeAttempt & {
   challengeDate: string;
 };
 
+type DailyRewardClaimRecord = Required<Pick<DailyRewardClaim, "claimedXp" | "claimedAt">> & {
+  rewardDate: string;
+};
+
 const listDailyChallengeAttemptsForUser = async (
   user: UserSummary
 ): Promise<DailyChallengeAttemptRecord[]> => {
@@ -1698,14 +1716,74 @@ const getDailyChallengeAttemptForUser = async (
   };
 };
 
+const listDailyRewardClaimsForUser = async (
+  user: UserSummary
+): Promise<DailyRewardClaimRecord[]> => {
+  const result = await pool.query<{
+    reward_date: string;
+    earned_xp: number;
+    claimed_at: string | Date;
+  }>(
+    `
+      SELECT
+        reward_date::text AS reward_date,
+        earned_xp,
+        claimed_at
+      FROM user_daily_reward_claims
+      WHERE user_id = $1
+      ORDER BY reward_date ASC
+    `,
+    [user.id]
+  );
+
+  return result.rows.map((row) => ({
+    rewardDate: row.reward_date,
+    claimedXp: row.earned_xp,
+    claimedAt: row.claimed_at instanceof Date ? row.claimed_at.toISOString() : row.claimed_at
+  }));
+};
+
+const getDailyRewardClaimForUser = async (
+  user: UserSummary,
+  challengeDate: string
+): Promise<DailyRewardClaim | null> => {
+  const result = await pool.query<{
+    earned_xp: number;
+    claimed_at: string | Date;
+  }>(
+    `
+      SELECT earned_xp, claimed_at
+      FROM user_daily_reward_claims
+      WHERE user_id = $1 AND reward_date = $2::date
+      LIMIT 1
+    `,
+    [user.id, challengeDate]
+  );
+
+  const claim = result.rows[0];
+
+  if (!claim) {
+    return null;
+  }
+
+  return {
+    availableXp: DAILY_REWARD_XP,
+    claimedXp: claim.earned_xp,
+    claimedAt: claim.claimed_at instanceof Date ? claim.claimed_at.toISOString() : claim.claimed_at
+  };
+};
+
 const buildDailyChallengeResponseForUser = async (
   user: UserSummary
 ): Promise<DailyChallengeResponse> => {
   const challengeDate = getTodayChallengeDateKey();
-  const [catalog, attempts, attempt] = await Promise.all([
+  const [catalog, attempts, rewardClaims, attempt, reward] = await Promise.all([
     listDailyChallengeCatalogItems(),
     listDailyChallengeAttemptsForUser(user),
+    listDailyRewardClaimsForUser(user),
     getDailyChallengeAttemptForUser(user, challengeDate)
+    ,
+    getDailyRewardClaimForUser(user, challengeDate)
   ]);
   const challenge = buildDailyChallengeQuestion(catalog, challengeDate);
 
@@ -1715,9 +1793,15 @@ const buildDailyChallengeResponseForUser = async (
 
   return {
     user,
-    summary: buildDailyChallengeSummary(attempts),
+    summary: buildDailyChallengeSummary(
+      attempts,
+      rewardClaims.reduce((total, claim) => total + claim.claimedXp, 0)
+    ),
     challenge,
-    ...(attempt ? { attempt } : {})
+    ...(attempt ? { attempt } : {}),
+    reward: reward ?? {
+      availableXp: DAILY_REWARD_XP
+    }
   };
 };
 
@@ -1896,6 +1980,29 @@ export const submitDemoUserDailyChallengeAnswer = async (optionId: string) => {
   const user = await getPrimarySeedUser();
 
   return submitDailyChallengeAnswerForUser(user, optionId);
+};
+
+export const claimDailyRewardForUser = async (
+  user: UserSummary
+): Promise<DailyChallengeResponse> => {
+  const challengeDate = getTodayChallengeDateKey();
+
+  await pool.query(
+    `
+      INSERT INTO user_daily_reward_claims (user_id, reward_date, reward_type, earned_xp)
+      VALUES ($1, $2::date, $3, $4)
+      ON CONFLICT (user_id, reward_date) DO NOTHING
+    `,
+    [user.id, challengeDate, "daily-login", DAILY_REWARD_XP]
+  );
+
+  return buildDailyChallengeResponseForUser(user);
+};
+
+export const claimDemoUserDailyReward = async () => {
+  const user = await getPrimarySeedUser();
+
+  return claimDailyRewardForUser(user);
 };
 
 export const addRideCreditForUser = async (
