@@ -146,6 +146,12 @@ Coasterly now has a lightweight user-progression layer built on top of the exist
 
 This gives the product a repeat-use foundation without committing too early to a larger achievement or seasonal-events system.
 
+The next profile layer now builds on top of that:
+
+- `/me/profile` aggregates current-user stats, progression, and recent ride activity
+- `/demo-user/profile` stays available as a seeded compatibility surface
+- the web app can now treat current-user identity as a real product surface instead of only a hidden fallback behind credits and stats panels
+
 The intended future backoffice editing areas are:
 
 - parks

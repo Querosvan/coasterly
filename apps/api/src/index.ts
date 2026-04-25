@@ -5,8 +5,10 @@ import {
   addRideCreditForUser,
   closeDatabase,
   getDemoUserProgression,
+  getDemoUserProfile,
   getDemoUserRideStats,
   getExternalSourceMapping,
+  getUserProfile,
   getUserProgression,
   getRideStatsForUser,
   getParkBySlug,
@@ -38,6 +40,7 @@ import type {
   ParkResponse,
   ParkLiveWaitsResponse,
   ParksResponse,
+  UserProfileResponse,
   UserProgressionResponse,
   RideCatalogResponse,
   RideCreditMutationResponse,
@@ -249,6 +252,12 @@ app.get("/demo-user/progression", async () => {
   return response;
 });
 
+app.get("/demo-user/profile", async () => {
+  const response: UserProfileResponse = await getDemoUserProfile();
+
+  return response;
+});
+
 app.get("/me", async (request, reply) => {
   try {
     const response: CurrentUserResponse = await resolveRequestCurrentUser(request);
@@ -317,6 +326,23 @@ app.get("/me/progression", async (request, reply) => {
     const response: UserProgressionResponse = await getUserProgression(
       currentUser.user
     );
+
+    return response;
+  } catch (error) {
+    if (error instanceof CurrentUserResolutionError) {
+      return reply.code(error.statusCode).send({
+        message: error.message
+      });
+    }
+
+    throw error;
+  }
+});
+
+app.get("/me/profile", async (request, reply) => {
+  try {
+    const currentUser = await resolveRequestCurrentUser(request);
+    const response: UserProfileResponse = await getUserProfile(currentUser.user);
 
     return response;
   } catch (error) {

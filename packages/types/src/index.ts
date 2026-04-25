@@ -150,6 +150,25 @@ export interface UserProgressionResponse {
   activeMissions: UserProgressionMission[];
 }
 
+export interface UserRecentActivityItem {
+  rideId: number;
+  rideName: string;
+  rideSlug: string;
+  parkName: string;
+  parkSlug: string;
+  riddenAt: string;
+}
+
+export interface UserProfileResponse {
+  user: UserSummary;
+  totalRiddenRides: number;
+  totalParksWithRiddenRides: number;
+  parks: DemoUserParkProgress[];
+  badges: UserProgressionBadge[];
+  activeMissions: UserProgressionMission[];
+  recentActivity: UserRecentActivityItem[];
+}
+
 export type AdminEditableEntityKind =
   | "park"
   | "ride"
