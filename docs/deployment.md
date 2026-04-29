@@ -116,6 +116,12 @@ Document these values in Railway instead of relying on local-only `.env` usage.
 - `QUEUE_TIMES_IMPORT_PARK_IDS`
   - Optional comma-separated list of Queue-Times park IDs for a targeted run.
   - Useful for testing or incremental rollout.
+- `QUEUE_TIMES_IMPORT_CONTINENTS`
+  - Optional comma-separated list of Queue-Times continents for a scoped run.
+  - Useful for rolling out worldwide coverage in controlled slices such as `Europe`, `Asia`, or `North America`.
+- `QUEUE_TIMES_IMPORT_COUNTRIES`
+  - Optional comma-separated list of countries for a scoped run.
+  - Useful when validating naming/search behavior in one country before broadening the import.
 - `QUEUE_TIMES_IMPORT_PARK_LIMIT`
   - Optional numeric cap for how many parks a single run should import.
   - Useful for controlled first runs in Railway.
@@ -174,7 +180,7 @@ Document these values in Railway instead of relying on local-only `.env` usage.
 4. Build with `pnpm --filter @coasterly/catalog-import build`.
 5. Start with `node apps/catalog-import/dist/index.js`.
 6. Set `DATABASE_URL` and, if needed, `QUEUE_TIMES_BASE_URL`.
-7. Add `QUEUE_TIMES_IMPORT_PARK_IDS` or `QUEUE_TIMES_IMPORT_PARK_LIMIT` for controlled non-production runs when needed.
+7. Add `QUEUE_TIMES_IMPORT_PARK_IDS`, `QUEUE_TIMES_IMPORT_CONTINENTS`, `QUEUE_TIMES_IMPORT_COUNTRIES`, or `QUEUE_TIMES_IMPORT_PARK_LIMIT` for controlled non-production runs when needed.
 8. Keep the restart policy set to `NEVER` so the import exits cleanly after one run.
 9. After deploy, confirm logs show discovered, selected, processed, and upserted park and ride counts.
 
