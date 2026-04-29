@@ -440,6 +440,93 @@ const seedRides: Array<
   }
 ];
 
+const normalizeSearchFragment = (value: string) =>
+  value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+
+const getSearchVariants = (value: string) => {
+  const normalizedValue = normalizeSearchFragment(value);
+
+  if (!normalizedValue) {
+    return [];
+  }
+
+  const compactValue = normalizedValue.replace(/\s+/g, "");
+
+  return compactValue && compactValue !== normalizedValue
+    ? [normalizedValue, compactValue]
+    : [normalizedValue];
+};
+
+const sanitizeAlternateNames = (
+  primaryName: string,
+  alternateNames?: string[]
+) => {
+  const normalizedPrimary = primaryName.trim().toLowerCase();
+  const uniqueNames = new Set<string>();
+
+  for (const value of alternateNames ?? []) {
+    const trimmedValue = value.trim();
+
+    if (!trimmedValue || trimmedValue.toLowerCase() === normalizedPrimary) {
+      continue;
+    }
+
+    uniqueNames.add(trimmedValue);
+  }
+
+  return Array.from(uniqueNames);
+};
+
+const buildSearchText = (values: Array<string | undefined>) => {
+  const variants = new Set<string>();
+
+  for (const value of values) {
+    if (!value?.trim()) {
+      continue;
+    }
+
+    for (const variant of getSearchVariants(value)) {
+      variants.add(variant);
+    }
+  }
+
+  return Array.from(variants).join(" ");
+};
+
+const buildParkSearchText = (input: {
+  name: string;
+  alternateNames?: string[];
+  country: string;
+  city?: string;
+}) =>
+  buildSearchText([
+    input.name,
+    ...(input.alternateNames ?? []),
+    input.country,
+    input.city
+  ]);
+
+const buildRideSearchText = (input: {
+  name: string;
+  alternateNames?: string[];
+  rideType: string;
+  manufacturer?: string;
+  model?: string;
+}) =>
+  buildSearchText([
+    input.name,
+    ...(input.alternateNames ?? []),
+    input.rideType,
+    input.manufacturer,
+    input.model
+  ]);
+
 export type ExternalSourceMappingRecord = {
   id: number;
   sourceName: ExternalSourceName;
@@ -531,6 +618,8 @@ export const initializeDatabase = async () => {
         slug TEXT NOT NULL UNIQUE,
         country TEXT NOT NULL,
         city TEXT,
+        alternate_names TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
+        search_text TEXT NOT NULL DEFAULT '',
         continent TEXT,
         timezone TEXT,
         latitude DOUBLE PRECISION,
@@ -543,6 +632,8 @@ export const initializeDatabase = async () => {
     await client.query(`
       ALTER TABLE parks
       ADD COLUMN IF NOT EXISTS image_url TEXT,
+      ADD COLUMN IF NOT EXISTS alternate_names TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
+      ADD COLUMN IF NOT EXISTS search_text TEXT NOT NULL DEFAULT '',
       ADD COLUMN IF NOT EXISTS continent TEXT,
       ADD COLUMN IF NOT EXISTS timezone TEXT,
       ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
@@ -562,6 +653,8 @@ export const initializeDatabase = async () => {
         slug TEXT NOT NULL,
         status TEXT NOT NULL CHECK (status IN ('operating', 'closed', 'planned')),
         ride_type TEXT NOT NULL,
+        alternate_names TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
+        search_text TEXT NOT NULL DEFAULT '',
         image_url TEXT,
         manufacturer TEXT,
         model TEXT,
@@ -576,6 +669,8 @@ export const initializeDatabase = async () => {
     await client.query(`
       ALTER TABLE rides
       ADD COLUMN IF NOT EXISTS image_url TEXT,
+      ADD COLUMN IF NOT EXISTS alternate_names TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
+      ADD COLUMN IF NOT EXISTS search_text TEXT NOT NULL DEFAULT '',
       ADD COLUMN IF NOT EXISTS manufacturer TEXT,
       ADD COLUMN IF NOT EXISTS model TEXT,
       ADD COLUMN IF NOT EXISTS opening_year INTEGER,
@@ -687,15 +782,34 @@ export const initializeDatabase = async () => {
     );
 
     for (const park of seedParks) {
+      const alternateNames = sanitizeAlternateNames(park.name);
+      const searchText = buildParkSearchText({
+        name: park.name,
+        alternateNames,
+        country: park.country,
+        ...(park.city ? { city: park.city } : {})
+      });
+
       await client.query(
         `
-          INSERT INTO parks (name, slug, country, city, status, image_url)
-          VALUES ($1, $2, $3, $4, $5, $6)
+          INSERT INTO parks (
+            name,
+            slug,
+            country,
+            city,
+            alternate_names,
+            search_text,
+            status,
+            image_url
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           ON CONFLICT (slug) DO UPDATE
           SET
             name = EXCLUDED.name,
             country = EXCLUDED.country,
             city = EXCLUDED.city,
+            alternate_names = EXCLUDED.alternate_names,
+            search_text = EXCLUDED.search_text,
             status = EXCLUDED.status,
             image_url = EXCLUDED.image_url
         `,
@@ -704,6 +818,8 @@ export const initializeDatabase = async () => {
           park.slug,
           park.country,
           park.city,
+          alternateNames,
+          searchText,
           park.status,
           park.imageUrl ?? null
         ]
@@ -711,6 +827,15 @@ export const initializeDatabase = async () => {
     }
 
     for (const ride of seedRides) {
+      const alternateNames = sanitizeAlternateNames(ride.name);
+      const searchText = buildRideSearchText({
+        name: ride.name,
+        alternateNames,
+        rideType: ride.rideType,
+        ...(ride.manufacturer ? { manufacturer: ride.manufacturer } : {}),
+        ...(ride.model ? { model: ride.model } : {})
+      });
+
       await client.query(
         `
           INSERT INTO rides (
@@ -719,6 +844,8 @@ export const initializeDatabase = async () => {
             slug,
             status,
             ride_type,
+            alternate_names,
+            search_text,
             image_url,
             manufacturer,
             model,
@@ -727,7 +854,7 @@ export const initializeDatabase = async () => {
             speed_kmh,
             inversions
           )
-          SELECT parks.id, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+          SELECT parks.id, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
           FROM parks
           WHERE parks.slug = $1
           ON CONFLICT (park_id, slug) DO UPDATE
@@ -735,6 +862,8 @@ export const initializeDatabase = async () => {
             name = EXCLUDED.name,
             status = EXCLUDED.status,
             ride_type = EXCLUDED.ride_type,
+            alternate_names = EXCLUDED.alternate_names,
+            search_text = EXCLUDED.search_text,
             image_url = EXCLUDED.image_url,
             manufacturer = EXCLUDED.manufacturer,
             model = EXCLUDED.model,
@@ -749,6 +878,8 @@ export const initializeDatabase = async () => {
           ride.slug,
           ride.status,
           ride.rideType,
+          alternateNames,
+          searchText,
           ride.imageUrl ?? null,
           ride.manufacturer ?? null,
           ride.model ?? null,
@@ -757,6 +888,80 @@ export const initializeDatabase = async () => {
           ride.speedKmh ?? null,
           ride.inversions ?? null
         ]
+      );
+    }
+
+    const parksMissingSearchText = await client.query<{
+      id: number;
+      name: string;
+      country: string;
+      city: string | null;
+      alternate_names: string[] | null;
+    }>(
+      `
+        SELECT id, name, country, city, alternate_names
+        FROM parks
+        WHERE COALESCE(search_text, '') = ''
+      `
+    );
+
+    for (const park of parksMissingSearchText.rows) {
+      const alternateNames = sanitizeAlternateNames(
+        park.name,
+        park.alternate_names ?? []
+      );
+      const searchText = buildParkSearchText({
+        name: park.name,
+        alternateNames,
+        country: park.country,
+        ...(park.city ? { city: park.city } : {})
+      });
+
+      await client.query(
+        `
+          UPDATE parks
+          SET alternate_names = $2, search_text = $3
+          WHERE id = $1
+        `,
+        [park.id, alternateNames, searchText]
+      );
+    }
+
+    const ridesMissingSearchText = await client.query<{
+      id: number;
+      name: string;
+      ride_type: string;
+      manufacturer: string | null;
+      model: string | null;
+      alternate_names: string[] | null;
+    }>(
+      `
+        SELECT id, name, ride_type, manufacturer, model, alternate_names
+        FROM rides
+        WHERE COALESCE(search_text, '') = ''
+      `
+    );
+
+    for (const ride of ridesMissingSearchText.rows) {
+      const alternateNames = sanitizeAlternateNames(
+        ride.name,
+        ride.alternate_names ?? []
+      );
+      const searchText = buildRideSearchText({
+        name: ride.name,
+        alternateNames,
+        rideType: ride.ride_type,
+        ...(ride.manufacturer ? { manufacturer: ride.manufacturer } : {}),
+        ...(ride.model ? { model: ride.model } : {})
+      });
+
+      await client.query(
+        `
+          UPDATE rides
+          SET alternate_names = $2, search_text = $3
+          WHERE id = $1
+        `,
+        [ride.id, alternateNames, searchText]
       );
     }
 
@@ -834,6 +1039,14 @@ export const initializeDatabase = async () => {
 };
 
 const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, "\\$&");
+
+const buildSearchPatterns = (value: string | undefined) => {
+  if (!value?.trim()) {
+    return [];
+  }
+
+  return getSearchVariants(value.trim());
+};
 
 const toOptionalParkFields = (fields: {
   city: string | null;
@@ -1039,22 +1252,25 @@ export const listParks = async (
   search?: string,
   options: PaginationOptions = {}
 ): Promise<PaginatedParksResult> => {
-  const normalizedSearch = search?.trim();
+  const searchPatterns = buildSearchPatterns(search);
   const limit = options.limit ?? 24;
   const offset = options.offset ?? 0;
-  const searchValues = normalizedSearch
-    ? [`%${escapeLikePattern(normalizedSearch)}%`]
-    : [];
+  const searchValues = searchPatterns.map(
+    (pattern) => `%${escapeLikePattern(pattern)}%`
+  );
+  const searchWhereClause =
+    searchPatterns.length > 0
+      ? searchPatterns
+          .map((_, index) => `search_text ILIKE $${index + 1} ESCAPE '\\'`)
+          .join(" OR ")
+      : "";
 
-  const countResult = normalizedSearch
+  const countResult = searchPatterns.length > 0
     ? await pool.query<{ total_count: string }>(
         `
           SELECT COUNT(*)::text AS total_count
           FROM parks
-          WHERE
-            name ILIKE $1 ESCAPE '\\'
-            OR country ILIKE $1 ESCAPE '\\'
-            OR COALESCE(city, '') ILIKE $1 ESCAPE '\\'
+          WHERE ${searchWhereClause}
         `,
         searchValues
       )
@@ -1067,7 +1283,7 @@ export const listParks = async (
 
   const totalCount = Number.parseInt(countResult.rows[0]?.total_count ?? "0", 10);
 
-  const result = normalizedSearch
+  const result = searchPatterns.length > 0
     ? await pool.query<{
         id: number;
         name: string;
@@ -1095,13 +1311,10 @@ export const listParks = async (
             status,
             image_url
           FROM parks
-          WHERE
-            name ILIKE $1 ESCAPE '\\'
-            OR country ILIKE $1 ESCAPE '\\'
-            OR COALESCE(city, '') ILIKE $1 ESCAPE '\\'
+          WHERE ${searchWhereClause}
           ORDER BY name ASC
-          LIMIT $2
-          OFFSET $3
+          LIMIT $${searchValues.length + 1}
+          OFFSET $${searchValues.length + 2}
         `,
         [...searchValues, limit, offset]
       )
@@ -1227,6 +1440,7 @@ export const upsertParkCatalogRecord = async (input: {
   slug: string;
   country: string;
   city?: string;
+  alternateNames?: string[];
   continent?: string;
   timezone?: string;
   latitude?: number;
@@ -1234,6 +1448,13 @@ export const upsertParkCatalogRecord = async (input: {
   status: ParkStatus;
   imageUrl?: string;
 }): Promise<Park> => {
+  const alternateNames = sanitizeAlternateNames(input.name, input.alternateNames);
+  const searchText = buildParkSearchText({
+    name: input.name,
+    alternateNames,
+    country: input.country,
+    ...(input.city ? { city: input.city } : {})
+  });
   const result = await pool.query<{
     id: number;
     name: string;
@@ -1253,6 +1474,8 @@ export const upsertParkCatalogRecord = async (input: {
         slug,
         country,
         city,
+        alternate_names,
+        search_text,
         continent,
         timezone,
         latitude,
@@ -1260,12 +1483,22 @@ export const upsertParkCatalogRecord = async (input: {
         status,
         image_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       ON CONFLICT (slug) DO UPDATE
       SET
         name = EXCLUDED.name,
         country = EXCLUDED.country,
         city = COALESCE(EXCLUDED.city, parks.city),
+        alternate_names = CASE
+          WHEN cardinality(EXCLUDED.alternate_names) > 0
+            THEN EXCLUDED.alternate_names
+          ELSE parks.alternate_names
+        END,
+        search_text = CASE
+          WHEN EXCLUDED.search_text <> ''
+            THEN EXCLUDED.search_text
+          ELSE parks.search_text
+        END,
         continent = COALESCE(EXCLUDED.continent, parks.continent),
         timezone = COALESCE(EXCLUDED.timezone, parks.timezone),
         latitude = COALESCE(EXCLUDED.latitude, parks.latitude),
@@ -1290,6 +1523,8 @@ export const upsertParkCatalogRecord = async (input: {
       input.slug,
       input.country,
       input.city?.trim() || null,
+      alternateNames,
+      searchText,
       input.continent?.trim() || null,
       input.timezone?.trim() || null,
       input.latitude ?? null,
@@ -1328,6 +1563,7 @@ export const upsertRideCatalogRecord = async (input: {
   slug: string;
   status: RideStatus;
   rideType: string;
+  alternateNames?: string[];
   imageUrl?: string;
   manufacturer?: string;
   model?: string;
@@ -1336,6 +1572,14 @@ export const upsertRideCatalogRecord = async (input: {
   speedKmh?: number;
   inversions?: number;
 }): Promise<Ride> => {
+  const alternateNames = sanitizeAlternateNames(input.name, input.alternateNames);
+  const searchText = buildRideSearchText({
+    name: input.name,
+    alternateNames,
+    rideType: input.rideType,
+    ...(input.manufacturer ? { manufacturer: input.manufacturer } : {}),
+    ...(input.model ? { model: input.model } : {})
+  });
   const result = await pool.query<{
     id: number;
     park_id: number;
@@ -1358,6 +1602,8 @@ export const upsertRideCatalogRecord = async (input: {
         slug,
         status,
         ride_type,
+        alternate_names,
+        search_text,
         image_url,
         manufacturer,
         model,
@@ -1366,12 +1612,22 @@ export const upsertRideCatalogRecord = async (input: {
         speed_kmh,
         inversions
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       ON CONFLICT (park_id, slug) DO UPDATE
       SET
         name = EXCLUDED.name,
         status = EXCLUDED.status,
         ride_type = COALESCE(rides.ride_type, EXCLUDED.ride_type),
+        alternate_names = CASE
+          WHEN cardinality(EXCLUDED.alternate_names) > 0
+            THEN EXCLUDED.alternate_names
+          ELSE rides.alternate_names
+        END,
+        search_text = CASE
+          WHEN EXCLUDED.search_text <> ''
+            THEN EXCLUDED.search_text
+          ELSE rides.search_text
+        END,
         image_url = COALESCE(rides.image_url, EXCLUDED.image_url),
         manufacturer = COALESCE(rides.manufacturer, EXCLUDED.manufacturer),
         model = COALESCE(rides.model, EXCLUDED.model),
@@ -1400,6 +1656,8 @@ export const upsertRideCatalogRecord = async (input: {
       input.slug,
       input.status,
       input.rideType,
+      alternateNames,
+      searchText,
       input.imageUrl ?? null,
       input.manufacturer ?? null,
       input.model ?? null,
@@ -1529,7 +1787,7 @@ export const listRidesForPark = async (
 export const listRideCatalog = async (
   options: RideCatalogListOptions = {}
 ): Promise<PaginatedRideCatalogResult> => {
-  const normalizedSearch = options.search?.trim();
+  const searchPatterns = buildSearchPatterns(options.search);
   const normalizedParkSlug = options.parkSlug?.trim();
   const normalizedRideType = options.rideType?.trim();
   const normalizedManufacturer = options.manufacturer?.trim();
@@ -1547,9 +1805,22 @@ export const listRideCatalog = async (
   const filters: string[] = [];
   const values: Array<string | number> = [];
 
-  if (normalizedSearch) {
-    values.push(`%${escapeLikePattern(normalizedSearch)}%`);
-    filters.push(`rides.name ILIKE $${values.length} ESCAPE '\\'`);
+  if (searchPatterns.length > 0) {
+    const searchStartIndex = values.length + 1;
+    const searchValues = searchPatterns.map(
+      (pattern) => `%${escapeLikePattern(pattern)}%`
+    );
+    values.push(...searchValues);
+    filters.push(
+      `(${searchPatterns
+        .map(
+          (_, index) =>
+            `rides.search_text ILIKE $${
+              searchStartIndex + index
+            } ESCAPE '\\'`
+        )
+        .join(" OR ")})`
+    );
   }
 
   if (normalizedParkSlug) {

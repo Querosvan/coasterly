@@ -25,6 +25,16 @@ const parseExternalParkIds = (value: string | undefined) => {
   return ids.length > 0 ? ids : undefined;
 };
 
+const parseCsvList = (value: string | undefined) => {
+  const values =
+    value
+      ?.split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean) ?? [];
+
+  return values.length > 0 ? values : undefined;
+};
+
 const run = async () => {
   const startedAt = new Date().toISOString();
   console.log(`${logPrefix} starting Queue-Times catalog import at ${startedAt}`);
@@ -36,10 +46,14 @@ const run = async () => {
     const externalParkIds = parseExternalParkIds(
       process.env.QUEUE_TIMES_IMPORT_PARK_IDS
     );
+    const continents = parseCsvList(process.env.QUEUE_TIMES_IMPORT_CONTINENTS);
+    const countries = parseCsvList(process.env.QUEUE_TIMES_IMPORT_COUNTRIES);
 
     const summary = await runQueueTimesCatalogImport({
       ...(typeof parkLimit === "number" ? { parkLimit } : {}),
-      ...(externalParkIds ? { externalParkIds } : {})
+      ...(externalParkIds ? { externalParkIds } : {}),
+      ...(continents ? { continents } : {}),
+      ...(countries ? { countries } : {})
     });
 
     console.log(

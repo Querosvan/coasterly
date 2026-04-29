@@ -1,6 +1,10 @@
 import type { Park, Ride } from "@coasterly/types";
 
 import {
+  queueTimesParkNameOverrides,
+  queueTimesRideNameOverrides
+} from "../catalog-name-overrides.js";
+import {
   QUEUE_TIMES_SOURCE_NAME,
   buildQueueTimesPublicParkUrl,
   buildQueueTimesPublicRideUrl,
@@ -19,6 +23,8 @@ import {
 type QueueTimesCatalogImportOptions = {
   parkLimit?: number;
   externalParkIds?: string[];
+  continents?: string[];
+  countries?: string[];
 };
 
 type QueueTimesCatalogImportFailure = {
@@ -67,15 +73,39 @@ const selectDirectoryParks = (
   parks: QueueTimesParkDirectoryEntry[],
   options: QueueTimesCatalogImportOptions
 ) => {
+  const requestedContinents =
+    options.continents
+      ?.map((continent) => continent.trim().toLowerCase())
+      .filter(Boolean) ?? [];
+  const requestedCountries =
+    options.countries
+      ?.map((country) => country.trim().toLowerCase())
+      .filter(Boolean) ?? [];
   const requestedIds =
     options.externalParkIds
       ?.map((externalId) => externalId.trim())
       .filter(Boolean) ?? [];
 
-  const filteredParks =
+  const parksById =
     requestedIds.length > 0
       ? parks.filter((park) => requestedIds.includes(park.externalId))
       : parks;
+  const parksByContinent =
+    requestedContinents.length > 0
+      ? parksById.filter((park) =>
+          park.continent
+            ? requestedContinents.includes(park.continent.trim().toLowerCase())
+            : false
+        )
+      : parksById;
+  const filteredParks =
+    requestedCountries.length > 0
+      ? parksByContinent.filter((park) =>
+          park.country
+            ? requestedCountries.includes(park.country.trim().toLowerCase())
+            : false
+        )
+      : parksByContinent;
 
   if (typeof options.parkLimit !== "number" || options.parkLimit < 1) {
     return filteredParks;
@@ -96,8 +126,14 @@ const upsertImportedPark = async (
   directoryPark: QueueTimesParkDirectoryEntry,
   mappedParkSlug?: string
 ) => {
+  const nameOverride = queueTimesParkNameOverrides[directoryPark.externalId];
+  const canonicalName = nameOverride?.canonicalName ?? directoryPark.name;
+  const alternateNames = [
+    ...(nameOverride?.alternateNames ?? []),
+    ...(canonicalName !== directoryPark.name ? [directoryPark.name] : [])
+  ];
   const park = await upsertParkCatalogRecord({
-    name: directoryPark.name,
+    name: canonicalName,
     slug: buildImportedParkSlug(directoryPark, mappedParkSlug),
     country: directoryPark.country?.trim() || "Unknown",
     ...(directoryPark.continent ? { continent: directoryPark.continent } : {}),
@@ -108,7 +144,8 @@ const upsertImportedPark = async (
     ...(typeof directoryPark.longitude === "number"
       ? { longitude: directoryPark.longitude }
       : {}),
-    status: "operating"
+    status: "operating",
+    ...(alternateNames.length > 0 ? { alternateNames } : {})
   });
 
   await upsertExternalSourceMapping({
@@ -130,12 +167,19 @@ const upsertImportedRide = async (input: {
   rideName: string;
   mappedRideSlug?: string;
 }): Promise<Ride> => {
+  const nameOverride = queueTimesRideNameOverrides[input.externalRideId];
+  const canonicalName = nameOverride?.canonicalName ?? input.rideName;
+  const alternateNames = [
+    ...(nameOverride?.alternateNames ?? []),
+    ...(canonicalName !== input.rideName ? [input.rideName] : [])
+  ];
   const ride = await upsertRideCatalogRecord({
     parkId: input.park.id,
-    name: input.rideName,
-    slug: buildImportedRideSlug(input.rideName, input.mappedRideSlug),
+    name: canonicalName,
+    slug: buildImportedRideSlug(canonicalName, input.mappedRideSlug),
     status: "operating",
-    rideType: DEFAULT_IMPORTED_RIDE_TYPE
+    rideType: DEFAULT_IMPORTED_RIDE_TYPE,
+    ...(alternateNames.length > 0 ? { alternateNames } : {})
   });
 
   await upsertExternalSourceMapping({

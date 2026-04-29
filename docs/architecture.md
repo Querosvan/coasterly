@@ -76,7 +76,7 @@ As Coasterly expands, add complexity only when it solves a real problem:
 
 ## Current Catalog Foundations
 
-The current API bootstrap now seeds a broader European park and ride catalog directly in `apps/api/src/db.ts`.
+The current API bootstrap still seeds a Europe-heavy starter catalog directly in `apps/api/src/db.ts`, while the Queue-Times importer now provides the path to broader worldwide coverage.
 
 - Parks and rides remain PostgreSQL-backed and are inserted or updated on startup
 - Demo-user park progress is derived from `user_ride_credits`, not stored as a separate table
@@ -122,6 +122,9 @@ The next catalog-depth foundation is separate from live waits:
 - Queue-Times is treated as an external catalog source, not the canonical Coasterly runtime model
 - imported parks can now keep sparse metadata truthfully, including missing city values when Queue-Times does not provide them
 - imported rides currently default to a generic `attraction` ride type unless richer Coasterly editorial data exists
+- imported parks and rides now keep alias-ready search metadata so romanized, accented, or alternate names can be supported without changing the public browse API
+- curated Queue-Times naming exceptions live in `apps/api/src/catalog-name-overrides.ts` so local-script or preferred display names can be added incrementally without rewriting the importer
+- importer rollout can now be scoped by Queue-Times park IDs, continents, or countries for controlled worldwide expansion
 - media is intentionally out of scope for this importer and should come from a separate media pipeline later
 
 ## User And Admin Foundations
