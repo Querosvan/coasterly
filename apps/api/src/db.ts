@@ -17,6 +17,7 @@ import type {
   RideSort,
   Ride,
   RideStatus,
+  UserIdentityProgress,
   UserRole,
   UserSummary
 } from "@coasterly/types";
@@ -1805,17 +1806,33 @@ const buildDailyChallengeResponseForUser = async (
   };
 };
 
+const getUserIdentityProgress = async (
+  user: UserSummary
+): Promise<UserIdentityProgress> => {
+  const [attempts, rewardClaims] = await Promise.all([
+    listDailyChallengeAttemptsForUser(user),
+    listDailyRewardClaimsForUser(user)
+  ]);
+
+  return buildDailyChallengeSummary(
+    attempts,
+    rewardClaims.reduce((total, claim) => total + claim.claimedXp, 0)
+  );
+};
+
 export const getUserProfile = async (
   user: UserSummary
 ): Promise<UserProfileResponse> => {
-  const [stats, progression, recentActivity] = await Promise.all([
+  const [stats, progression, recentActivity, identity] = await Promise.all([
     getRideStatsForUser(user),
     getUserProgression(user),
-    listRecentRideActivityForUser(user)
+    listRecentRideActivityForUser(user),
+    getUserIdentityProgress(user)
   ]);
 
   return {
     user,
+    identity,
     totalRiddenRides: stats.totalRiddenRides,
     totalParksWithRiddenRides: stats.totalParksWithRiddenRides,
     parks: stats.parks,
@@ -1894,6 +1911,7 @@ export const listCommunityHighlights = async (
 
   return profiles.map((profile) => ({
     user: profile.user,
+    identity: profile.identity,
     totalRiddenRides: profile.totalRiddenRides,
     totalParksWithRiddenRides: profile.totalParksWithRiddenRides,
     ...(profile.parks[0] ? { featuredPark: profile.parks[0] } : {}),

@@ -161,6 +161,11 @@ The next profile layer now builds on top of that:
 - `/demo-user/profile` stays available as a seeded compatibility surface
 - `/users/:slug/profile` exposes a lightweight public profile shape for sharing
 - `/community/highlights` exposes a small public-activity feed for discovery surfaces
+- profile and community responses now also expose a shared identity summary:
+  - level
+  - total XP
+  - current streak
+  - completed challenge days
 - the web app can now treat current-user identity as a real product surface instead of only a hidden fallback behind credits and stats panels
 
 The intended future backoffice editing areas are:
