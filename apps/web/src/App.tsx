@@ -265,6 +265,7 @@ const formatParkLocation = (park: Pick<Park, "country" | "city">) =>
 
 const browsePageSize = 24;
 const fullCatalogFetchLimit = 5000;
+const defaultCatalogPage = 1;
 
 const curatedCollections: CuratedCollection[] = [
   {
@@ -486,6 +487,15 @@ const getSearchQueryFromUrl = (search: string) => {
   const value = new URLSearchParams(search).get("search")?.trim();
 
   return value ?? "";
+};
+
+const getCatalogPageFromUrl = (search: string) => {
+  const rawValue = new URLSearchParams(search).get("page");
+  const parsedValue = rawValue ? Number.parseInt(rawValue, 10) : Number.NaN;
+
+  return Number.isFinite(parsedValue) && parsedValue >= 1
+    ? parsedValue
+    : defaultCatalogPage;
 };
 
 const getRideBrowserStateFromUrl = (search: string) => {
@@ -1386,13 +1396,15 @@ function App() {
   const [parksStatus, setParksStatus] = useState<ParksStatus>({
     state: "loading"
   });
-  const [parksOffset, setParksOffset] = useState(0);
-  const [isLoadingMoreParks, setIsLoadingMoreParks] = useState(false);
+  const [parksPage, setParksPage] = useState(() =>
+    getCatalogPageFromUrl(window.location.search)
+  );
   const [ridesCatalogStatus, setRidesCatalogStatus] = useState<RidesCatalogStatus>({
     state: "idle"
   });
-  const [ridesCatalogOffset, setRidesCatalogOffset] = useState(0);
-  const [isLoadingMoreRidesCatalog, setIsLoadingMoreRidesCatalog] = useState(false);
+  const [ridesCatalogPage, setRidesCatalogPage] = useState(() =>
+    getCatalogPageFromUrl(window.location.search)
+  );
   const [parkDetailStatus, setParkDetailStatus] = useState<ParkDetailStatus>({
     state: "idle"
   });
@@ -1790,6 +1802,7 @@ function App() {
       setIsMobileNavOpen(false);
       setIsRideFiltersOpen(false);
       setSearchQuery(getSearchQueryFromUrl(window.location.search));
+      setParksPage(getCatalogPageFromUrl(window.location.search));
       setParkCollectionId(getCollectionIdFromUrl(window.location.search));
       setRideCatalogSearchQuery(
         getRidesCatalogStateFromUrl(window.location.search).searchQuery
@@ -1805,6 +1818,7 @@ function App() {
       setRideCatalogRideTypeFilter(ridesCatalogState.rideType);
       setRideCatalogManufacturerFilter(ridesCatalogState.manufacturer);
       setRideCatalogSort(ridesCatalogState.sort);
+      setRidesCatalogPage(getCatalogPageFromUrl(window.location.search));
       setRideCollectionId(getCollectionIdFromUrl(window.location.search));
       setRideDetailOrigin(getRideDetailOriginFromUrl(window.location.search));
     };
@@ -1974,6 +1988,8 @@ function App() {
 
       if (parkCollectionId) {
         params.set("collection", parkCollectionId);
+      } else if (parksPage > defaultCatalogPage) {
+        params.set("page", String(parksPage));
       }
     }
 
@@ -2000,10 +2016,20 @@ function App() {
 
       if (rideCollectionId) {
         params.set("collection", rideCollectionId);
+      } else if (ridesCatalogPage > defaultCatalogPage) {
+        params.set("page", String(ridesCatalogPage));
       }
     }
 
     if (route.view === "park" || route.view === "ride") {
+      if (route.view === "park") {
+        const catalogParams = getCatalogSearchParams();
+
+        catalogParams.forEach((value, key) => {
+          params.set(key, value);
+        });
+      }
+
       if (rideTypeFilter) {
         params.set("rideType", rideTypeFilter);
       }
@@ -2029,6 +2055,8 @@ function App() {
 
         if (rideCollectionId) {
           params.set("collection", rideCollectionId);
+        } else if (ridesCatalogPage > defaultCatalogPage) {
+          params.set("page", String(ridesCatalogPage));
         }
       }
     }
@@ -2049,26 +2077,12 @@ function App() {
     rideCatalogManufacturerFilter,
     rideCatalogSort,
     rideCollectionId,
+    parksPage,
+    ridesCatalogPage,
     rideTypeFilter,
     manufacturerFilter,
     parkRideSort,
     rideDetailOrigin
-  ]);
-
-  useEffect(() => {
-    setParksOffset(0);
-  }, [route.view, searchQuery, parkCollectionId]);
-
-  useEffect(() => {
-    setRidesCatalogOffset(0);
-  }, [
-    route.view,
-    rideCatalogSearchQuery,
-    rideCatalogParkFilter,
-    rideCatalogRideTypeFilter,
-    rideCatalogManufacturerFilter,
-    rideCatalogSort,
-    rideCollectionId
   ]);
 
   useEffect(() => {
@@ -2090,13 +2104,11 @@ function App() {
           ? browsePageSize
           : fullCatalogFetchLimit
         : 24;
-    const effectiveParkOffset = shouldPaginateParks ? parksOffset : 0;
+    const effectiveParkOffset = shouldPaginateParks
+      ? (parksPage - 1) * browsePageSize
+      : 0;
 
-    if (effectiveParkOffset === 0) {
-      setParksStatus({ state: "loading" });
-    } else {
-      setIsLoadingMoreParks(true);
-    }
+    setParksStatus({ state: "loading" });
 
     const timeoutId = window.setTimeout(() => {
       const loadParks = async () => {
@@ -2125,14 +2137,11 @@ function App() {
 
           const payload = (await response.json()) as ParksResponse;
 
-          setParksStatus((previousStatus) => ({
+          setParksStatus({
             state: "success",
-            parks:
-              effectiveParkOffset > 0 && previousStatus.state === "success"
-                ? [...previousStatus.parks, ...payload.parks]
-                : payload.parks,
+            parks: payload.parks,
             ...(payload.pageInfo ? { pageInfo: payload.pageInfo } : {})
-          }));
+          });
         } catch (error) {
           if (controller.signal.aborted) {
             return;
@@ -2145,8 +2154,6 @@ function App() {
                 ? error.message
               : "The parks request failed."
           });
-        } finally {
-          setIsLoadingMoreParks(false);
         }
       };
 
@@ -2156,9 +2163,8 @@ function App() {
     return () => {
       window.clearTimeout(timeoutId);
       controller.abort();
-      setIsLoadingMoreParks(false);
     };
-  }, [route, searchQuery, parkCollectionId, parksOffset]);
+  }, [route, searchQuery, parkCollectionId, parksPage]);
 
   useEffect(() => {
     if (route.view !== "rides") {
@@ -2230,13 +2236,11 @@ function App() {
     const effectiveRideLimit = shouldPaginateRides
       ? browsePageSize
       : fullCatalogFetchLimit;
-    const effectiveRideOffset = shouldPaginateRides ? ridesCatalogOffset : 0;
+    const effectiveRideOffset = shouldPaginateRides
+      ? (ridesCatalogPage - 1) * browsePageSize
+      : 0;
 
-    if (effectiveRideOffset === 0) {
-      setRidesCatalogStatus({ state: "loading" });
-    } else {
-      setIsLoadingMoreRidesCatalog(true);
-    }
+    setRidesCatalogStatus({ state: "loading" });
 
     const timeoutId = window.setTimeout(() => {
       const loadRidesCatalog = async () => {
@@ -2278,14 +2282,11 @@ function App() {
 
           const payload = (await response.json()) as RideCatalogResponse;
 
-          setRidesCatalogStatus((previousStatus) => ({
+          setRidesCatalogStatus({
             state: "success",
-            rides:
-              effectiveRideOffset > 0 && previousStatus.state === "success"
-                ? [...previousStatus.rides, ...payload.rides]
-                : payload.rides,
+            rides: payload.rides,
             ...(payload.pageInfo ? { pageInfo: payload.pageInfo } : {})
-          }));
+          });
         } catch (error) {
           if (controller.signal.aborted) {
             return;
@@ -2298,8 +2299,6 @@ function App() {
                 ? error.message
               : "The rides request failed."
           });
-        } finally {
-          setIsLoadingMoreRidesCatalog(false);
         }
       };
 
@@ -2309,7 +2308,6 @@ function App() {
     return () => {
       window.clearTimeout(timeoutId);
       controller.abort();
-      setIsLoadingMoreRidesCatalog(false);
     };
   }, [
     route,
@@ -2319,7 +2317,7 @@ function App() {
     rideCatalogManufacturerFilter,
     rideCatalogSort,
     rideCollectionId,
-    ridesCatalogOffset
+    ridesCatalogPage
   ]);
 
   useEffect(() => {
@@ -2791,6 +2789,8 @@ function App() {
 
     if (parkCollectionId) {
       params.set("collection", parkCollectionId);
+    } else if (parksPage > defaultCatalogPage) {
+      params.set("page", String(parksPage));
     }
 
     return params;
@@ -2819,6 +2819,8 @@ function App() {
 
     if (rideCollectionId) {
       params.set("collection", rideCollectionId);
+    } else if (ridesCatalogPage > defaultCatalogPage) {
+      params.set("page", String(ridesCatalogPage));
     }
 
     return params;
@@ -2858,9 +2860,12 @@ function App() {
     if (!options?.preserveSearch) {
       setSearchQuery("");
     }
-
     const nextCollectionId =
       options && "collectionId" in options ? options.collectionId ?? "" : parkCollectionId;
+    const shouldPreserveParksPage = Boolean(options?.preserveSearch) && !nextCollectionId;
+    const nextParksPage = shouldPreserveParksPage ? parksPage : defaultCatalogPage;
+
+    setParksPage(nextParksPage);
 
     setParkCollectionId(nextCollectionId);
 
@@ -2878,6 +2883,10 @@ function App() {
               params.set("collection", nextCollectionId);
             }
 
+            if (!nextCollectionId && nextParksPage > defaultCatalogPage) {
+              params.set("page", String(nextParksPage));
+            }
+
             return params;
           })()
         : new URLSearchParams()
@@ -2892,9 +2901,14 @@ function App() {
       setRideCatalogManufacturerFilter("");
       setRideCatalogSort(defaultRidesCatalogSort);
     }
-
     const nextCollectionId =
       options && "collectionId" in options ? options.collectionId ?? "" : rideCollectionId;
+    const shouldPreserveRidesPage = Boolean(options?.preserveFilters) && !nextCollectionId;
+    const nextRidesCatalogPage = shouldPreserveRidesPage
+      ? ridesCatalogPage
+      : defaultCatalogPage;
+
+    setRidesCatalogPage(nextRidesCatalogPage);
 
     setRideCollectionId(nextCollectionId);
 
@@ -2912,36 +2926,42 @@ function App() {
               params.delete("collection");
             }
 
+            if (!nextCollectionId && nextRidesCatalogPage > defaultCatalogPage) {
+              params.set("page", String(nextRidesCatalogPage));
+            }
+
             return params;
           })()
         : new URLSearchParams()
     );
   };
 
-  const loadMoreParks = () => {
-    if (
-      parksStatus.state !== "success" ||
-      !parksStatus.pageInfo?.hasMore ||
-      isLoadingMoreParks
-    ) {
-      return;
-    }
-
-    setParksOffset(parksStatus.pageInfo.offset + parksStatus.pageInfo.limit);
+  const goToPreviousParksPage = () => {
+    setParksPage((currentPage) =>
+      currentPage > defaultCatalogPage ? currentPage - 1 : currentPage
+    );
   };
 
-  const loadMoreRidesCatalog = () => {
-    if (
-      ridesCatalogStatus.state !== "success" ||
-      !ridesCatalogStatus.pageInfo?.hasMore ||
-      isLoadingMoreRidesCatalog
-    ) {
+  const goToNextParksPage = () => {
+    if (parksStatus.state !== "success" || !parksStatus.pageInfo?.hasMore) {
       return;
     }
 
-    setRidesCatalogOffset(
-      ridesCatalogStatus.pageInfo.offset + ridesCatalogStatus.pageInfo.limit
+    setParksPage((currentPage) => currentPage + 1);
+  };
+
+  const goToPreviousRidesCatalogPage = () => {
+    setRidesCatalogPage((currentPage) =>
+      currentPage > defaultCatalogPage ? currentPage - 1 : currentPage
     );
+  };
+
+  const goToNextRidesCatalogPage = () => {
+    if (ridesCatalogStatus.state !== "success" || !ridesCatalogStatus.pageInfo?.hasMore) {
+      return;
+    }
+
+    setRidesCatalogPage((currentPage) => currentPage + 1);
   };
 
   const navigateToDiscover = () => {
@@ -3065,10 +3085,13 @@ function App() {
       setParkRideSort(defaultParkRideSort);
     }
 
-    navigateWithParams(
-      `/parks/${slug}`,
-      options?.preserveRideBrowserState ? getRideBrowserParams() : new URLSearchParams()
-    );
+    const params = options?.preserveRideBrowserState
+      ? getRideBrowserParams()
+      : route.view === "parks"
+        ? getCatalogSearchParams()
+        : new URLSearchParams();
+
+    navigateWithParams(`/parks/${slug}`, params);
   };
 
   const navigateToRide = (
@@ -3232,6 +3255,28 @@ function App() {
     hasActiveRideCollection || !ridesCatalogPageInfo
       ? displayedRideCatalogItems.length
       : ridesCatalogPageInfo.totalCount;
+  const parksTotalPages = parksPageInfo
+    ? Math.max(1, Math.ceil(parksPageInfo.totalCount / parksPageInfo.limit))
+    : 1;
+  const ridesCatalogTotalPages = ridesCatalogPageInfo
+    ? Math.max(1, Math.ceil(ridesCatalogPageInfo.totalCount / ridesCatalogPageInfo.limit))
+    : 1;
+  const parkResultRangeLabel =
+    parksPageInfo && visibleParkCount > 0
+      ? copy.browse.showing(
+          parksPageInfo.offset + 1,
+          parksPageInfo.offset + displayedParks.length,
+          parksPageInfo.totalCount
+        )
+      : null;
+  const rideResultRangeLabel =
+    ridesCatalogPageInfo && visibleRideCatalogCount > 0
+      ? copy.browse.showing(
+          ridesCatalogPageInfo.offset + 1,
+          ridesCatalogPageInfo.offset + displayedRideCatalogItems.length,
+          ridesCatalogPageInfo.totalCount
+        )
+      : null;
   const featuredParks = allParks.slice(0, 4);
   const landingFeaturedParks = featuredParks.slice(0, 3);
   const communityHighlights =
@@ -4179,6 +4224,7 @@ function App() {
                   value={searchQuery}
                   onChange={(event) => {
                     setSearchQuery(event.target.value);
+                    setParksPage(defaultCatalogPage);
                   }}
                   placeholder={copy.browse.parkPlaceholder}
                 />
@@ -4188,6 +4234,7 @@ function App() {
                     type="button"
                     onClick={() => {
                       setSearchQuery("");
+                      setParksPage(defaultCatalogPage);
                     }}
                   >
                     {copy.browse.clear}
@@ -4201,6 +4248,9 @@ function App() {
                   ? copy.browse.results(visibleParkCount)
                   : copy.browse.loadingResults}
               </span>
+              {parkResultRangeLabel ? (
+                <span className="catalog-chip route-chip">{parkResultRangeLabel}</span>
+              ) : null}
               {selectedParkCollection ? (
                 <span className="catalog-chip route-chip">{selectedParkCollection.title}</span>
               ) : null}
@@ -4215,6 +4265,7 @@ function App() {
                   type="button"
                   onClick={() => {
                     setParkCollectionId("");
+                    setParksPage(defaultCatalogPage);
                   }}
                 >
                   {copy.browse.clearCollection}
@@ -4298,15 +4349,26 @@ function App() {
                     );
                   })}
                 </div>
-                {parksPageInfo?.hasMore && !selectedParkCollection ? (
-                  <div className="catalog-load-more-row">
+                {parksPageInfo && !selectedParkCollection && parksTotalPages > 1 ? (
+                  <div className="catalog-pagination-row">
                     <button
                       className="catalog-inline-button"
                       type="button"
-                      onClick={loadMoreParks}
-                      disabled={isLoadingMoreParks}
+                      onClick={goToPreviousParksPage}
+                      disabled={parksPage <= defaultCatalogPage}
                     >
-                      {isLoadingMoreParks ? copy.browse.loadingResults : copy.browse.loadMore}
+                      {copy.browse.previousPage}
+                    </button>
+                    <span className="catalog-pagination-label">
+                      {copy.browse.page(parksPage, parksTotalPages)}
+                    </span>
+                    <button
+                      className="catalog-inline-button"
+                      type="button"
+                      onClick={goToNextParksPage}
+                      disabled={!parksPageInfo.hasMore}
+                    >
+                      {copy.browse.nextPage}
                     </button>
                   </div>
                 ) : null}
@@ -4377,6 +4439,7 @@ function App() {
                   value={rideCatalogSearchQuery}
                   onChange={(event) => {
                     setRideCatalogSearchQuery(event.target.value);
+                    setRidesCatalogPage(defaultCatalogPage);
                   }}
                   placeholder={copy.browse.ridePlaceholder}
                 />
@@ -4386,6 +4449,7 @@ function App() {
                     type="button"
                     onClick={() => {
                       setRideCatalogSearchQuery("");
+                      setRidesCatalogPage(defaultCatalogPage);
                     }}
                   >
                     {copy.browse.clear}
@@ -4416,6 +4480,7 @@ function App() {
                   value={rideCatalogParkFilter}
                   onChange={(event) => {
                     setRideCatalogParkFilter(event.target.value);
+                    setRidesCatalogPage(defaultCatalogPage);
                   }}
                 >
                   <option value="">{copy.browse.allParks}</option>
@@ -4436,6 +4501,7 @@ function App() {
                   value={rideCatalogRideTypeFilter}
                   onChange={(event) => {
                     setRideCatalogRideTypeFilter(event.target.value);
+                    setRidesCatalogPage(defaultCatalogPage);
                   }}
                 >
                   <option value="">{copy.browse.allRideTypes}</option>
@@ -4456,6 +4522,7 @@ function App() {
                   value={rideCatalogManufacturerFilter}
                   onChange={(event) => {
                     setRideCatalogManufacturerFilter(event.target.value);
+                    setRidesCatalogPage(defaultCatalogPage);
                   }}
                 >
                   <option value="">{copy.browse.allManufacturers}</option>
@@ -4476,6 +4543,7 @@ function App() {
                   value={rideCatalogSort}
                   onChange={(event) => {
                     setRideCatalogSort(event.target.value as RidesCatalogSort);
+                    setRidesCatalogPage(defaultCatalogPage);
                   }}
                 >
                   <option value="name">{copy.browse.name}</option>
@@ -4492,6 +4560,9 @@ function App() {
                   ? copy.browse.results(visibleRideCatalogCount)
                   : copy.browse.loadingResults}
               </span>
+              {rideResultRangeLabel ? (
+                <span className="catalog-chip route-chip">{rideResultRangeLabel}</span>
+              ) : null}
               {selectedRideCollection ? (
                 <span className="catalog-chip route-chip">{selectedRideCollection.title}</span>
               ) : null}
@@ -4509,6 +4580,7 @@ function App() {
                     setRideCatalogRideTypeFilter("");
                     setRideCatalogManufacturerFilter("");
                     setRideCatalogSort(defaultRidesCatalogSort);
+                    setRidesCatalogPage(defaultCatalogPage);
                   }}
                 >
                   {copy.browse.clearFilters}
@@ -4520,6 +4592,7 @@ function App() {
                   type="button"
                   onClick={() => {
                     setRideCollectionId("");
+                    setRidesCatalogPage(defaultCatalogPage);
                   }}
                 >
                   {copy.browse.clearCollection}
@@ -4603,17 +4676,26 @@ function App() {
                     );
                   })}
                 </div>
-                {ridesCatalogPageInfo?.hasMore && !selectedRideCollection ? (
-                  <div className="catalog-load-more-row">
+                {ridesCatalogPageInfo && !selectedRideCollection && ridesCatalogTotalPages > 1 ? (
+                  <div className="catalog-pagination-row">
                     <button
                       className="catalog-inline-button"
                       type="button"
-                      onClick={loadMoreRidesCatalog}
-                      disabled={isLoadingMoreRidesCatalog}
+                      onClick={goToPreviousRidesCatalogPage}
+                      disabled={ridesCatalogPage <= defaultCatalogPage}
                     >
-                      {isLoadingMoreRidesCatalog
-                        ? copy.browse.loadingResults
-                        : copy.browse.loadMore}
+                      {copy.browse.previousPage}
+                    </button>
+                    <span className="catalog-pagination-label">
+                      {copy.browse.page(ridesCatalogPage, ridesCatalogTotalPages)}
+                    </span>
+                    <button
+                      className="catalog-inline-button"
+                      type="button"
+                      onClick={goToNextRidesCatalogPage}
+                      disabled={!ridesCatalogPageInfo.hasMore}
+                    >
+                      {copy.browse.nextPage}
                     </button>
                   </div>
                 ) : null}
