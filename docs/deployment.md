@@ -40,6 +40,18 @@ This repository is set up for a cloud-first workflow with Railway as the primary
   - Production can track `develop` during the early phase
   - Preview environments are optional for this service; production scheduling matters more than PR previews
 
+### Catalog Import
+
+- Platform: Railway job service
+- Source: `apps/catalog-import`
+- Runtime model:
+  - starts
+  - imports Queue-Times park and ride catalog data into Coasterly
+  - exits
+- Branch strategy:
+  - Production can track `develop` during the early phase
+  - Preview environments are optional; manual runs and controlled non-production environments matter more than PR previews
+
 ### Database
 
 - Platform: Railway PostgreSQL
@@ -94,6 +106,20 @@ Document these values in Railway instead of relying on local-only `.env` usage.
   - Optional override for the Queue-Times API base URL.
   - Default: `https://queue-times.com`
 
+### Catalog Import (`apps/catalog-import`)
+
+- `DATABASE_URL`
+  - PostgreSQL connection string from Railway PostgreSQL.
+- `QUEUE_TIMES_BASE_URL`
+  - Optional override for the Queue-Times API base URL.
+  - Default: `https://queue-times.com`
+- `QUEUE_TIMES_IMPORT_PARK_IDS`
+  - Optional comma-separated list of Queue-Times park IDs for a targeted run.
+  - Useful for testing or incremental rollout.
+- `QUEUE_TIMES_IMPORT_PARK_LIMIT`
+  - Optional numeric cap for how many parks a single run should import.
+  - Useful for controlled first runs in Railway.
+
 ## Provider Setup Notes
 
 ### Railway Web
@@ -140,6 +166,18 @@ Document these values in Railway instead of relying on local-only `.env` usage.
 9. Recommended initial cron schedule: `*/15 * * * *`.
 10. After deploy, confirm logs show a full run with processed park counts and inserted snapshot counts, and that the process exits cleanly.
 
+### Railway Catalog Import
+
+1. Import the same GitHub repository into the Railway project as a separate service.
+2. Select the staged catalog import service for `@coasterly/catalog-import`.
+3. Point the service at `apps/catalog-import/railway.json`.
+4. Build with `pnpm --filter @coasterly/catalog-import build`.
+5. Start with `node apps/catalog-import/dist/index.js`.
+6. Set `DATABASE_URL` and, if needed, `QUEUE_TIMES_BASE_URL`.
+7. Add `QUEUE_TIMES_IMPORT_PARK_IDS` or `QUEUE_TIMES_IMPORT_PARK_LIMIT` for controlled non-production runs when needed.
+8. Keep the restart policy set to `NEVER` so the import exits cleanly after one run.
+9. After deploy, confirm logs show discovered, selected, processed, and upserted park and ride counts.
+
 ## Vercel-to-Railway Web Cutover
 
 Use this sequence to move the web app from Vercel to Railway safely:
@@ -158,6 +196,7 @@ The safest next infrastructure step is to connect GitHub to Railway and create:
 
 - one Railway web service for `apps/web`
 - one Railway API service for `apps/api`
+- one Railway catalog import service for `apps/catalog-import`
 - one Railway cron service for `apps/queue-times-cron`
 - one Railway PostgreSQL service
 

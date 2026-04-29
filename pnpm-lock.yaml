@@ -36,6 +36,31 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
 
+  apps/catalog-import:
+    dependencies:
+      '@coasterly/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      pg:
+        specifier: ^8.13.1
+        version: 8.20.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.1
+        version: 22.19.17
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.20.0
+      esbuild:
+        specifier: ^0.27.7
+        version: 0.27.7
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
   apps/queue-times-cron:
     dependencies:
       '@coasterly/types':
