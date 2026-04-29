@@ -22,11 +22,31 @@ import type {
   UserProgressionResponse
 } from "@coasterly/types";
 
+import {
+  curatedCollectionsEs,
+  formatCountLabel,
+  formatDateLabel,
+  formatLiveWaitLabel,
+  formatStatusLabel,
+  formatTimeLabel,
+  formatWaitStateLabel,
+  getInitialLocale,
+  journalTeasersEs,
+  localeLabels,
+  localeStorageKey,
+  messages,
+  normalizeLocale,
+  parkEditorialBySlugEs,
+  queueTimesAttribution,
+  rideEditorialBySlugEs,
+  translateCue,
+  type Locale
+} from "./i18n";
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const brandLogoDark = "/brand/coasterly-logo-horizontal-dark.png";
 const brandIconDark = "/brand/coasterly-logo-icon-dark.png";
 const placeholderImageHost = "placehold.co";
-const queueTimesAttributionLabel = "Powered by Queue-Times.com";
 const queueTimesAttributionUrl = "https://queue-times.com/";
 
 const journalTeasers = [
@@ -50,8 +70,6 @@ const journalTeasers = [
   }
 ] as const;
 
-const landingJournalTeasers = journalTeasers.slice(0, 1);
-
 type DiscoveryCue = "Featured" | "Headliner" | "Iconic" | "Standout";
 
 type EditorialNote = {
@@ -65,8 +83,10 @@ type CuratedCollection = {
   summary: string;
   kind: "park" | "ride";
   badge: string;
-  itemSlugs: string[];
+  itemSlugs: readonly string[];
 };
+
+type UiCopy = (typeof messages)[Locale];
 
 const parkEditorialBySlug: Record<string, EditorialNote> = {
   "europa-park": {
@@ -287,65 +307,8 @@ const curatedCollections: CuratedCollection[] = [
   }
 ] as const;
 
-const parkCollections = curatedCollections.filter(
-  (collection): collection is CuratedCollection & { kind: "park" } =>
-    collection.kind === "park"
-);
-
-const rideCollections = curatedCollections.filter(
-  (collection): collection is CuratedCollection & { kind: "ride" } =>
-    collection.kind === "ride"
-);
-
-const landingCollections = [
-  curatedCollections.find((collection) => collection.id === "first-time-europe-parks"),
-  curatedCollections.find((collection) => collection.id === "best-launches"),
-  curatedCollections.find((collection) => collection.id === "parks-with-strong-lineups")
-].filter((collection): collection is CuratedCollection => Boolean(collection));
-
-const formatCountLabel = (
-  count: number,
-  singular: string,
-  plural = `${singular}s`
-) => `${count} ${count === 1 ? singular : plural}`;
-
 const formatDecimalValue = (value: number) =>
   Number.isInteger(value) ? String(value) : value.toFixed(1);
-
-const formatLiveWaitLabel = (
-  ride: ParkLiveWaitsResponse["rides"][number]
-) => {
-  if (ride.isOpen === false) {
-    return "Closed";
-  }
-
-  if (typeof ride.waitTimeMinutes === "number") {
-    return `${ride.waitTimeMinutes} min`;
-  }
-
-  if (ride.isOpen === true) {
-    return "Open";
-  }
-
-  return "No update";
-};
-
-const formatSourceTimeLabel = (value?: string) => {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-};
 
 type Route =
   | { view: "home" }
@@ -742,26 +705,36 @@ function QueueTimesExternalLinks({ links }: { links: ExternalInsightLink[] }) {
   );
 }
 
-function QueueTimesAttribution() {
+function QueueTimesAttribution({
+  locale,
+  copy
+}: {
+  locale: Locale;
+  copy: UiCopy;
+}) {
   return (
     <p className="source-note">
-      Source:{" "}
+      {copy.common.source}:{" "}
       <a href={queueTimesAttributionUrl} target="_blank" rel="noreferrer">
-        {queueTimesAttributionLabel}
+        {queueTimesAttribution[locale]}
       </a>
     </p>
   );
 }
 
 function ProgressionPanel({
-  userProgressionStatus
+  userProgressionStatus,
+  locale,
+  copy
 }: {
   userProgressionStatus: UserProgressionStatus;
+  locale: Locale;
+  copy: UiCopy;
 }) {
   if (userProgressionStatus.state === "loading") {
     return (
       <div className="state-message state-message-loading">
-        <p>Loading missions...</p>
+        <p>{copy.progression.loadingMissions}</p>
       </div>
     );
   }
@@ -769,7 +742,7 @@ function ProgressionPanel({
   if (userProgressionStatus.state === "error") {
     return (
       <div className="state-message state-message-error">
-        <p>Unable to load missions.</p>
+        <p>{copy.progression.unableLoadMissions}</p>
         <p>{userProgressionStatus.message}</p>
       </div>
     );
@@ -780,10 +753,10 @@ function ProgressionPanel({
       <div className="progression-section">
         <div className="section-row section-row-compact">
           <div>
-            <p className="status-label">Active missions</p>
+            <p className="status-label">{copy.progression.activeMissions}</p>
           </div>
           <span className="catalog-chip">
-            {formatCountLabel(userProgressionStatus.activeMissions.length, "mission")}
+            {formatCountLabel(locale, userProgressionStatus.activeMissions.length, "mission")}
           </span>
         </div>
         <div className="mission-grid">
@@ -813,10 +786,10 @@ function ProgressionPanel({
       <div className="progression-section">
         <div className="section-row section-row-compact">
           <div>
-            <p className="status-label">Recent badges</p>
+            <p className="status-label">{copy.progression.recentBadges}</p>
           </div>
           <span className="catalog-chip catalog-chip-ridden">
-            {formatCountLabel(userProgressionStatus.badges.length, "badge")}
+            {formatCountLabel(locale, userProgressionStatus.badges.length, "badge")}
           </span>
         </div>
         <div className="badge-grid">
@@ -828,13 +801,13 @@ function ProgressionPanel({
                   <p className="card-summary">{badge.summary}</p>
                 </div>
                 <span className="badge-earned-at">
-                  Earned {new Date(badge.earnedAt).toLocaleDateString()}
+                  {copy.progression.earnedOn(formatDateLabel(locale, badge.earnedAt))}
                 </span>
               </article>
             ))
           ) : (
             <div className="state-message state-message-empty state-message-compact">
-              <p>Badges will appear as you log more rides.</p>
+              <p>{copy.progression.emptyBadges}</p>
             </div>
           )}
         </div>
@@ -849,7 +822,9 @@ function ProfileSurface({
   onOpenPark,
   onOpenRide,
   onOpenPublicProfile,
-  onCopyPublicProfile
+  onCopyPublicProfile,
+  locale,
+  copy
 }: {
   profile: UserProfileResponse;
   isCurrentUser: boolean;
@@ -857,6 +832,8 @@ function ProfileSurface({
   onOpenRide: (parkSlug: string, rideSlug: string) => void;
   onOpenPublicProfile?: (userSlug: string) => void;
   onCopyPublicProfile?: (userSlug: string) => void;
+  locale: Locale;
+  copy: UiCopy;
 }) {
   const showProfileActions =
     isCurrentUser && (onOpenPublicProfile !== undefined || onCopyPublicProfile !== undefined);
@@ -866,11 +843,17 @@ function ProfileSurface({
       <section className="profile-hero">
         <div className="profile-hero-copy">
           <h3 className="section-title">{profile.user.name}</h3>
-          <div className="profile-identity-strip" aria-label="Profile level and streak">
-            <span className="ride-fact-pill ride-fact-pill-accent">{`Level ${profile.identity.level}`}</span>
-            <span className="ride-fact-pill">{`${profile.identity.totalXp} XP`}</span>
-            <span className="ride-fact-pill">{`${profile.identity.currentStreak} day streak`}</span>
-            <span className="ride-fact-pill">{`${profile.identity.completedDays} challenges played`}</span>
+          <div className="profile-identity-strip" aria-label={copy.profile.progressionLabel}>
+            <span className="ride-fact-pill ride-fact-pill-accent">
+              {copy.profile.level(profile.identity.level)}
+            </span>
+            <span className="ride-fact-pill">{copy.profile.xp(profile.identity.totalXp)}</span>
+            <span className="ride-fact-pill">
+              {copy.profile.streak(profile.identity.currentStreak)}
+            </span>
+            <span className="ride-fact-pill">
+              {copy.profile.completedChallenges(profile.identity.completedDays)}
+            </span>
           </div>
         </div>
         {showProfileActions ? (
@@ -883,7 +866,7 @@ function ProfileSurface({
                   onOpenPublicProfile(profile.user.slug);
                 }}
               >
-                View public page
+                {copy.profile.viewPublicPage}
               </button>
             ) : null}
             {isCurrentUser && onCopyPublicProfile ? (
@@ -894,21 +877,21 @@ function ProfileSurface({
                   onCopyPublicProfile(profile.user.slug);
                 }}
               >
-                Copy link
+                {copy.profile.copyLink}
               </button>
             ) : null}
           </div>
         ) : null}
       </section>
 
-      <section className="stats-panel" aria-label="Profile stats">
+      <section className="stats-panel" aria-label={copy.profile.title}>
         <div className="stats-grid">
           <article className="stats-card">
-            <span className="stats-card-label">Ridden rides</span>
+            <span className="stats-card-label">{copy.profile.ridesLabel}</span>
             <strong className="stats-card-value">{profile.totalRiddenRides}</strong>
           </article>
           <article className="stats-card">
-            <span className="stats-card-label">Parks ridden</span>
+            <span className="stats-card-label">{copy.profile.parksLabel}</span>
             <strong className="stats-card-value">{profile.totalParksWithRiddenRides}</strong>
           </article>
         </div>
@@ -924,7 +907,7 @@ function ProfileSurface({
             >
               <span className="stats-park-name">{park.parkName}</span>
               <span className="stats-park-value">
-                {`${park.riddenRides}/${park.totalRides} ridden`}
+                {copy.park.riddenOutOf(park.riddenRides, park.totalRides)}
               </span>
               <div className="progress-rail" aria-hidden="true">
                 <span
@@ -937,7 +920,7 @@ function ProfileSurface({
         </div>
       </section>
 
-      <section className="stats-panel" aria-label="Profile progression">
+      <section className="stats-panel" aria-label={copy.profile.progressionLabel}>
         <ProgressionPanel
           userProgressionStatus={{
             state: "success",
@@ -945,14 +928,16 @@ function ProfileSurface({
             badges: profile.badges,
             activeMissions: profile.activeMissions
           }}
+          locale={locale}
+          copy={copy}
         />
       </section>
 
       <section className="catalog-panel nested-panel">
         <div className="catalog-header landing-header">
           <div className="catalog-copy">
-            <p className="status-label">Recent activity</p>
-            <h2 className="section-title">Latest credits</h2>
+            <p className="status-label">{copy.profile.recentActivityLabel}</p>
+            <h2 className="section-title">{copy.profile.latestCredits}</h2>
           </div>
         </div>
         {profile.recentActivity.length > 0 ? (
@@ -964,9 +949,7 @@ function ProfileSurface({
                   <p className="card-summary">{entry.parkName}</p>
                 </div>
                 <div className="activity-meta">
-                  <span className="badge-earned-at">
-                    {new Date(entry.riddenAt).toLocaleDateString()}
-                  </span>
+                  <span className="badge-earned-at">{formatDateLabel(locale, entry.riddenAt)}</span>
                   <button
                     className="catalog-inline-button"
                     type="button"
@@ -974,7 +957,7 @@ function ProfileSurface({
                       onOpenRide(entry.parkSlug, entry.rideSlug);
                     }}
                   >
-                    Open ride
+                    {copy.profile.openRide}
                   </button>
                 </div>
               </article>
@@ -982,7 +965,7 @@ function ProfileSurface({
           </div>
         ) : (
           <div className="state-message state-message-empty">
-            <p>Recent ride credits will appear here.</p>
+            <p>{copy.profile.noRecentCredits}</p>
           </div>
         )}
       </section>
@@ -994,12 +977,16 @@ function CommunityHighlightCard({
   profile,
   onOpenProfile,
   onOpenPark,
-  onOpenRide
+  onOpenRide,
+  locale,
+  copy
 }: {
   profile: CommunityHighlightsResponse["profiles"][number];
   onOpenProfile: (userSlug: string) => void;
   onOpenPark: (parkSlug: string) => void;
   onOpenRide: (parkSlug: string, rideSlug: string) => void;
+  locale: Locale;
+  copy: UiCopy;
 }) {
   return (
     <article className="community-card">
@@ -1024,7 +1011,10 @@ function CommunityHighlightCard({
                 onOpenPark(profile.featuredPark!.parkSlug);
               }}
             >
-              {`${profile.featuredPark.completionPercentage}% at ${profile.featuredPark.parkName}`}
+              {copy.community.featuredParkProgress(
+                profile.featuredPark.completionPercentage,
+                profile.featuredPark.parkName
+              )}
             </button>
           ) : null}
         </div>
@@ -1032,14 +1022,14 @@ function CommunityHighlightCard({
 
       <div className="community-card-stats">
         <span className="ride-fact-pill ride-fact-pill-accent">
-          {`Level ${profile.identity.level}`}
+          {copy.profile.level(profile.identity.level)}
         </span>
-        <span className="ride-fact-pill">{`${profile.identity.currentStreak} day streak`}</span>
+        <span className="ride-fact-pill">{copy.profile.streak(profile.identity.currentStreak)}</span>
         <span className="ride-fact-pill">
-          {formatCountLabel(profile.totalRiddenRides, "ridden ride")}
+          {formatCountLabel(locale, profile.totalRiddenRides, "riddenRide")}
         </span>
         <span className="ride-fact-pill">
-          {formatCountLabel(profile.totalParksWithRiddenRides, "park")}
+          {formatCountLabel(locale, profile.totalParksWithRiddenRides, "park")}
         </span>
         {profile.badges.map((badge) => (
           <span className="ride-fact-pill ride-fact-pill-accent" key={badge.id}>
@@ -1061,14 +1051,14 @@ function CommunityHighlightCard({
             >
               <span className="community-activity-ride">{entry.rideName}</span>
               <span className="community-activity-meta">
-                {entry.parkName} / {new Date(entry.riddenAt).toLocaleDateString()}
+                {entry.parkName} / {formatDateLabel(locale, entry.riddenAt)}
               </span>
             </button>
           ))}
         </div>
       ) : (
         <div className="state-message state-message-empty state-message-compact">
-          <p>No recent ride activity yet.</p>
+          <p>{copy.community.noRecentActivity}</p>
         </div>
       )}
     </article>
@@ -1076,20 +1066,26 @@ function CommunityHighlightCard({
 }
 
 function CommunityRankingCard({
+  kind,
   title,
   summary,
   profiles,
-  onOpenProfile
+  onOpenProfile,
+  locale,
+  copy
 }: {
+  kind: "level" | "streak" | "recent";
   title: string;
   summary: string;
   profiles: CommunityHighlightsResponse["profiles"];
   onOpenProfile: (userSlug: string) => void;
+  locale: Locale;
+  copy: UiCopy;
 }) {
   return (
     <article className="community-ranking-card">
       <div className="community-ranking-copy">
-        <p className="status-label">Ranking</p>
+        <p className="status-label">{copy.rankings.label}</p>
         <h3>{title}</h3>
         <p>{summary}</p>
       </div>
@@ -1107,13 +1103,19 @@ function CommunityRankingCard({
             <div className="community-ranking-item-copy">
               <strong>{profile.user.name}</strong>
               <span>
-                {title === "Highest level"
-                  ? `Level ${profile.identity.level} / ${profile.identity.totalXp} XP`
-                  : title === "Longest streak"
-                    ? `${profile.identity.currentStreak} day streak`
+                {kind === "level"
+                  ? copy.rankings.levelValue(
+                      profile.identity.level,
+                      profile.identity.totalXp
+                    )
+                  : kind === "streak"
+                    ? copy.rankings.streakValue(profile.identity.currentStreak)
                     : profile.recentActivity[0]
-                      ? `${profile.recentActivity[0].rideName} / ${profile.recentActivity[0].parkName}`
-                      : `${profile.totalRiddenRides} ridden`}
+                      ? copy.rankings.recentValue(
+                          profile.recentActivity[0].rideName,
+                          profile.recentActivity[0].parkName
+                        )
+                      : formatCountLabel(locale, profile.totalRiddenRides, "riddenRide")}
               </span>
             </div>
           </button>
@@ -1129,7 +1131,9 @@ function DailyChallengePanel({
   isClaimingReward,
   onAnswer,
   onClaimReward,
-  onOpenRide
+  onOpenRide,
+  locale,
+  copy
 }: {
   dailyChallengeStatus: DailyChallengeStatus;
   isSubmitting: boolean;
@@ -1137,12 +1141,14 @@ function DailyChallengePanel({
   onAnswer: (optionId: string) => void;
   onClaimReward: () => void;
   onOpenRide: (parkSlug: string, rideSlug: string) => void;
+  locale: Locale;
+  copy: UiCopy;
 }) {
   if (dailyChallengeStatus.state === "loading") {
     return (
-      <section className="stats-panel" aria-label="Daily challenge">
+      <section className="stats-panel" aria-label={copy.daily.title}>
         <div className="state-message state-message-loading">
-          <p>Loading daily challenge...</p>
+          <p>{copy.daily.loading}</p>
         </div>
       </section>
     );
@@ -1150,9 +1156,9 @@ function DailyChallengePanel({
 
   if (dailyChallengeStatus.state === "error") {
     return (
-      <section className="stats-panel" aria-label="Daily challenge">
+      <section className="stats-panel" aria-label={copy.daily.title}>
         <div className="state-message state-message-error">
-          <p>Unable to load the daily challenge.</p>
+          <p>{copy.daily.error}</p>
           <p>{dailyChallengeStatus.message}</p>
         </div>
       </section>
@@ -1169,16 +1175,16 @@ function DailyChallengePanel({
       : "state-message-loading";
 
   return (
-    <section className="stats-panel daily-challenge-panel" aria-label="Daily challenge">
+    <section className="stats-panel daily-challenge-panel" aria-label={copy.daily.title}>
       <div className="section-row">
         <div>
-          <p className="status-label">Today</p>
-          <h2 className="section-title">Daily challenge</h2>
+          <p className="status-label">{copy.daily.today}</p>
+          <h2 className="section-title">{copy.daily.title}</h2>
         </div>
         <div className="detail-chip-row">
-          <span className="catalog-chip">{`Level ${summary.level}`}</span>
-          <span className="catalog-chip catalog-chip-ridden">{`${summary.totalXp} XP`}</span>
-          <span className="catalog-chip route-chip">{`${summary.currentStreak} day streak`}</span>
+          <span className="catalog-chip">{copy.daily.level(summary.level)}</span>
+          <span className="catalog-chip catalog-chip-ridden">{copy.daily.xp(summary.totalXp)}</span>
+          <span className="catalog-chip route-chip">{copy.daily.streak(summary.currentStreak)}</span>
           <button
             className={`catalog-inline-button${canClaimReward ? " catalog-inline-button-accent" : ""}`}
             type="button"
@@ -1187,9 +1193,9 @@ function DailyChallengePanel({
           >
             {canClaimReward
               ? isClaimingReward
-                ? "Claiming..."
-                : `Claim ${reward.availableXp} XP`
-              : `Reward claimed${reward.claimedXp ? ` / ${reward.claimedXp} XP` : ""}`}
+                ? copy.daily.claiming
+                : copy.daily.claimXp(reward.availableXp)
+              : copy.daily.claimedXp(reward.claimedXp)}
           </button>
         </div>
       </div>
@@ -1211,7 +1217,7 @@ function DailyChallengePanel({
               onOpenRide(challenge.ride.parkSlug, challenge.ride.slug);
             }}
           >
-            Open ride
+            {copy.daily.openRide}
           </button>
         </div>
 
@@ -1223,14 +1229,16 @@ function DailyChallengePanel({
             <p>
               {attempt
                 ? attempt.isCorrect
-                  ? `Correct. +${attempt.earnedXp} XP from the challenge.`
-                  : `Answer locked. +${attempt.earnedXp} XP from the challenge.`
-                : "Answer once today, then claim the reward."}
+                  ? copy.daily.correct(attempt.earnedXp)
+                  : copy.daily.locked(attempt.earnedXp)
+                : copy.daily.idle}
             </p>
             <p>
               {canClaimReward
-                ? `Daily reward available: ${reward.availableXp} XP.`
-                : `Daily reward claimed${reward.claimedAt ? ` on ${new Date(reward.claimedAt).toLocaleDateString()}` : ""}.`}
+                ? copy.daily.rewardAvailable(reward.availableXp)
+                : copy.daily.rewardClaimed(
+                    reward.claimedAt ? formatDateLabel(locale, reward.claimedAt) : undefined
+                  )}
             </p>
           </div>
 
@@ -1254,7 +1262,15 @@ function DailyChallengePanel({
                   <span>{option.label}</span>
                   {attempt ? (
                     <span className="daily-challenge-option-meta">
-                      {isCorrect ? "Answer" : isSelected ? "Your pick" : ""}
+                      {isCorrect
+                        ? locale === "es"
+                          ? "Respuesta"
+                          : "Answer"
+                        : isSelected
+                          ? locale === "es"
+                            ? "Tu opci\u00f3n"
+                            : "Your pick"
+                          : ""}
                     </span>
                   ) : null}
                 </button>
@@ -1262,7 +1278,7 @@ function DailyChallengePanel({
             })}
           </div>
 
-          <p className="catalog-note">{`${summary.completedDays} challenges completed.`}</p>
+          <p className="catalog-note">{copy.daily.completed(summary.completedDays)}</p>
         </div>
       </div>
     </section>
@@ -1273,12 +1289,16 @@ type CuratedCollectionCardProps = {
   collection: CuratedCollection;
   isActive?: boolean;
   onOpen: () => void;
+  locale: Locale;
+  copy: UiCopy;
 };
 
 function CuratedCollectionCard({
   collection,
   isActive = false,
-  onOpen
+  onOpen,
+  locale,
+  copy
 }: CuratedCollectionCardProps) {
   return (
     <button
@@ -1289,7 +1309,7 @@ function CuratedCollectionCard({
       <div className="collection-card-header">
         <span className="editorial-tag">{collection.badge}</span>
         {isActive ? (
-          <span className="catalog-chip catalog-chip-ridden">Viewing now</span>
+          <span className="catalog-chip catalog-chip-ridden">{copy.collections.viewingNow}</span>
         ) : null}
       </div>
       <div className="collection-card-copy">
@@ -1297,7 +1317,9 @@ function CuratedCollectionCard({
         <p>{collection.summary}</p>
       </div>
       <span className="collection-card-meta">
-        {`${formatCountLabel(collection.itemSlugs.length, collection.kind)} inside this collection`}
+        {copy.collections.insideCollection(
+          formatCountLabel(locale, collection.itemSlugs.length, collection.kind)
+        )}
       </span>
     </button>
   );
@@ -1346,6 +1368,7 @@ function App() {
   const [parkCollectionId, setParkCollectionId] = useState(() =>
     getCollectionIdFromUrl(window.location.search)
   );
+  const [locale, setLocale] = useState<Locale>(() => getInitialLocale());
   const [rideCatalogSearchQuery, setRideCatalogSearchQuery] = useState(() =>
     getRidesCatalogStateFromUrl(window.location.search).searchQuery
   );
@@ -1431,6 +1454,25 @@ function App() {
   const [isClaimingDailyReward, setIsClaimingDailyReward] = useState(false);
   const [rideCreditMessage, setRideCreditMessage] = useState<string | null>(null);
   const [profileShareMessage, setProfileShareMessage] = useState<string | null>(null);
+  const copy = messages[locale];
+  const localizedJournalTeasers = locale === "es" ? journalTeasersEs : journalTeasers;
+  const landingJournalTeasers = localizedJournalTeasers.slice(0, 1);
+  const localizedParkEditorialBySlug =
+    locale === "es" ? parkEditorialBySlugEs : parkEditorialBySlug;
+  const localizedRideEditorialBySlug =
+    locale === "es" ? rideEditorialBySlugEs : rideEditorialBySlug;
+  const localizedCollections = locale === "es" ? curatedCollectionsEs : curatedCollections;
+  const parkCollections = localizedCollections.filter(
+    (collection): collection is CuratedCollection & { kind: "park" } => collection.kind === "park"
+  );
+  const rideCollections = localizedCollections.filter(
+    (collection): collection is CuratedCollection & { kind: "ride" } => collection.kind === "ride"
+  );
+  const landingCollections = [
+    localizedCollections.find((collection) => collection.id === "first-time-europe-parks"),
+    localizedCollections.find((collection) => collection.id === "best-launches"),
+    localizedCollections.find((collection) => collection.id === "parks-with-strong-lineups")
+  ].filter((collection): collection is CuratedCollection => Boolean(collection));
 
   const loadDemoUserStats = async (signal?: AbortSignal) => {
     if (!apiBaseUrl) {
@@ -1575,6 +1617,11 @@ function App() {
       });
     }
   };
+
+  useEffect(() => {
+    window.localStorage.setItem(localeStorageKey, locale);
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   const loadCommunityHighlights = async (signal?: AbortSignal) => {
     if (!apiBaseUrl) {
@@ -2832,7 +2879,7 @@ function App() {
 
     try {
       await navigator.clipboard.writeText(profileUrl);
-      setProfileShareMessage("Public profile link copied.");
+      setProfileShareMessage(copy.common.copiedPublicProfile);
     } catch {
       setProfileShareMessage(profileUrl);
     }
@@ -3046,20 +3093,20 @@ function App() {
     route.view === "rides" && normalizedRideCatalogSearchQuery.length > 0;
   const heroCountLabel =
     parksStatus.state === "success"
-      ? formatCountLabel(parksStatus.parks.length, "park")
-      : "Catalog";
+      ? formatCountLabel(locale, parksStatus.parks.length, "park")
+      : copy.route.parkResults;
   const riddenRideCountLabel =
     demoUserStatsStatus.state === "success"
-      ? formatCountLabel(demoUserStatsStatus.totalRiddenRides, "ridden ride")
+      ? formatCountLabel(locale, demoUserStatsStatus.totalRiddenRides, "riddenRide")
       : demoUserStatsStatus.state === "loading"
-        ? "Loading stats"
-        : "Stats unavailable";
+        ? copy.browse.loadingResults
+        : copy.route.statsUnavailable;
   const riddenParkCountLabel =
     demoUserStatsStatus.state === "success"
-      ? formatCountLabel(demoUserStatsStatus.totalParksWithRiddenRides, "park")
+      ? formatCountLabel(locale, demoUserStatsStatus.totalParksWithRiddenRides, "park")
       : demoUserStatsStatus.state === "loading"
-        ? "Loading stats"
-        : "Stats unavailable";
+        ? copy.browse.loadingResults
+        : copy.route.statsUnavailable;
   const parkProgressBySlug =
     demoUserStatsStatus.state === "success"
       ? new Map(
@@ -3132,7 +3179,7 @@ function App() {
     ? parkProgressBySlug?.get(spotlightPark.slug)
     : undefined;
   const spotlightParkEditorial = spotlightPark
-    ? parkEditorialBySlug[spotlightPark.slug]
+    ? localizedParkEditorialBySlug[spotlightPark.slug]
     : undefined;
   const secondaryFeaturedParks = landingFeaturedParks.slice(1);
   const rankedProgressParks =
@@ -3158,7 +3205,7 @@ function App() {
     route.view === "park" ? parkProgressBySlug?.get(route.slug) : undefined;
   const activeParkEditorial =
     route.view === "park" && parkDetailStatus.state === "success"
-      ? parkEditorialBySlug[parkDetailStatus.park.slug]
+      ? localizedParkEditorialBySlug[parkDetailStatus.park.slug]
       : undefined;
   const parkQueueTimesReference =
     parkDetailStatus.state === "success" ? parkDetailStatus.queueTimes : undefined;
@@ -3170,8 +3217,8 @@ function App() {
   const parkQueueTimesLinks = dedupeExternalLinks(
     parkQueueTimesReference
       ? [
-          { label: "Park waits", href: parkQueueTimesReference.queueUrl },
-          { label: "Park stats", href: parkQueueTimesReference.statsUrl }
+          { label: copy.common.parkWaits, href: parkQueueTimesReference.queueUrl },
+          { label: copy.common.parkStats, href: parkQueueTimesReference.statsUrl }
         ]
       : []
   );
@@ -3198,7 +3245,7 @@ function App() {
     riddenRideIds?.has(rideDetailStatus.ride.id) === true;
   const activeRideEditorial =
     route.view === "ride" && rideDetailStatus.state === "success"
-      ? rideEditorialBySlug[rideDetailStatus.ride.slug]
+      ? localizedRideEditorialBySlug[rideDetailStatus.ride.slug]
       : undefined;
   const currentRideLiveWait =
     route.view === "ride" &&
@@ -3214,7 +3261,7 @@ function App() {
           ...(rideDetailStatus.rideQueueTimes
             ? [
                 {
-                  label: "Ride stats",
+                  label: copy.common.rideStats,
                   href: rideDetailStatus.rideQueueTimes.statsUrl
                 }
               ]
@@ -3222,7 +3269,7 @@ function App() {
           ...(rideDetailStatus.parkQueueTimes
             ? [
                 {
-                  label: "Park waits",
+                  label: copy.common.parkWaits,
                   href: rideDetailStatus.parkQueueTimes.queueUrl
                 }
               ]
@@ -3234,80 +3281,80 @@ function App() {
   if (rideDetailStatus.state === "success") {
     rideSpecItems.push(
       {
-        label: "Parent park",
+        label: copy.ride.parentPark,
         value: rideDetailStatus.park.name,
         wide: true
       },
       {
-        label: "Ride type",
+        label: copy.ride.rideType,
         value: rideDetailStatus.ride.rideType
       }
     );
 
     if (rideDetailStatus.ride.manufacturer) {
       rideSpecItems.push({
-        label: "Manufacturer",
+        label: copy.ride.manufacturer,
         value: rideDetailStatus.ride.manufacturer
       });
     }
 
     if (rideDetailStatus.ride.model) {
       rideSpecItems.push({
-        label: "Model",
+        label: copy.ride.model,
         value: rideDetailStatus.ride.model
       });
     }
 
     if (rideDetailStatus.ride.openingYear !== undefined) {
       rideSpecItems.push({
-        label: "Opening year",
+        label: copy.ride.openingYear,
         value: String(rideDetailStatus.ride.openingYear)
       });
     }
 
     if (rideDetailStatus.ride.heightM !== undefined) {
       rideSpecItems.push({
-        label: "Height",
+        label: copy.ride.height,
         value: `${formatDecimalValue(rideDetailStatus.ride.heightM)} m`
       });
     }
 
     if (rideDetailStatus.ride.speedKmh !== undefined) {
       rideSpecItems.push({
-        label: "Top speed",
+        label: copy.ride.topSpeed,
         value: `${formatDecimalValue(rideDetailStatus.ride.speedKmh)} km/h`
       });
     }
 
     if (rideDetailStatus.ride.inversions !== undefined) {
       rideSpecItems.push({
-        label: "Inversions",
+        label: copy.ride.inversions,
         value: String(rideDetailStatus.ride.inversions)
       });
     }
   }
 
   const parksSearchLabel = hasActiveCatalogSearch
-    ? `Search: "${normalizedSearchQuery}"`
-    : "All parks";
+    ? copy.route.search(normalizedSearchQuery)
+    : copy.route.allParks;
   const ridesSearchLabel = hasActiveRideCatalogSearch
-    ? `Search: "${normalizedRideCatalogSearchQuery}"`
-    : "All rides";
+    ? copy.route.search(normalizedRideCatalogSearchQuery)
+    : copy.route.allRides;
   const routeBarTitle =
     route.view === "parks"
       ? parksSearchLabel
       : route.view === "rides"
         ? ridesSearchLabel
       : route.view === "discover"
-        ? "Discover"
+        ? copy.discover.label
         : route.view === "profile"
-          ? "Profile"
+          ? copy.profile.title
         : route.view === "user-profile"
           ? userProfileStatus.state === "success"
             ? userProfileStatus.profile.user.name
             : route.slug
         : route.view === "journal"
-          ? "Journal"
+          ? copy.nav.journal
           : route.view === "park"
             ? parkDetailStatus.state === "success"
               ? parkDetailStatus.park.name
@@ -3316,44 +3363,44 @@ function App() {
               ? rideDetailStatus.state === "success"
                 ? rideDetailStatus.ride.name
                 : route.rideSlug
-              : "Home";
+              : copy.nav.home;
   const routeBarLabel =
     route.view === "parks"
-      ? "Parks browse"
+      ? copy.route.parksBrowse
       : route.view === "rides"
-        ? "Rides browse"
+        ? copy.route.ridesBrowse
       : route.view === "discover"
-        ? "Discovery"
+        ? copy.route.discovery
         : route.view === "profile"
-          ? "Profile"
+          ? copy.route.profile
         : route.view === "user-profile"
-          ? "Public profile"
+          ? copy.route.publicProfile
         : route.view === "journal"
-          ? "Journal"
+          ? copy.route.journal
           : route.view === "park"
-            ? "Park detail"
+            ? copy.route.parkDetail
             : route.view === "ride"
-              ? "Ride detail"
-              : "Landing";
+              ? copy.route.rideDetail
+              : copy.route.landing;
   const breadcrumbItems: BreadcrumbItem[] =
     route.view === "parks"
       ? [
-          { label: "Parks" },
+          { label: copy.nav.parks },
           { label: parksSearchLabel }
         ]
       : route.view === "rides"
         ? [
-            { label: "Rides" },
+            { label: copy.nav.rides },
             { label: ridesSearchLabel }
           ]
         : route.view === "discover"
-        ? [{ label: "Discover" }]
+        ? [{ label: copy.nav.discover }]
         : route.view === "profile"
-          ? [{ label: "Profile" }]
+          ? [{ label: copy.nav.profile }]
         : route.view === "user-profile"
           ? [
               {
-                label: "Profile",
+                label: copy.nav.profile,
                 href: "/profile",
                 onClick: navigateToProfile
               },
@@ -3365,11 +3412,11 @@ function App() {
               }
             ]
         : route.view === "journal"
-          ? [{ label: "Journal" }]
+          ? [{ label: copy.nav.journal }]
           : route.view === "park"
             ? [
                 {
-                  label: "Parks",
+                  label: copy.nav.parks,
                   href: buildPathWithQuery("/parks", getCatalogSearchParams()),
                   onClick: () => {
                     navigateToParks({ preserveSearch: true });
@@ -3387,7 +3434,7 @@ function App() {
                   ...(rideDetailOrigin === "rides"
                     ? [
                         {
-                          label: "Rides",
+                          label: copy.nav.rides,
                           href: buildPathWithQuery("/rides", getRidesCatalogParams()),
                           onClick: () => {
                             navigateToRides({ preserveFilters: true });
@@ -3396,7 +3443,7 @@ function App() {
                       ]
                     : [
                         {
-                          label: "Parks",
+                          label: copy.nav.parks,
                           href: buildPathWithQuery("/parks", getCatalogSearchParams()),
                           onClick: () => {
                             navigateToParks({ preserveSearch: true });
@@ -3437,58 +3484,61 @@ function App() {
   const routeBarChips =
     route.view === "parks"
       ? [
-          catalogStateChip(parksStatus),
-          hasActiveCatalogSearch ? `Search: ${normalizedSearchQuery}` : "Browse"
+          catalogStateChip(locale, copy, parksStatus),
+          hasActiveCatalogSearch ? copy.route.search(normalizedSearchQuery) : copy.route.browse
         ].filter(Boolean)
       : route.view === "rides"
         ? [
-            catalogStateChip(ridesCatalogStatus),
+            catalogStateChip(locale, copy, ridesCatalogStatus),
             rideCatalogParkFilter
               ? ridesCatalogOptions.parks.find((park) => park.slug === rideCatalogParkFilter)?.name ??
                 rideCatalogParkFilter
-              : "All parks"
+              : copy.browse.allParks
           ].filter(Boolean)
       : route.view === "discover"
         ? [heroCountLabel, riddenRideCountLabel]
       : route.view === "profile"
         ? userProfileStatus.state === "success"
           ? [
-              `Level ${userProfileStatus.profile.identity.level}`,
-              `${userProfileStatus.profile.identity.currentStreak} day streak`
+              copy.profile.level(userProfileStatus.profile.identity.level),
+              copy.profile.streak(userProfileStatus.profile.identity.currentStreak)
             ]
           : [riddenRideCountLabel, riddenParkCountLabel]
       : route.view === "user-profile"
         ? userProfileStatus.state === "success"
           ? [
-              `Level ${userProfileStatus.profile.identity.level}`,
-              `${userProfileStatus.profile.totalRiddenRides} ridden`
+              copy.profile.level(userProfileStatus.profile.identity.level),
+              formatCountLabel(locale, userProfileStatus.profile.totalRiddenRides, "riddenRide")
             ]
-          : ["Public profile"]
+          : [copy.route.publicProfile]
       : route.view === "journal"
-          ? ["Coming soon"]
+          ? [copy.route.comingSoon]
           : route.view === "park"
             ? [
                 activeParkProgress
-                  ? `${activeParkProgress.riddenRides}/${activeParkProgress.totalRides} ridden`
-                  : "Park detail"
+                  ? copy.park.riddenOutOf(
+                      activeParkProgress.riddenRides,
+                      activeParkProgress.totalRides
+                    )
+                  : copy.route.parkDetail
               ]
             : route.view === "ride"
               ? [
                   rideDetailStatus.state === "success"
-                    ? `${rideDetailStatus.park.name} lineup`
-                    : "Ride detail",
+                    ? `${rideDetailStatus.park.name} ${locale === "es" ? "lineup" : "lineup"}`
+                    : copy.route.rideDetail,
                   rideLineupPositionLabel
                 ].filter(Boolean)
               : [];
   const topNavigation = [
     {
-      label: "Home",
+      label: copy.nav.home,
       href: "/",
       active: route.view === "home",
       onClick: navigateHome
     },
     {
-      label: "Parks",
+      label: copy.nav.parks,
       href: buildPathWithQuery("/parks", getCatalogSearchParams()),
       active:
         route.view === "parks" ||
@@ -3499,7 +3549,7 @@ function App() {
       }
     },
     {
-      label: "Rides",
+      label: copy.nav.rides,
       href: buildPathWithQuery("/rides", getRidesCatalogParams()),
       active: route.view === "rides" || (route.view === "ride" && rideDetailOrigin === "rides"),
       onClick: () => {
@@ -3507,19 +3557,19 @@ function App() {
       }
     },
     {
-      label: "Discover",
+      label: copy.nav.discover,
       href: "/discover",
       active: route.view === "discover",
       onClick: navigateToDiscover
     },
     {
-      label: "Profile",
+      label: copy.nav.profile,
       href: "/profile",
       active: route.view === "profile" || route.view === "user-profile",
       onClick: navigateToProfile
     },
     {
-      label: "Journal",
+      label: copy.nav.journal,
       href: "/journal",
       active: route.view === "journal",
       onClick: navigateToJournal
@@ -3552,10 +3602,10 @@ function App() {
               setIsMobileNavOpen((isOpen) => !isOpen);
             }}
           >
-            Menu
+            {copy.nav.menu}
           </button>
         </div>
-        <nav className="topbar-nav" id="primary-navigation" aria-label="Primary">
+        <nav className="topbar-nav" id="primary-navigation" aria-label={copy.nav.menu}>
           {topNavigation.map((item) => (
             <a
               key={item.label}
@@ -3572,9 +3622,23 @@ function App() {
           ))}
         </nav>
         <div className="topbar-meta">
+          <div className="language-switcher" aria-label={copy.nav.language}>
+            {(Object.keys(localeLabels) as Locale[]).map((nextLocale) => (
+              <button
+                key={nextLocale}
+                className={`language-button${locale === nextLocale ? " language-button-active" : ""}`}
+                type="button"
+                onClick={() => {
+                  setLocale(nextLocale);
+                }}
+              >
+                {localeLabels[nextLocale]}
+              </button>
+            ))}
+          </div>
           <div className="status-cluster" aria-live="polite">
             {apiStatus.state === "error" ? (
-              <span className="status-chip status-chip-error">Service issue</span>
+              <span className="status-chip status-chip-error">{copy.common.serviceIssue}</span>
             ) : null}
           </div>
         </div>
@@ -3603,28 +3667,25 @@ function App() {
         <>
           <section className="hero-panel hero-panel-landing">
             <div className="hero-copy hero-copy-landing">
-              <h1>Europe&apos;s park catalog, built for coaster people.</h1>
-              <p className="hero-text">
-                Browse standout parks, track what you&apos;ve ridden, and move through each lineup
-                with less noise.
-              </p>
+              <h1>{copy.home.heroTitle}</h1>
+              <p className="hero-text">{copy.home.heroText}</p>
               <div className="hero-actions">
                 <button className="primary-button" type="button" onClick={() => {
                   navigateToParks({ preserveSearch: true });
                 }}>
-                  Browse parks
+                  {copy.home.browseParks}
                 </button>
                 <button className="secondary-button" type="button" onClick={navigateToProfile}>
-                  Open profile
+                  {copy.home.openProfile}
                 </button>
               </div>
               <div className="hero-stats" aria-label="Catalog summary">
                 <div className="hero-stat">
-                  <span className="hero-stat-label">Parks</span>
+                  <span className="hero-stat-label">{copy.home.parksStat}</span>
                   <strong>{heroCountLabel}</strong>
                 </div>
                 <div className="hero-stat">
-                  <span className="hero-stat-label">Rides logged</span>
+                  <span className="hero-stat-label">{copy.home.riddenStat}</span>
                   <strong>{riddenRideCountLabel}</strong>
                 </div>
               </div>
@@ -3650,19 +3711,21 @@ function App() {
                   <div className="spotlight-overlay" />
                   <div className="spotlight-copy">
                     <div className="spotlight-row">
-                      <span className="catalog-chip">{spotlightPark.status}</span>
+                      <span className="catalog-chip">
+                        {formatStatusLabel(locale, spotlightPark.status)}
+                      </span>
                       {spotlightParkEditorial?.cues.slice(0, 1).map((cue) => (
                         <span className="catalog-chip route-chip" key={cue}>
-                          {cue}
+                          {translateCue(locale, cue)}
                         </span>
                       ))}
                       {spotlightProgress ? (
                         <span className="catalog-chip catalog-chip-ridden">
-                          {spotlightProgress.completionPercentage}% complete
+                          {`${spotlightProgress.completionPercentage}% ${copy.park.completion}`}
                         </span>
                       ) : null}
                     </div>
-                    <p className="eyebrow">Featured park</p>
+                    <p className="eyebrow">{copy.home.featuredPark}</p>
                     <h2>{spotlightPark.name}</h2>
                     <p>{spotlightPark.city}, {spotlightPark.country}</p>
                     {spotlightParkEditorial ? (
@@ -3673,9 +3736,9 @@ function App() {
               ) : (
                 <div className="spotlight-card spotlight-card-empty">
                   <div className="spotlight-copy">
-                    <p className="eyebrow">Featured park</p>
-                    <h2>Catalog loading</h2>
-                    <p>Featured parks will appear here shortly.</p>
+                    <p className="eyebrow">{copy.home.featuredPark}</p>
+                    <h2>{copy.browse.loadingResults}</h2>
+                    <p>{copy.home.spotlightEmpty}</p>
                   </div>
                 </div>
               )}
@@ -3713,8 +3776,8 @@ function App() {
             <section className="catalog-panel landing-panel">
               <div className="catalog-header landing-header">
                 <div className="catalog-copy">
-                  <p className="status-label">Featured parks</p>
-                  <h2 className="section-title">Parks worth opening next.</h2>
+                  <p className="status-label">{copy.home.featuredLabel}</p>
+                  <h2 className="section-title">{copy.home.featuredTitle}</h2>
                 </div>
                 <div className="landing-actions">
                   <button
@@ -3724,14 +3787,14 @@ function App() {
                       navigateToParks({ preserveSearch: true });
                     }}
                   >
-                    Explore parks
+                    {copy.home.browseParks}
                   </button>
                 </div>
               </div>
               <div className="parks-list parks-list-featured">
                 {landingFeaturedParks.map((park) => {
                   const parkProgress = parkProgressBySlug?.get(park.slug);
-                  const parkEditorial = parkEditorialBySlug[park.slug];
+                  const parkEditorial = localizedParkEditorialBySlug[park.slug];
 
                   return (
                     <button
@@ -3754,7 +3817,9 @@ function App() {
                         <div className="park-link">
                           <p className="park-name">{park.name}</p>
                         </div>
-                        <span className="catalog-chip">{park.status}</span>
+                        <span className="catalog-chip">
+                          {formatStatusLabel(locale, park.status)}
+                        </span>
                       </div>
                       <p className="park-location">
                         {park.city}, {park.country}
@@ -3766,7 +3831,7 @@ function App() {
                         <div className="card-cues">
                           {parkEditorial.cues.slice(0, 2).map((cue) => (
                             <span className="catalog-chip route-chip" key={cue}>
-                              {cue}
+                              {translateCue(locale, cue)}
                             </span>
                           ))}
                         </div>
@@ -3774,7 +3839,7 @@ function App() {
                       {parkProgress && parkProgress.riddenRides > 0 ? (
                         <div className="park-progress">
                           <div className="progress-copy">
-                            <span className="progress-label">Progress</span>
+                            <span className="progress-label">{copy.home.progressLabel}</span>
                             <strong className="progress-value">
                               {parkProgress.completionPercentage}%
                             </strong>
@@ -3798,12 +3863,12 @@ function App() {
             <section className="catalog-panel landing-panel">
               <div className="catalog-header landing-header">
                 <div className="catalog-copy">
-                  <p className="status-label">Progress</p>
-                  <h2 className="section-title">Keep your collection in view.</h2>
+                  <p className="status-label">{copy.home.progressLabel}</p>
+                  <h2 className="section-title">{copy.home.progressTitle}</h2>
                 </div>
                 <div className="landing-actions">
                   <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
-                    See progress
+                    {copy.home.seeProgress}
                   </button>
                 </div>
               </div>
@@ -3811,13 +3876,13 @@ function App() {
                 <div className="stats-panel stats-panel-compact" aria-label="Ride progress">
                   <div className="stats-grid">
                     <article className="stats-card">
-                      <span className="stats-card-label">Ridden rides</span>
+                      <span className="stats-card-label">{copy.profile.ridesLabel}</span>
                       <strong className="stats-card-value">
                         {demoUserStatsStatus.totalRiddenRides}
                       </strong>
                     </article>
                     <article className="stats-card">
-                      <span className="stats-card-label">Parks ridden</span>
+                      <span className="stats-card-label">{copy.profile.parksLabel}</span>
                       <strong className="stats-card-value">
                         {demoUserStatsStatus.totalParksWithRiddenRides}
                       </strong>
@@ -3835,7 +3900,7 @@ function App() {
                       >
                         <span className="stats-park-name">{park.parkName}</span>
                         <span className="stats-park-value">
-                          {`${park.riddenRides}/${park.totalRides} ridden`}
+                          {copy.park.riddenOutOf(park.riddenRides, park.totalRides)}
                         </span>
                         <div className="progress-rail" aria-hidden="true">
                           <span
@@ -3848,15 +3913,19 @@ function App() {
                       </button>
                     ))}
                   </div>
-                  <ProgressionPanel userProgressionStatus={userProgressionStatus} />
+                  <ProgressionPanel
+                    userProgressionStatus={userProgressionStatus}
+                    locale={locale}
+                    copy={copy}
+                  />
                 </div>
               ) : demoUserStatsStatus.state === "loading" ? (
                 <div className="state-message state-message-loading">
-                  <p>Loading progress...</p>
+                  <p>{copy.browse.loadingResults}</p>
                 </div>
               ) : (
                 <div className="state-message state-message-error">
-                  <p>Unable to load progress.</p>
+                  <p>{copy.progression.unableLoadMissions}</p>
                   <p>{demoUserStatsStatus.message}</p>
                 </div>
               )}
@@ -3865,16 +3934,18 @@ function App() {
 
           <section className="catalog-panel landing-panel">
             <div className="catalog-header landing-header">
-              <div className="catalog-copy">
-                <p className="status-label">Collections</p>
-                <h2 className="section-title">Curated ways into the catalog.</h2>
+                <div className="catalog-copy">
+                  <p className="status-label">{copy.home.collectionsLabel}</p>
+                  <h2 className="section-title">{copy.home.collectionsTitle}</h2>
+                </div>
               </div>
-            </div>
             <div className="collection-grid">
               {landingCollections.map((collection) => (
                 <CuratedCollectionCard
                   collection={collection}
                   key={collection.id}
+                  locale={locale}
+                  copy={copy}
                   onOpen={() => {
                     if (collection.kind === "park") {
                       navigateToParks({ collectionId: collection.id });
@@ -3894,6 +3965,8 @@ function App() {
             isClaimingReward={isClaimingDailyReward}
             onAnswer={submitDailyChallengeAnswer}
             onClaimReward={claimDailyReward}
+            locale={locale}
+            copy={copy}
             onOpenRide={(parkSlug, rideSlug) => {
               navigateToRide(parkSlug, rideSlug);
             }}
@@ -3902,18 +3975,18 @@ function App() {
           <section className="catalog-panel landing-panel">
               <div className="catalog-header landing-header">
                 <div className="catalog-copy">
-                  <p className="status-label">Community</p>
-                  <h2 className="section-title">Recent rider profiles.</h2>
+                  <p className="status-label">{copy.home.communityLabel}</p>
+                  <h2 className="section-title">{copy.home.communityTitle}</h2>
                 </div>
                 <div className="landing-actions">
                   <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
-                    See more
+                    {copy.home.seeMore}
                   </button>
                 </div>
               </div>
             {communityHighlightsStatus.state === "loading" ? (
               <div className="state-message state-message-loading state-message-compact">
-                <p>Loading community activity...</p>
+                <p>{copy.community.loadingActivity}</p>
               </div>
             ) : null}
             {communityHighlightsStatus.state === "success" ? (
@@ -3923,6 +3996,8 @@ function App() {
                     <CommunityHighlightCard
                       key={profile.user.id}
                       profile={profile}
+                      locale={locale}
+                      copy={copy}
                       onOpenProfile={navigateToPublicProfile}
                       onOpenPark={navigateToPark}
                       onOpenRide={(parkSlug, rideSlug) => {
@@ -3933,13 +4008,13 @@ function App() {
                 </div>
               ) : (
                 <div className="state-message state-message-empty state-message-compact">
-                  <p>No public activity yet.</p>
+                  <p>{copy.home.noPublicActivity}</p>
                 </div>
               )
             ) : null}
             {communityHighlightsStatus.state === "error" ? (
               <div className="state-message state-message-error state-message-compact">
-                <p>Unable to load community activity.</p>
+                <p>{copy.community.unableLoadActivity}</p>
                 <p>{communityHighlightsStatus.message}</p>
               </div>
             ) : null}
@@ -3947,16 +4022,16 @@ function App() {
 
           <section className="catalog-panel editorial-panel">
             <div className="catalog-header landing-header">
-              <div className="catalog-copy">
-                <p className="status-label">Journal</p>
-                <h2 className="section-title">Guides, rankings, and park news.</h2>
+                <div className="catalog-copy">
+                  <p className="status-label">{copy.home.journalLabel}</p>
+                  <h2 className="section-title">{copy.home.journalTitle}</h2>
+                </div>
+                <div className="landing-actions">
+                  <button className="catalog-inline-button" type="button" onClick={navigateToJournal}>
+                    {copy.home.readJournal}
+                  </button>
+                </div>
               </div>
-              <div className="landing-actions">
-                <button className="catalog-inline-button" type="button" onClick={navigateToJournal}>
-                  Read journal
-                </button>
-              </div>
-            </div>
             <div className="editorial-grid">
               {landingJournalTeasers.map((entry) => (
                 <article className="editorial-card" key={entry.title}>
@@ -3975,17 +4050,19 @@ function App() {
         <section className="catalog-panel browse-panel" aria-live="polite">
           <div className="catalog-header">
             <div className="catalog-copy">
-              <p className="status-label">Browse</p>
-              <h2 className="section-title">Parks</h2>
+              <p className="status-label">{copy.browse.browse}</p>
+              <h2 className="section-title">{copy.browse.parksTitle}</h2>
             </div>
           </div>
 
-          <div className="collection-strip" aria-label="Park collections">
+          <div className="collection-strip" aria-label={copy.home.collectionsTitle}>
             {parkCollections.map((collection) => (
               <CuratedCollectionCard
                 collection={collection}
                 isActive={collection.id === parkCollectionId}
                 key={collection.id}
+                locale={locale}
+                copy={copy}
                 onOpen={() => {
                   navigateToParks({ preserveSearch: true, collectionId: collection.id });
                 }}
@@ -3996,7 +4073,7 @@ function App() {
           <div className="toolbar-panel browse-toolbar">
             <div className="browse-toolbar-main">
               <label className="search-label" htmlFor="park-search">
-                Search parks
+                {copy.browse.searchParks}
               </label>
               <div className="hero-search-row">
                 <input
@@ -4008,7 +4085,7 @@ function App() {
                   onChange={(event) => {
                     setSearchQuery(event.target.value);
                   }}
-                  placeholder="Park name, country, or city"
+                  placeholder={copy.browse.parkPlaceholder}
                 />
                 {searchQuery ? (
                   <button
@@ -4018,22 +4095,24 @@ function App() {
                       setSearchQuery("");
                     }}
                   >
-                    Clear
+                    {copy.browse.clear}
                   </button>
                 ) : null}
               </div>
             </div>
-            <div className="catalog-state-row" aria-label="Browse state">
+            <div className="catalog-state-row" aria-label={copy.browse.loadingResults}>
               <span className="catalog-chip">
                 {parksStatus.state === "success"
-                  ? `${displayedParks.length} results`
-                  : "Loading results"}
+                  ? copy.browse.results(displayedParks.length)
+                  : copy.browse.loadingResults}
               </span>
               {selectedParkCollection ? (
                 <span className="catalog-chip route-chip">{selectedParkCollection.title}</span>
               ) : null}
               {hasActiveCatalogSearch ? (
-                <span className="catalog-chip route-chip">{`"${normalizedSearchQuery}"`}</span>
+                <span className="catalog-chip route-chip">
+                  {copy.browse.searchChip(normalizedSearchQuery)}
+                </span>
               ) : null}
               {hasActiveParkCollection ? (
                 <button
@@ -4043,7 +4122,7 @@ function App() {
                     setParkCollectionId("");
                   }}
                 >
-                  Clear collection
+                  {copy.browse.clearCollection}
                 </button>
               ) : null}
             </div>
@@ -4055,7 +4134,7 @@ function App() {
               <div className="parks-list">
                 {displayedParks.map((park) => {
                   const parkProgress = parkProgressBySlug?.get(park.slug);
-                  const parkEditorial = parkEditorialBySlug[park.slug];
+                  const parkEditorial = localizedParkEditorialBySlug[park.slug];
 
                   return (
                     <button
@@ -4078,7 +4157,9 @@ function App() {
                         <div className="park-link">
                           <p className="park-name">{park.name}</p>
                         </div>
-                        <span className="catalog-chip">{park.status}</span>
+                        <span className="catalog-chip">
+                          {formatStatusLabel(locale, park.status)}
+                        </span>
                       </div>
                       <p className="park-location">
                         {park.city}, {park.country}
@@ -4090,7 +4171,7 @@ function App() {
                         <div className="card-cues">
                           {parkEditorial.cues.slice(0, 2).map((cue) => (
                             <span className="catalog-chip route-chip" key={cue}>
-                              {cue}
+                              {translateCue(locale, cue)}
                             </span>
                           ))}
                         </div>
@@ -4098,7 +4179,7 @@ function App() {
                       {parkProgress && parkProgress.riddenRides > 0 ? (
                         <div className="park-progress">
                           <div className="progress-copy">
-                            <span className="progress-label">Progress</span>
+                            <span className="progress-label">{copy.home.progressLabel}</span>
                             <strong className="progress-value">
                               {parkProgress.completionPercentage}%
                             </strong>
@@ -4112,7 +4193,10 @@ function App() {
                             />
                           </div>
                           <p className="park-meta">
-                            {`${parkProgress.riddenRides} of ${parkProgress.totalRides} rides ridden`}
+                            {copy.park.riddenOutOf(
+                              parkProgress.riddenRides,
+                              parkProgress.totalRides
+                            )}
                           </p>
                         </div>
                       ) : null}
@@ -4124,15 +4208,15 @@ function App() {
               <div className="state-message state-message-empty">
                 <p>
                   {selectedParkCollection
-                    ? "No parks match this collection yet."
-                    : "No parks match this search yet."}
+                    ? copy.browse.noParksForCollection
+                    : copy.browse.noParksForSearch}
                 </p>
               </div>
             )
           ) : null}
           {parksStatus.state === "error" ? (
             <div className="state-message state-message-error">
-              <p>Unable to load parks.</p>
+              <p>{copy.browse.unableLoadParks}</p>
               <p>{parksStatus.message}</p>
               <button
                 className="catalog-inline-button"
@@ -4141,7 +4225,7 @@ function App() {
                   window.location.reload();
                 }}
               >
-                Try again
+                {copy.browse.tryAgain}
               </button>
             </div>
           ) : null}
@@ -4152,17 +4236,19 @@ function App() {
         <section className="catalog-panel browse-panel" aria-live="polite">
           <div className="catalog-header">
             <div className="catalog-copy">
-              <p className="status-label">Browse</p>
-              <h2 className="section-title">Rides</h2>
+              <p className="status-label">{copy.browse.browse}</p>
+              <h2 className="section-title">{copy.browse.ridesTitle}</h2>
             </div>
           </div>
 
-          <div className="collection-strip" aria-label="Ride collections">
+          <div className="collection-strip" aria-label={copy.home.collectionsTitle}>
             {rideCollections.map((collection) => (
               <CuratedCollectionCard
                 collection={collection}
                 isActive={collection.id === rideCollectionId}
                 key={collection.id}
+                locale={locale}
+                copy={copy}
                 onOpen={() => {
                   navigateToRides({ preserveFilters: true, collectionId: collection.id });
                 }}
@@ -4173,7 +4259,7 @@ function App() {
           <div className="toolbar-panel browse-toolbar browse-toolbar-stacked">
             <div className="browse-toolbar-main">
               <label className="search-label" htmlFor="ride-catalog-search">
-                Search rides
+                {copy.browse.searchRides}
               </label>
               <div className="hero-search-row">
                 <input
@@ -4185,7 +4271,7 @@ function App() {
                   onChange={(event) => {
                     setRideCatalogSearchQuery(event.target.value);
                   }}
-                  placeholder="Ride name"
+                  placeholder={copy.browse.ridePlaceholder}
                 />
                 {rideCatalogSearchQuery ? (
                   <button
@@ -4195,7 +4281,7 @@ function App() {
                       setRideCatalogSearchQuery("");
                     }}
                   >
-                    Clear
+                    {copy.browse.clear}
                   </button>
                 ) : null}
               </div>
@@ -4210,12 +4296,12 @@ function App() {
                   setIsRideFiltersOpen((isOpen) => !isOpen);
                 }}
               >
-                Filters
+                {locale === "es" ? "Filtros" : "Filters"}
               </button>
               <div className="ride-toolbar ride-toolbar-catalog">
               <div className="toolbar-field">
                 <label className="search-label" htmlFor="ride-catalog-park">
-                  Park
+                  {locale === "es" ? "Parque" : "Park"}
                 </label>
                 <select
                   id="ride-catalog-park"
@@ -4225,7 +4311,7 @@ function App() {
                     setRideCatalogParkFilter(event.target.value);
                   }}
                 >
-                  <option value="">All parks</option>
+                  <option value="">{copy.browse.allParks}</option>
                   {ridesCatalogOptions.parks.map((park) => (
                     <option key={park.slug} value={park.slug}>
                       {park.name}
@@ -4235,7 +4321,7 @@ function App() {
               </div>
               <div className="toolbar-field">
                 <label className="search-label" htmlFor="ride-catalog-type">
-                  Ride type
+                  {copy.browse.rideType}
                 </label>
                 <select
                   id="ride-catalog-type"
@@ -4245,7 +4331,7 @@ function App() {
                     setRideCatalogRideTypeFilter(event.target.value);
                   }}
                 >
-                  <option value="">All ride types</option>
+                  <option value="">{copy.browse.allRideTypes}</option>
                   {ridesCatalogOptions.rideTypes.map((rideType) => (
                     <option key={rideType} value={rideType}>
                       {rideType}
@@ -4255,7 +4341,7 @@ function App() {
               </div>
               <div className="toolbar-field">
                 <label className="search-label" htmlFor="ride-catalog-manufacturer">
-                  Manufacturer
+                  {copy.browse.manufacturer}
                 </label>
                 <select
                   id="ride-catalog-manufacturer"
@@ -4265,7 +4351,7 @@ function App() {
                     setRideCatalogManufacturerFilter(event.target.value);
                   }}
                 >
-                  <option value="">All manufacturers</option>
+                  <option value="">{copy.browse.allManufacturers}</option>
                   {ridesCatalogOptions.manufacturers.map((manufacturer) => (
                     <option key={manufacturer} value={manufacturer}>
                       {manufacturer}
@@ -4275,7 +4361,7 @@ function App() {
               </div>
               <div className="toolbar-field">
                 <label className="search-label" htmlFor="ride-catalog-sort">
-                  Sort by
+                  {copy.browse.sortBy}
                 </label>
                 <select
                   id="ride-catalog-sort"
@@ -4285,19 +4371,19 @@ function App() {
                     setRideCatalogSort(event.target.value as RidesCatalogSort);
                   }}
                 >
-                  <option value="name">Name</option>
-                  <option value="opening_year">Opening year</option>
-                  <option value="speed_kmh">Top speed</option>
+                  <option value="name">{copy.browse.name}</option>
+                  <option value="opening_year">{copy.browse.openingYear}</option>
+                  <option value="speed_kmh">{copy.browse.topSpeed}</option>
                 </select>
               </div>
               </div>
             </div>
 
-            <div className="catalog-state-row" aria-label="Ride browse state">
+            <div className="catalog-state-row" aria-label={copy.route.ridesBrowse}>
               <span className="catalog-chip">
                 {ridesCatalogStatus.state === "success"
-                  ? `${displayedRideCatalogItems.length} results`
-                  : "Loading results"}
+                  ? copy.browse.results(displayedRideCatalogItems.length)
+                  : copy.browse.loadingResults}
               </span>
               {selectedRideCollection ? (
                 <span className="catalog-chip route-chip">{selectedRideCollection.title}</span>
@@ -4318,7 +4404,7 @@ function App() {
                     setRideCatalogSort(defaultRidesCatalogSort);
                   }}
                 >
-                  Clear filters
+                  {copy.browse.clearFilters}
                 </button>
               ) : null}
               {hasActiveRideCollection ? (
@@ -4329,7 +4415,7 @@ function App() {
                     setRideCollectionId("");
                   }}
                 >
-                  Clear collection
+                  {copy.browse.clearCollection}
                 </button>
               ) : null}
             </div>
@@ -4343,7 +4429,7 @@ function App() {
               <div className="rides-list rides-list-catalog">
                 {displayedRideCatalogItems.map((entry) => {
                   const isRidden = riddenRideIds?.has(entry.ride.id) === true;
-                  const rideEditorial = rideEditorialBySlug[entry.ride.slug];
+                  const rideEditorial = localizedRideEditorialBySlug[entry.ride.slug];
 
                   return (
                     <button
@@ -4373,9 +4459,13 @@ function App() {
                         </div>
                         <div className="ride-card-chips">
                           {isRidden ? (
-                            <span className="catalog-chip catalog-chip-ridden">Ridden</span>
+                            <span className="catalog-chip catalog-chip-ridden">
+                              {locale === "es" ? "Montada" : "Ridden"}
+                            </span>
                           ) : null}
-                          <span className="catalog-chip">{entry.ride.status}</span>
+                          <span className="catalog-chip">
+                            {formatStatusLabel(locale, entry.ride.status)}
+                          </span>
                         </div>
                       </div>
                       <p className="park-location">
@@ -4387,7 +4477,7 @@ function App() {
                       <div className="ride-facts-row">
                         {rideEditorial?.cues.slice(0, 2).map((cue) => (
                           <span className="ride-fact-pill ride-fact-pill-accent" key={cue}>
-                            {cue}
+                            {translateCue(locale, cue)}
                           </span>
                         ))}
                         <span className="ride-fact-pill">{entry.ride.rideType}</span>
@@ -4411,18 +4501,18 @@ function App() {
               <div className="state-message state-message-empty">
                 <p>
                   {selectedRideCollection
-                    ? "No rides match this collection yet."
-                    : "No rides match this view yet."}
+                    ? copy.browse.noRidesForCollection
+                    : copy.browse.noRidesForView}
                 </p>
                 {!selectedRideCollection ? (
-                  <p>Try a broader ride name or clear one of the current filters.</p>
+                  <p>{copy.browse.broadenRideSearch}</p>
                 ) : null}
               </div>
             )
           ) : null}
           {ridesCatalogStatus.state === "error" ? (
             <div className="state-message state-message-error">
-              <p>Unable to load rides.</p>
+              <p>{copy.browse.unableLoadRides}</p>
               <p>{ridesCatalogStatus.message}</p>
               <button
                 className="catalog-inline-button"
@@ -4431,7 +4521,7 @@ function App() {
                   window.location.reload();
                 }}
               >
-                Try again
+                {copy.browse.tryAgain}
               </button>
             </div>
           ) : null}
@@ -4442,8 +4532,8 @@ function App() {
         <section className="catalog-panel browse-panel" aria-live="polite">
           <div className="catalog-header">
             <div className="catalog-copy">
-              <p className="status-label">Discover</p>
-              <h2 className="section-title">Pick the next park worth opening.</h2>
+              <p className="status-label">{copy.discover.label}</p>
+              <h2 className="section-title">{copy.discover.title}</h2>
             </div>
           </div>
 
@@ -4453,32 +4543,34 @@ function App() {
             isClaimingReward={isClaimingDailyReward}
             onAnswer={submitDailyChallengeAnswer}
             onClaimReward={claimDailyReward}
+            locale={locale}
+            copy={copy}
             onOpenRide={(parkSlug, rideSlug) => {
               navigateToRide(parkSlug, rideSlug);
             }}
           />
 
           {demoUserStatsStatus.state === "success" ? (
-            <section className="stats-panel" aria-label="Ride progress">
+            <section className="stats-panel" aria-label={copy.discover.rideProgress}>
               <div className="section-row">
                 <div>
-                  <p className="status-label">Ride progress</p>
+                  <p className="status-label">{copy.discover.rideProgress}</p>
                 </div>
                 <button className="catalog-inline-button" type="button" onClick={() => {
                   navigateToParks({ preserveSearch: true });
                 }}>
-                  Browse parks
+                  {copy.discover.browseParks}
                 </button>
               </div>
               <div className="stats-grid">
                 <article className="stats-card">
-                  <span className="stats-card-label">Ridden rides</span>
+                  <span className="stats-card-label">{copy.profile.ridesLabel}</span>
                   <strong className="stats-card-value">
                     {demoUserStatsStatus.totalRiddenRides}
                   </strong>
                 </article>
                 <article className="stats-card">
-                  <span className="stats-card-label">Parks ridden</span>
+                  <span className="stats-card-label">{copy.profile.parksLabel}</span>
                   <strong className="stats-card-value">
                     {demoUserStatsStatus.totalParksWithRiddenRides}
                   </strong>
@@ -4496,7 +4588,7 @@ function App() {
                   >
                     <span className="stats-park-name">{park.parkName}</span>
                     <span className="stats-park-value">
-                      {`${park.riddenRides}/${park.totalRides} ridden`}
+                      {copy.park.riddenOutOf(park.riddenRides, park.totalRides)}
                     </span>
                     <div className="progress-rail" aria-hidden="true">
                       <span
@@ -4509,22 +4601,28 @@ function App() {
                   </button>
                 ))}
               </div>
-              <ProgressionPanel userProgressionStatus={userProgressionStatus} />
+              <ProgressionPanel
+                userProgressionStatus={userProgressionStatus}
+                locale={locale}
+                copy={copy}
+              />
             </section>
           ) : null}
 
           <section className="catalog-panel nested-panel">
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
-                <p className="status-label">Collections</p>
-                <h2 className="section-title">Browse by collection.</h2>
+                <p className="status-label">{copy.discover.collectionsLabel}</p>
+                <h2 className="section-title">{copy.discover.collectionsTitle}</h2>
               </div>
             </div>
             <div className="collection-grid">
-              {curatedCollections.map((collection) => (
+              {localizedCollections.map((collection) => (
                 <CuratedCollectionCard
                   collection={collection}
                   key={collection.id}
+                  locale={locale}
+                  copy={copy}
                   onOpen={() => {
                     if (collection.kind === "park") {
                       navigateToParks({ collectionId: collection.id });
@@ -4547,40 +4645,49 @@ function App() {
             </div>
             {communityHighlightsStatus.state === "loading" ? (
               <div className="state-message state-message-loading state-message-compact">
-                <p>Loading rankings...</p>
+                <p>{copy.discover.rankingsLoading}</p>
               </div>
             ) : null}
             {communityHighlightsStatus.state === "success" ? (
               communityHighlights.length > 0 ? (
                 <div className="community-ranking-grid">
                   <CommunityRankingCard
-                    title="Highest level"
-                    summary="Riders stacking the most XP so far."
+                    kind="level"
+                    title={copy.rankings.highestLevelTitle}
+                    summary={copy.rankings.highestLevelSummary}
                     profiles={highestLevelProfiles}
+                    locale={locale}
+                    copy={copy}
                     onOpenProfile={navigateToPublicProfile}
                   />
                   <CommunityRankingCard
-                    title="Longest streak"
-                    summary="Riders keeping the daily loop alive."
+                    kind="streak"
+                    title={copy.rankings.longestStreakTitle}
+                    summary={copy.rankings.longestStreakSummary}
                     profiles={longestStreakProfiles}
+                    locale={locale}
+                    copy={copy}
                     onOpenProfile={navigateToPublicProfile}
                   />
                   <CommunityRankingCard
-                    title="Recently active"
-                    summary="Fresh credits and profile momentum."
+                    kind="recent"
+                    title={copy.rankings.recentTitle}
+                    summary={copy.rankings.recentSummary}
                     profiles={recentlyActiveProfiles}
+                    locale={locale}
+                    copy={copy}
                     onOpenProfile={navigateToPublicProfile}
                   />
                 </div>
               ) : (
                 <div className="state-message state-message-empty state-message-compact">
-                  <p>No rankings yet.</p>
+                  <p>{copy.discover.rankingsEmpty}</p>
                 </div>
               )
             ) : null}
             {communityHighlightsStatus.state === "error" ? (
               <div className="state-message state-message-error state-message-compact">
-                <p>Unable to load rankings.</p>
+                <p>{copy.discover.rankingsError}</p>
                 <p>{communityHighlightsStatus.message}</p>
               </div>
             ) : null}
@@ -4589,8 +4696,8 @@ function App() {
           <section className="catalog-panel nested-panel">
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
-                <p className="status-label">Featured now</p>
-                <h2 className="section-title">Highlighted parks.</h2>
+                <p className="status-label">{copy.discover.featuredLabel}</p>
+                <h2 className="section-title">{copy.discover.featuredTitle}</h2>
               </div>
             </div>
             <div className="parks-list parks-list-featured">
@@ -4659,13 +4766,13 @@ function App() {
           <section className="catalog-panel nested-panel">
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
-                <p className="status-label">Community</p>
-                <h2 className="section-title">Recent rider activity.</h2>
+                <p className="status-label">{copy.discover.communityLabel}</p>
+                <h2 className="section-title">{copy.discover.communityTitle}</h2>
               </div>
             </div>
             {communityHighlightsStatus.state === "loading" ? (
               <div className="state-message state-message-loading state-message-compact">
-                <p>Loading community activity...</p>
+                <p>{copy.community.loadingActivity}</p>
               </div>
             ) : null}
             {communityHighlightsStatus.state === "success" ? (
@@ -4675,6 +4782,8 @@ function App() {
                     <CommunityHighlightCard
                       key={profile.user.id}
                       profile={profile}
+                      locale={locale}
+                      copy={copy}
                       onOpenProfile={navigateToPublicProfile}
                       onOpenPark={navigateToPark}
                       onOpenRide={(parkSlug, rideSlug) => {
@@ -4691,7 +4800,7 @@ function App() {
             ) : null}
             {communityHighlightsStatus.state === "error" ? (
               <div className="state-message state-message-error state-message-compact">
-                <p>Unable to load community activity.</p>
+                <p>{copy.community.unableLoadActivity}</p>
                 <p>{communityHighlightsStatus.message}</p>
               </div>
             ) : null}
@@ -4703,14 +4812,14 @@ function App() {
         <section className="catalog-panel browse-panel" aria-live="polite">
           <div className="catalog-header">
             <div className="catalog-copy">
-              <p className="status-label">Profile</p>
-              <h2 className="section-title">Your profile</h2>
+              <p className="status-label">{copy.nav.profile}</p>
+              <h2 className="section-title">{copy.profile.title}</h2>
             </div>
           </div>
 
           {userProfileStatus.state === "loading" ? (
             <div className="state-message state-message-loading">
-              <p>Loading profile...</p>
+              <p>{locale === "es" ? "Cargando perfil..." : "Loading profile..."}</p>
             </div>
           ) : null}
 
@@ -4727,6 +4836,8 @@ function App() {
                 isClaimingReward={isClaimingDailyReward}
                 onAnswer={submitDailyChallengeAnswer}
                 onClaimReward={claimDailyReward}
+                locale={locale}
+                copy={copy}
                 onOpenRide={(parkSlug, rideSlug) => {
                   navigateToRide(parkSlug, rideSlug);
                 }}
@@ -4734,6 +4845,8 @@ function App() {
               <ProfileSurface
                 profile={userProfileStatus.profile}
                 isCurrentUser
+                locale={locale}
+                copy={copy}
                 onOpenPark={(parkSlug) => {
                   navigateToPark(parkSlug);
                 }}
@@ -4748,7 +4861,7 @@ function App() {
 
           {userProfileStatus.state === "error" ? (
             <div className="state-message state-message-error">
-              <p>Unable to load your profile.</p>
+              <p>{locale === "es" ? "No se puede cargar tu perfil." : "Unable to load your profile."}</p>
               <p>{userProfileStatus.message}</p>
             </div>
           ) : null}
@@ -4759,7 +4872,7 @@ function App() {
         <section className="catalog-panel browse-panel" aria-live="polite">
           {userProfileStatus.state === "loading" ? (
             <div className="state-message state-message-loading">
-              <p>Loading profile...</p>
+              <p>{locale === "es" ? "Cargando perfil..." : "Loading profile..."}</p>
             </div>
           ) : null}
 
@@ -4767,6 +4880,8 @@ function App() {
             <ProfileSurface
               profile={userProfileStatus.profile}
               isCurrentUser={false}
+              locale={locale}
+              copy={copy}
               onOpenPark={(parkSlug) => {
                 navigateToPark(parkSlug);
               }}
@@ -4778,7 +4893,7 @@ function App() {
 
           {userProfileStatus.state === "error" ? (
             <div className="state-message state-message-error">
-              <p>Unable to load this profile.</p>
+              <p>{locale === "es" ? "No se puede cargar este perfil." : "Unable to load this profile."}</p>
               <p>{userProfileStatus.message}</p>
             </div>
           ) : null}
@@ -4789,8 +4904,8 @@ function App() {
         <section className="catalog-panel browse-panel" aria-live="polite">
           <div className="catalog-header">
             <div className="catalog-copy">
-              <p className="status-label">Journal</p>
-              <h2 className="section-title">Rankings, guides, and park news will live here.</h2>
+              <p className="status-label">{copy.nav.journal}</p>
+              <h2 className="section-title">{copy.journal.title}</h2>
             </div>
           </div>
           <div className="editorial-grid">
@@ -4802,7 +4917,7 @@ function App() {
                 <button className="catalog-inline-button" type="button" onClick={() => {
                   navigateToParks({ preserveSearch: true });
                 }}>
-                  Browse parks
+                  {copy.journal.browseParks}
                 </button>
               </article>
             ))}
@@ -4821,19 +4936,19 @@ function App() {
                   navigateToParks({ preserveSearch: true });
                 }}
               >
-                Back to parks
+                {copy.park.backToParks}
               </button>
             </div>
             {parkDetailStatus.state === "loading" ? (
               <div className="state-message state-message-loading">
-                <p>Loading park details...</p>
+                <p>{copy.park.loading}</p>
               </div>
             ) : null}
             {parkDetailStatus.state === "success" ? (
               <article className="detail-card detail-card-park">
                 <div className="detail-header detail-header-feature">
                   <div>
-                    <p className="status-label">Park</p>
+                    <p className="status-label">{copy.park.label}</p>
                     <h2 className="detail-title">{parkDetailStatus.park.name}</h2>
                     <p className="section-copy detail-summary">
                       {parkDetailStatus.park.city}, {parkDetailStatus.park.country}
@@ -4845,17 +4960,19 @@ function App() {
                       <div className="detail-micro-nav" aria-label="Park discovery cues">
                         {activeParkEditorial.cues.slice(0, 2).map((cue) => (
                           <span className="detail-micro-item" key={cue}>
-                            {cue}
+                            {translateCue(locale, cue)}
                           </span>
                         ))}
                       </div>
                     ) : null}
                   </div>
                   <div className="detail-chip-row">
-                    <span className="catalog-chip">{parkDetailStatus.park.status}</span>
+                    <span className="catalog-chip">
+                      {formatStatusLabel(locale, parkDetailStatus.park.status)}
+                    </span>
                     {activeParkProgress ? (
                       <span className="catalog-chip catalog-chip-ridden">
-                        {activeParkProgress.completionPercentage}% complete
+                        {`${activeParkProgress.completionPercentage}% ${copy.park.completion}`}
                       </span>
                     ) : null}
                   </div>
@@ -4873,9 +4990,9 @@ function App() {
                   />
                   {activeParkProgress ? (
                     <div className="progress-card">
-                      <p className="status-label">Your progress</p>
+                      <p className="status-label">{copy.park.progressLabel}</p>
                       <div className="progress-copy">
-                        <span className="progress-label">Completion</span>
+                        <span className="progress-label">{copy.park.completion}</span>
                         <strong className="progress-value">
                           {activeParkProgress.completionPercentage}%
                         </strong>
@@ -4889,7 +5006,10 @@ function App() {
                         />
                       </div>
                       <p className="credit-copy">
-                        {`${activeParkProgress.riddenRides} of ${activeParkProgress.totalRides} rides ridden`}
+                        {copy.park.riddenOutOf(
+                          activeParkProgress.riddenRides,
+                          activeParkProgress.totalRides
+                        )}
                       </p>
                     </div>
                   ) : null}
@@ -4897,16 +5017,16 @@ function App() {
 
                 <div className="detail-grid">
                   <div className="detail-item">
-                    <span className="detail-item-label">City</span>
+                    <span className="detail-item-label">{copy.park.city}</span>
                     <p>{parkDetailStatus.park.city}</p>
                   </div>
                   <div className="detail-item">
-                    <span className="detail-item-label">Country</span>
+                    <span className="detail-item-label">{copy.park.country}</span>
                     <p>{parkDetailStatus.park.country}</p>
                   </div>
                   <div className="detail-item">
-                    <span className="detail-item-label">Status</span>
-                    <p>{parkDetailStatus.park.status}</p>
+                    <span className="detail-item-label">{copy.park.status}</span>
+                    <p>{formatStatusLabel(locale, parkDetailStatus.park.status)}</p>
                   </div>
                 </div>
 
@@ -4915,14 +5035,14 @@ function App() {
                   <div className="live-waits-section">
                     <div className="section-row">
                       <div>
-                        <p className="status-label">Queue-Times</p>
+                        <p className="status-label">{copy.park.queueTimes}</p>
                       </div>
                       <div className="detail-chip-row">
                         {liveWaitSource ? (
                           <span className="catalog-chip">
                             {liveWaitSource.state === "mapped"
-                              ? formatCountLabel(liveWaitRides.length, "live ride")
-                              : "Not mapped"}
+                              ? copy.park.liveRideCount(liveWaitRides.length)
+                              : copy.park.notMapped}
                           </span>
                         ) : null}
                       </div>
@@ -4932,13 +5052,13 @@ function App() {
 
                     {parkLiveWaitsStatus.state === "loading" ? (
                       <div className="state-message state-message-loading state-message-compact">
-                        <p>Loading live waits...</p>
+                        <p>{copy.park.loadingLiveWaits}</p>
                       </div>
                     ) : null}
 
                     {parkLiveWaitsStatus.state === "error" ? (
                       <div className="state-message state-message-error state-message-compact">
-                        <p>Live waits unavailable right now.</p>
+                        <p>{copy.park.liveWaitsUnavailable}</p>
                         <p>{parkLiveWaitsStatus.message}</p>
                       </div>
                     ) : null}
@@ -4955,15 +5075,16 @@ function App() {
                                   <p className="wait-time-meta">
                                     {ride.rideType}
                                     {ride.sourceLastUpdated
-                                      ? ` | Updated ${formatSourceTimeLabel(
-                                          ride.sourceLastUpdated
+                                      ? ` | ${copy.common.updatedAt(
+                                          formatTimeLabel(locale, ride.sourceLastUpdated) ??
+                                            ride.sourceLastUpdated
                                         )}`
                                       : ""}
                                   </p>
                                 </div>
                                 <div className="wait-time-value-block">
                                   <strong className="wait-time-value">
-                                    {formatLiveWaitLabel(ride)}
+                                    {formatLiveWaitLabel(locale, ride)}
                                   </strong>
                                   <span
                                     className={`catalog-chip wait-time-chip${
@@ -4975,10 +5096,10 @@ function App() {
                                     }`}
                                   >
                                     {ride.isOpen === false
-                                      ? "Closed"
+                                      ? copy.common.closed
                                       : ride.isOpen === true
-                                        ? "Open"
-                                        : "Unknown"}
+                                        ? copy.common.open
+                                        : copy.common.unknown}
                                   </span>
                                 </div>
                               </article>
@@ -4987,28 +5108,28 @@ function App() {
                         </>
                       ) : (
                         <div className="state-message state-message-empty state-message-compact">
-                          <p>No live ride updates right now.</p>
+                          <p>{copy.park.noLiveRideUpdates}</p>
                         </div>
                       )
                     ) : parkLiveWaitsStatus.state === "success" ? (
                       <div className="state-message state-message-empty state-message-compact">
-                        <p>This park is not linked to Queue-Times yet.</p>
+                        <p>{copy.park.parkNotLinked}</p>
                       </div>
                     ) : null}
 
-                    <QueueTimesAttribution />
+                    <QueueTimesAttribution locale={locale} copy={copy} />
                   </div>
                 ) : null}
 
                 <div className="rides-section">
                   <div className="section-row">
                     <div>
-                      <p className="status-label">Ride lineup</p>
+                      <p className="status-label">{copy.park.rideLineup}</p>
                     </div>
                     <div className="detail-chip-row">
                       {parkRidesStatus.state === "success" ? (
                         <span className="catalog-chip">
-                          {formatCountLabel(parkRidesStatus.rides.length, "ride")}
+                          {formatCountLabel(locale, parkRidesStatus.rides.length, "ride")}
                         </span>
                       ) : null}
                     </div>
@@ -5017,7 +5138,7 @@ function App() {
                     <div className="ride-toolbar" aria-label="Ride filters and sorting">
                       <div className="toolbar-field">
                         <label className="search-label" htmlFor="ride-type-filter">
-                          Ride type
+                          {copy.ride.rideType}
                         </label>
                         <select
                           id="ride-type-filter"
@@ -5027,7 +5148,7 @@ function App() {
                             setRideTypeFilter(event.target.value);
                           }}
                         >
-                          <option value="">All ride types</option>
+                          <option value="">{copy.browse.allRideTypes}</option>
                           {parkRideOptions.rideTypes.map((rideType) => (
                             <option key={rideType} value={rideType}>
                               {rideType}
@@ -5037,7 +5158,7 @@ function App() {
                       </div>
                       <div className="toolbar-field">
                         <label className="search-label" htmlFor="manufacturer-filter">
-                          Manufacturer
+                          {copy.browse.manufacturer}
                         </label>
                         <select
                           id="manufacturer-filter"
@@ -5047,7 +5168,7 @@ function App() {
                             setManufacturerFilter(event.target.value);
                           }}
                         >
-                          <option value="">All manufacturers</option>
+                          <option value="">{copy.browse.allManufacturers}</option>
                           {parkRideOptions.manufacturers.map((manufacturer) => (
                             <option key={manufacturer} value={manufacturer}>
                               {manufacturer}
@@ -5057,7 +5178,7 @@ function App() {
                       </div>
                       <div className="toolbar-field">
                         <label className="search-label" htmlFor="ride-sort">
-                          Sort by
+                          {copy.browse.sortBy}
                         </label>
                         <select
                           id="ride-sort"
@@ -5067,16 +5188,16 @@ function App() {
                             setParkRideSort(event.target.value as ParkRideSort);
                           }}
                         >
-                          <option value="name">Name</option>
-                          <option value="opening_year">Opening year</option>
-                          <option value="speed_kmh">Top speed</option>
+                          <option value="name">{copy.browse.name}</option>
+                          <option value="opening_year">{copy.browse.openingYear}</option>
+                          <option value="speed_kmh">{copy.browse.topSpeed}</option>
                         </select>
                       </div>
                     </div>
                     <div className="catalog-state-row">
                       {parkRidesStatus.state === "success" ? (
                         <span className="catalog-chip">
-                          {formatCountLabel(parkRidesStatus.rides.length, "visible ride")}
+                          {copy.park.visibleRides(parkRidesStatus.rides.length)}
                         </span>
                       ) : null}
                       {(rideTypeFilter ||
@@ -5091,21 +5212,21 @@ function App() {
                             setParkRideSort(defaultParkRideSort);
                           }}
                         >
-                          Clear filters
+                          {copy.browse.clearFilters}
                         </button>
                       ) : null}
                     </div>
                   </div>
                   {parkRidesStatus.state === "loading" ? (
                     <div className="state-message state-message-loading">
-                      <p>Loading rides...</p>
+                      <p>{copy.park.loadingRides}</p>
                     </div>
                   ) : null}
                   {parkRidesStatus.state === "success" ? (
                     parkRidesStatus.rides.length > 0 ? (
                       <div className="rides-list">
                         {parkRidesStatus.rides.map((ride) => {
-                          const rideEditorial = rideEditorialBySlug[ride.slug];
+                          const rideEditorial = localizedRideEditorialBySlug[ride.slug];
 
                           return (
                             <button
@@ -5131,10 +5252,12 @@ function App() {
                                 <div className="ride-card-chips">
                                   {riddenRideIds?.has(ride.id) ? (
                                     <span className="catalog-chip catalog-chip-ridden">
-                                      Ridden
+                                      {locale === "es" ? "Montada" : "Ridden"}
                                     </span>
                                   ) : null}
-                                  <span className="catalog-chip">{ride.status}</span>
+                                  <span className="catalog-chip">
+                                    {formatStatusLabel(locale, ride.status)}
+                                  </span>
                                 </div>
                               </div>
                               {rideEditorial ? (
@@ -5143,7 +5266,7 @@ function App() {
                               <div className="ride-facts-row">
                                 {rideEditorial?.cues.slice(0, 1).map((cue) => (
                                   <span className="ride-fact-pill ride-fact-pill-accent" key={cue}>
-                                    {cue}
+                                    {translateCue(locale, cue)}
                                   </span>
                                 ))}
                                 <span className="ride-fact-pill">{ride.rideType}</span>
@@ -5159,20 +5282,20 @@ function App() {
                       <div className="state-message state-message-empty">
                         <p>
                           {rideTypeFilter || manufacturerFilter
-                            ? "No rides match the current filters."
-                            : "No rides available yet."}
+                            ? copy.park.noRidesForFilters
+                            : copy.park.noRidesAvailable}
                         </p>
                         <p>
                           {rideTypeFilter || manufacturerFilter
-                            ? "Try clearing one filter or switching the sort order."
-                            : "This park has no seeded rides in the current catalog."}
+                            ? copy.park.clearOneFilter
+                            : copy.park.noSeededRides}
                         </p>
                       </div>
                     )
                   ) : null}
                   {parkRidesStatus.state === "error" ? (
                     <div className="state-message state-message-error">
-                      <p>Unable to load rides.</p>
+                      <p>{copy.park.unableLoadRides}</p>
                       <p>{parkRidesStatus.message}</p>
                     </div>
                   ) : null}
@@ -5181,7 +5304,7 @@ function App() {
             ) : null}
             {parkDetailStatus.state === "error" ? (
               <div className="state-message state-message-error">
-                <p>Unable to load this park.</p>
+                <p>{copy.park.unableLoadPark}</p>
                 <p>{parkDetailStatus.message}</p>
               </div>
             ) : null}
@@ -5200,19 +5323,19 @@ function App() {
                   navigateBackFromRide(route.parkSlug);
                 }}
               >
-                {rideDetailOrigin === "rides" ? "Back to rides" : "Back to lineup"}
+                {rideDetailOrigin === "rides" ? copy.ride.backToRides : copy.ride.backToLineup}
               </button>
             </div>
             {rideDetailStatus.state === "loading" ? (
               <div className="state-message state-message-loading">
-                <p>Loading ride details...</p>
+                <p>{copy.ride.loading}</p>
               </div>
             ) : null}
             {rideDetailStatus.state === "success" ? (
               <article className="detail-card detail-card-ride">
                 <div className="detail-header detail-header-feature">
                   <div>
-                    <p className="status-label">Ride</p>
+                    <p className="status-label">{copy.ride.label}</p>
                     <h2 className="detail-title">{rideDetailStatus.ride.name}</h2>
                     <p className="section-copy detail-summary">
                       {rideDetailStatus.park.name}
@@ -5222,22 +5345,28 @@ function App() {
                     ) : null}
                     <div className="detail-micro-nav" aria-label="Ride route context">
                       <span className="detail-micro-item">
-                        In {rideDetailStatus.park.city}, {rideDetailStatus.park.country}
+                        {locale === "es"
+                          ? `En ${rideDetailStatus.park.city}, ${rideDetailStatus.park.country}`
+                          : `In ${rideDetailStatus.park.city}, ${rideDetailStatus.park.country}`}
                       </span>
                       <span className="detail-micro-item">
                         {rideDetailStatus.ride.rideType}
                       </span>
                       {activeRideEditorial?.cues.slice(0, 2).map((cue) => (
                         <span className="detail-micro-item" key={cue}>
-                          {cue}
+                          {translateCue(locale, cue)}
                         </span>
                       ))}
                     </div>
                   </div>
                   <div className="detail-chip-row">
-                    <span className="catalog-chip">{rideDetailStatus.ride.status}</span>
+                    <span className="catalog-chip">
+                      {formatStatusLabel(locale, rideDetailStatus.ride.status)}
+                    </span>
                     {isCurrentRideRidden ? (
-                      <span className="catalog-chip catalog-chip-ridden">Ridden</span>
+                      <span className="catalog-chip catalog-chip-ridden">
+                        {locale === "es" ? "Montada" : "Ridden"}
+                      </span>
                     ) : null}
                   </div>
                 </div>
@@ -5246,7 +5375,7 @@ function App() {
                   kind="ride"
                   slug={rideDetailStatus.ride.slug}
                   imageUrl={rideDetailStatus.ride.imageUrl}
-                  alt={`${rideDetailStatus.ride.name} ride view`}
+                  alt={`${rideDetailStatus.ride.name} ${locale === "es" ? "atracción" : "ride"} view`}
                   frameClassName="media-frame media-frame-detail"
                   imageClassName="media-image"
                   loading="eager"
@@ -5254,15 +5383,15 @@ function App() {
 
                 <div className="credit-panel">
                   <div>
-                    <p className="status-label">Ride log</p>
+                    <p className="status-label">{copy.ride.rideLog}</p>
                     <p className="credit-copy">
                       {rideCreditsStatus.state === "success"
                         ? isCurrentRideRidden
-                          ? "Saved to your ridden list."
-                          : "Save this ride to your ridden list."
+                          ? copy.ride.saved
+                          : copy.ride.savePrompt
                         : rideCreditsStatus.state === "error"
                           ? rideCreditsStatus.message
-                          : "Checking ride status."}
+                          : copy.ride.checking}
                     </p>
                   </div>
                   <button
@@ -5274,10 +5403,10 @@ function App() {
                     disabled={isUpdatingRideCredit || rideCreditsStatus.state !== "success"}
                   >
                     {isUpdatingRideCredit
-                      ? "Saving..."
+                      ? copy.ride.saving
                       : isCurrentRideRidden
-                        ? "Remove ride"
-                        : "Mark ridden"}
+                        ? copy.ride.removeRide
+                        : copy.ride.markRidden}
                   </button>
                 </div>
                 {rideCreditMessage ? (
@@ -5287,7 +5416,7 @@ function App() {
                 <div className="queue-times-panel">
                   <div className="section-row section-row-compact">
                     <div>
-                      <p className="status-label">Queue-Times</p>
+                      <p className="status-label">{copy.ride.queueTimes}</p>
                     </div>
                     {currentRideLiveWait ? (
                       <span
@@ -5299,11 +5428,7 @@ function App() {
                               : ""
                         }`}
                       >
-                        {currentRideLiveWait.isOpen === false
-                          ? "Closed"
-                          : currentRideLiveWait.isOpen === true
-                            ? "Open"
-                            : "Unknown"}
+                        {formatWaitStateLabel(locale, currentRideLiveWait.isOpen)}
                       </span>
                     ) : null}
                   </div>
@@ -5312,52 +5437,53 @@ function App() {
 
                   {parkLiveWaitsStatus.state === "loading" ? (
                     <div className="state-message state-message-loading state-message-compact">
-                      <p>Loading current wait.</p>
+                      <p>{copy.ride.loadingWait}</p>
                     </div>
                   ) : currentRideLiveWait ? (
                     <div className="queue-times-summary">
                       <div className="queue-times-summary-copy">
                         <strong className="queue-times-value">
-                          {formatLiveWaitLabel(currentRideLiveWait)}
+                          {formatLiveWaitLabel(locale, currentRideLiveWait)}
                         </strong>
                         <p className="wait-time-meta">
                           {currentRideLiveWait.sourceLastUpdated
-                            ? `Updated ${formatSourceTimeLabel(
-                                currentRideLiveWait.sourceLastUpdated
-                              )}`
-                            : "Current status from Queue-Times."}
+                            ? copy.common.updatedAt(
+                                formatTimeLabel(locale, currentRideLiveWait.sourceLastUpdated) ??
+                                  currentRideLiveWait.sourceLastUpdated
+                              )
+                            : copy.common.currentStatus}
                         </p>
                       </div>
                     </div>
                   ) : parkLiveWaitsStatus.state === "error" ? (
                     <div className="state-message state-message-error state-message-compact">
-                      <p>Current wait unavailable right now.</p>
+                      <p>{copy.ride.currentWaitUnavailable}</p>
                       <p>{parkLiveWaitsStatus.message}</p>
                     </div>
                   ) : rideDetailStatus.rideQueueTimes ? (
                     <div className="state-message state-message-empty state-message-compact">
-                      <p>No live Queue-Times update is available for this ride.</p>
+                      <p>{copy.ride.noLiveUpdate}</p>
                     </div>
                   ) : (
                     <div className="state-message state-message-empty state-message-compact">
-                      <p>This ride is not linked to Queue-Times yet.</p>
+                      <p>{copy.ride.rideNotLinked}</p>
                     </div>
                   )}
 
-                  <QueueTimesAttribution />
+                  <QueueTimesAttribution locale={locale} copy={copy} />
                 </div>
 
                 <div className="lineup-nav-panel">
                   <div>
-                    <p className="status-label">Ride order</p>
+                    <p className="status-label">{copy.ride.rideOrder}</p>
                     <p className="credit-copy">
                       {rideLineupStatus.state === "success"
-                        ? rideLineupPositionLabel || "Ride lineup"
+                        ? rideLineupPositionLabel || copy.park.rideLineup
                         : rideLineupStatus.state === "loading"
-                          ? "Loading ride order."
+                          ? copy.ride.loadingRideOrder
                           : rideLineupStatus.state === "error"
                             ? rideLineupStatus.message
-                            : "Ride order unavailable."}
+                            : copy.ride.rideOrderUnavailable}
                     </p>
                   </div>
                   <div className="lineup-nav-actions">
@@ -5373,7 +5499,7 @@ function App() {
                       }}
                       disabled={!previousRide}
                     >
-                      Previous ride
+                      {copy.ride.previousRide}
                     </button>
                     <button
                       className="lineup-nav-button"
@@ -5387,7 +5513,7 @@ function App() {
                       }}
                       disabled={!nextRide}
                     >
-                      Next ride
+                      {copy.ride.nextRide}
                     </button>
                   </div>
                 </div>
@@ -5395,7 +5521,7 @@ function App() {
                 <div className="detail-specs">
                   <div className="section-row section-row-compact">
                     <div>
-                      <p className="status-label">Ride facts</p>
+                      <p className="status-label">{copy.ride.rideFacts}</p>
                     </div>
                   </div>
                   <div className="detail-grid">
@@ -5414,7 +5540,7 @@ function App() {
             ) : null}
             {rideDetailStatus.state === "error" ? (
               <div className="state-message state-message-error">
-                <p>Unable to load this ride.</p>
+                <p>{copy.ride.unableLoadRide}</p>
                 <p>{rideDetailStatus.message}</p>
               </div>
             ) : null}
@@ -5425,16 +5551,16 @@ function App() {
   );
 }
 
-function catalogStateChip(status: ParksStatus | RidesCatalogStatus) {
+function catalogStateChip(locale: Locale, copy: UiCopy, status: ParksStatus | RidesCatalogStatus) {
   if (status.state === "success") {
-    return `${"rides" in status ? status.rides.length : status.parks.length} results`;
+    return copy.browse.results("rides" in status ? status.rides.length : status.parks.length);
   }
 
   if (status.state === "loading") {
     return null;
   }
 
-  return "Catalog unavailable";
+  return copy.route.parkResults;
 }
 
 export default App;
