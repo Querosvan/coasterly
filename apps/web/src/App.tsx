@@ -12,6 +12,7 @@ import type {
   ParksResponse,
   RideCatalogItem,
   RideCatalogResponse,
+  RideCatalogOptionsResponse,
   RideSort,
   Ride,
   RideCreditMutationResponse,
@@ -2083,9 +2084,12 @@ function App() {
     const controller = new AbortController();
     const activeSearchQuery = route.view === "parks" ? searchQuery.trim() : "";
     const shouldPaginateParks = route.view === "parks" && !parkCollectionId;
-    const effectiveParkLimit = shouldPaginateParks
-      ? browsePageSize
-      : fullCatalogFetchLimit;
+    const effectiveParkLimit =
+      route.view === "parks"
+        ? shouldPaginateParks
+          ? browsePageSize
+          : fullCatalogFetchLimit
+        : 24;
     const effectiveParkOffset = shouldPaginateParks ? parksOffset : 0;
 
     if (effectiveParkOffset === 0) {
@@ -2175,13 +2179,7 @@ function App() {
 
     const loadRidesCatalogOptions = async () => {
       try {
-        const ridesUrl = new URL("/rides", apiBaseUrl);
-
-        ridesUrl.searchParams.set("sort", defaultRidesCatalogSort);
-        ridesUrl.searchParams.set("limit", String(fullCatalogFetchLimit));
-        ridesUrl.searchParams.set("offset", "0");
-
-        const response = await fetch(ridesUrl, {
+        const response = await fetch(new URL("/rides/options", apiBaseUrl), {
           signal: controller.signal
         });
 
@@ -2189,25 +2187,12 @@ function App() {
           return;
         }
 
-        const payload = (await response.json()) as RideCatalogResponse;
-        const rideTypes = Array.from(
-          new Set(payload.rides.map((entry) => entry.ride.rideType))
-        ).sort((left, right) => left.localeCompare(right));
-        const manufacturers = Array.from(
-          new Set(
-            payload.rides
-              .map((entry) => entry.ride.manufacturer)
-              .filter((manufacturer): manufacturer is string => Boolean(manufacturer))
-          )
-        ).sort((left, right) => left.localeCompare(right));
-        const parks = Array.from(
-          new Map(payload.rides.map((entry) => [entry.park.slug, entry.park])).values()
-        ).sort((left, right) => left.name.localeCompare(right.name));
+        const payload = (await response.json()) as RideCatalogOptionsResponse;
 
         setRidesCatalogOptions({
-          parks,
-          rideTypes,
-          manufacturers
+          parks: payload.parks,
+          rideTypes: payload.rideTypes,
+          manufacturers: payload.manufacturers
         });
       } catch (error) {
         if (controller.signal.aborted) {

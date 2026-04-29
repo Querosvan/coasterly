@@ -80,6 +80,12 @@ export interface RideCatalogResponse {
   pageInfo?: PageInfo;
 }
 
+export interface RideCatalogOptionsResponse {
+  parks: Park[];
+  rideTypes: string[];
+  manufacturers: string[];
+}
+
 export type UserRole =
   | "user"
   | "moderator"
