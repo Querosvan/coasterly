@@ -866,6 +866,12 @@ function ProfileSurface({
       <section className="profile-hero">
         <div className="profile-hero-copy">
           <h3 className="section-title">{profile.user.name}</h3>
+          <div className="profile-identity-strip" aria-label="Profile level and streak">
+            <span className="ride-fact-pill ride-fact-pill-accent">{`Level ${profile.identity.level}`}</span>
+            <span className="ride-fact-pill">{`${profile.identity.totalXp} XP`}</span>
+            <span className="ride-fact-pill">{`${profile.identity.currentStreak} day streak`}</span>
+            <span className="ride-fact-pill">{`${profile.identity.completedDays} challenges played`}</span>
+          </div>
         </div>
         {showProfileActions ? (
           <div className="detail-chip-row">
@@ -1025,6 +1031,10 @@ function CommunityHighlightCard({
       </div>
 
       <div className="community-card-stats">
+        <span className="ride-fact-pill ride-fact-pill-accent">
+          {`Level ${profile.identity.level}`}
+        </span>
+        <span className="ride-fact-pill">{`${profile.identity.currentStreak} day streak`}</span>
         <span className="ride-fact-pill">
           {formatCountLabel(profile.totalRiddenRides, "ridden ride")}
         </span>
@@ -3359,11 +3369,16 @@ function App() {
       : route.view === "discover"
         ? [heroCountLabel, riddenRideCountLabel]
       : route.view === "profile"
-        ? [riddenRideCountLabel, riddenParkCountLabel]
+        ? userProfileStatus.state === "success"
+          ? [
+              `Level ${userProfileStatus.profile.identity.level}`,
+              `${userProfileStatus.profile.identity.currentStreak} day streak`
+            ]
+          : [riddenRideCountLabel, riddenParkCountLabel]
       : route.view === "user-profile"
         ? userProfileStatus.state === "success"
           ? [
-              userProfileStatus.profile.user.role,
+              `Level ${userProfileStatus.profile.identity.level}`,
               `${userProfileStatus.profile.totalRiddenRides} ridden`
             ]
           : ["Public profile"]

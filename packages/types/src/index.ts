@@ -161,6 +161,7 @@ export interface UserRecentActivityItem {
 
 export interface UserProfileResponse {
   user: UserSummary;
+  identity: UserIdentityProgress;
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
   parks: DemoUserParkProgress[];
@@ -171,6 +172,7 @@ export interface UserProfileResponse {
 
 export interface CommunityHighlight {
   user: UserSummary;
+  identity: UserIdentityProgress;
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
   featuredPark?: DemoUserParkProgress;
@@ -224,12 +226,14 @@ export interface DailyRewardClaim {
   claimedAt?: string;
 }
 
-export interface DailyChallengeSummary {
+export interface UserIdentityProgress {
   totalXp: number;
   level: number;
   currentStreak: number;
   completedDays: number;
 }
+
+export interface DailyChallengeSummary extends UserIdentityProgress {}
 
 export interface DailyChallengeResponse {
   user: UserSummary;

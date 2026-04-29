@@ -1069,6 +1069,7 @@ img {
 
 .profile-layout,
 .profile-hero,
+.profile-hero-copy,
 .activity-list,
 .activity-card,
 .activity-copy,
@@ -1079,6 +1080,12 @@ img {
 
 .profile-layout {
   gap: 1rem;
+}
+
+.profile-identity-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .profile-hero {
