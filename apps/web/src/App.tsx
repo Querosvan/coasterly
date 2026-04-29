@@ -52,7 +52,7 @@ const queueTimesAttributionUrl = "https://queue-times.com/";
 const journalTeasers = [
   {
     category: "Guide",
-    title: "Europe park-planning notes",
+    title: "Park-planning notes",
     summary: "Trip planning, lineup context, and progress-ready park guides.",
     status: "Planned"
   },
@@ -262,6 +262,9 @@ const rideEditorialBySlug: Record<string, EditorialNote> = {
 const formatParkLocation = (park: Pick<Park, "country" | "city">) =>
   park.city ? `${park.city}, ${park.country}` : park.country;
 
+const browsePageSize = 24;
+const fullCatalogFetchLimit = 5000;
+
 const curatedCollections: CuratedCollection[] = [
   {
     id: "first-time-europe-parks",
@@ -331,7 +334,7 @@ type ApiStatus =
 
 type ParksStatus =
   | { state: "loading" }
-  | { state: "success"; parks: Park[] }
+  | { state: "success"; parks: Park[]; pageInfo?: ParksResponse["pageInfo"] }
   | { state: "error"; message: string };
 
 type ParkDetailStatus =
@@ -349,7 +352,11 @@ type ParkRidesStatus =
 type RidesCatalogStatus =
   | { state: "idle" }
   | { state: "loading" }
-  | { state: "success"; rides: RideCatalogItem[] }
+  | {
+      state: "success";
+      rides: RideCatalogItem[];
+      pageInfo?: RideCatalogResponse["pageInfo"];
+    }
   | { state: "error"; message: string };
 
 type ParkLiveWaitsStatus =
@@ -1378,9 +1385,13 @@ function App() {
   const [parksStatus, setParksStatus] = useState<ParksStatus>({
     state: "loading"
   });
+  const [parksOffset, setParksOffset] = useState(0);
+  const [isLoadingMoreParks, setIsLoadingMoreParks] = useState(false);
   const [ridesCatalogStatus, setRidesCatalogStatus] = useState<RidesCatalogStatus>({
     state: "idle"
   });
+  const [ridesCatalogOffset, setRidesCatalogOffset] = useState(0);
+  const [isLoadingMoreRidesCatalog, setIsLoadingMoreRidesCatalog] = useState(false);
   const [parkDetailStatus, setParkDetailStatus] = useState<ParkDetailStatus>({
     state: "idle"
   });
@@ -2044,6 +2055,22 @@ function App() {
   ]);
 
   useEffect(() => {
+    setParksOffset(0);
+  }, [route.view, searchQuery, parkCollectionId]);
+
+  useEffect(() => {
+    setRidesCatalogOffset(0);
+  }, [
+    route.view,
+    rideCatalogSearchQuery,
+    rideCatalogParkFilter,
+    rideCatalogRideTypeFilter,
+    rideCatalogManufacturerFilter,
+    rideCatalogSort,
+    rideCollectionId
+  ]);
+
+  useEffect(() => {
     if (!apiBaseUrl) {
       setParksStatus({
         state: "error",
@@ -2055,8 +2082,17 @@ function App() {
 
     const controller = new AbortController();
     const activeSearchQuery = route.view === "parks" ? searchQuery.trim() : "";
+    const shouldPaginateParks = route.view === "parks" && !parkCollectionId;
+    const effectiveParkLimit = shouldPaginateParks
+      ? browsePageSize
+      : fullCatalogFetchLimit;
+    const effectiveParkOffset = shouldPaginateParks ? parksOffset : 0;
 
-    setParksStatus({ state: "loading" });
+    if (effectiveParkOffset === 0) {
+      setParksStatus({ state: "loading" });
+    } else {
+      setIsLoadingMoreParks(true);
+    }
 
     const timeoutId = window.setTimeout(() => {
       const loadParks = async () => {
@@ -2066,6 +2102,9 @@ function App() {
           if (activeSearchQuery) {
             parksUrl.searchParams.set("search", activeSearchQuery);
           }
+
+          parksUrl.searchParams.set("limit", String(effectiveParkLimit));
+          parksUrl.searchParams.set("offset", String(effectiveParkOffset));
 
           const response = await fetch(parksUrl, {
             signal: controller.signal
@@ -2082,10 +2121,14 @@ function App() {
 
           const payload = (await response.json()) as ParksResponse;
 
-          setParksStatus({
+          setParksStatus((previousStatus) => ({
             state: "success",
-            parks: payload.parks
-          });
+            parks:
+              effectiveParkOffset > 0 && previousStatus.state === "success"
+                ? [...previousStatus.parks, ...payload.parks]
+                : payload.parks,
+            ...(payload.pageInfo ? { pageInfo: payload.pageInfo } : {})
+          }));
         } catch (error) {
           if (controller.signal.aborted) {
             return;
@@ -2096,8 +2139,10 @@ function App() {
             message:
               error instanceof Error
                 ? error.message
-                : "The parks request failed."
+              : "The parks request failed."
           });
+        } finally {
+          setIsLoadingMoreParks(false);
         }
       };
 
@@ -2107,8 +2152,9 @@ function App() {
     return () => {
       window.clearTimeout(timeoutId);
       controller.abort();
+      setIsLoadingMoreParks(false);
     };
-  }, [route, searchQuery]);
+  }, [route, searchQuery, parkCollectionId, parksOffset]);
 
   useEffect(() => {
     if (route.view !== "rides") {
@@ -2132,6 +2178,8 @@ function App() {
         const ridesUrl = new URL("/rides", apiBaseUrl);
 
         ridesUrl.searchParams.set("sort", defaultRidesCatalogSort);
+        ridesUrl.searchParams.set("limit", String(fullCatalogFetchLimit));
+        ridesUrl.searchParams.set("offset", "0");
 
         const response = await fetch(ridesUrl, {
           signal: controller.signal
@@ -2193,8 +2241,17 @@ function App() {
 
     const controller = new AbortController();
     const activeSearchQuery = rideCatalogSearchQuery.trim();
+    const shouldPaginateRides = !rideCollectionId;
+    const effectiveRideLimit = shouldPaginateRides
+      ? browsePageSize
+      : fullCatalogFetchLimit;
+    const effectiveRideOffset = shouldPaginateRides ? ridesCatalogOffset : 0;
 
-    setRidesCatalogStatus({ state: "loading" });
+    if (effectiveRideOffset === 0) {
+      setRidesCatalogStatus({ state: "loading" });
+    } else {
+      setIsLoadingMoreRidesCatalog(true);
+    }
 
     const timeoutId = window.setTimeout(() => {
       const loadRidesCatalog = async () => {
@@ -2218,6 +2275,8 @@ function App() {
           }
 
           ridesUrl.searchParams.set("sort", rideCatalogSort);
+          ridesUrl.searchParams.set("limit", String(effectiveRideLimit));
+          ridesUrl.searchParams.set("offset", String(effectiveRideOffset));
 
           const response = await fetch(ridesUrl, {
             signal: controller.signal
@@ -2234,10 +2293,14 @@ function App() {
 
           const payload = (await response.json()) as RideCatalogResponse;
 
-          setRidesCatalogStatus({
+          setRidesCatalogStatus((previousStatus) => ({
             state: "success",
-            rides: payload.rides
-          });
+            rides:
+              effectiveRideOffset > 0 && previousStatus.state === "success"
+                ? [...previousStatus.rides, ...payload.rides]
+                : payload.rides,
+            ...(payload.pageInfo ? { pageInfo: payload.pageInfo } : {})
+          }));
         } catch (error) {
           if (controller.signal.aborted) {
             return;
@@ -2248,8 +2311,10 @@ function App() {
             message:
               error instanceof Error
                 ? error.message
-                : "The rides request failed."
+              : "The rides request failed."
           });
+        } finally {
+          setIsLoadingMoreRidesCatalog(false);
         }
       };
 
@@ -2259,6 +2324,7 @@ function App() {
     return () => {
       window.clearTimeout(timeoutId);
       controller.abort();
+      setIsLoadingMoreRidesCatalog(false);
     };
   }, [
     route,
@@ -2266,7 +2332,9 @@ function App() {
     rideCatalogParkFilter,
     rideCatalogRideTypeFilter,
     rideCatalogManufacturerFilter,
-    rideCatalogSort
+    rideCatalogSort,
+    rideCollectionId,
+    ridesCatalogOffset
   ]);
 
   useEffect(() => {
@@ -2865,6 +2933,32 @@ function App() {
     );
   };
 
+  const loadMoreParks = () => {
+    if (
+      parksStatus.state !== "success" ||
+      !parksStatus.pageInfo?.hasMore ||
+      isLoadingMoreParks
+    ) {
+      return;
+    }
+
+    setParksOffset(parksStatus.pageInfo.offset + parksStatus.pageInfo.limit);
+  };
+
+  const loadMoreRidesCatalog = () => {
+    if (
+      ridesCatalogStatus.state !== "success" ||
+      !ridesCatalogStatus.pageInfo?.hasMore ||
+      isLoadingMoreRidesCatalog
+    ) {
+      return;
+    }
+
+    setRidesCatalogOffset(
+      ridesCatalogStatus.pageInfo.offset + ridesCatalogStatus.pageInfo.limit
+    );
+  };
+
   const navigateToDiscover = () => {
     navigateWithParams("/discover", new URLSearchParams());
   };
@@ -3096,7 +3190,11 @@ function App() {
     route.view === "rides" && normalizedRideCatalogSearchQuery.length > 0;
   const heroCountLabel =
     parksStatus.state === "success"
-      ? formatCountLabel(locale, parksStatus.parks.length, "park")
+      ? formatCountLabel(
+          locale,
+          parksStatus.pageInfo?.totalCount ?? parksStatus.parks.length,
+          "park"
+        )
       : copy.route.parkResults;
   const riddenRideCountLabel =
     demoUserStatsStatus.state === "success"
@@ -3119,6 +3217,7 @@ function App() {
   const riddenRideIds =
     rideCreditsStatus.state === "success" ? new Set(rideCreditsStatus.rideIds) : null;
   const allParks = parksStatus.state === "success" ? parksStatus.parks : [];
+  const parksPageInfo = parksStatus.state === "success" ? parksStatus.pageInfo : undefined;
   const selectedParkCollection = parkCollections.find(
     (collection) => collection.id === parkCollectionId
   );
@@ -3128,6 +3227,8 @@ function App() {
   const parkBySlug = new Map(allParks.map((park) => [park.slug, park]));
   const allRideCatalogItems =
     ridesCatalogStatus.state === "success" ? ridesCatalogStatus.rides : [];
+  const ridesCatalogPageInfo =
+    ridesCatalogStatus.state === "success" ? ridesCatalogStatus.pageInfo : undefined;
   const selectedRideCollection = rideCollections.find(
     (collection) => collection.id === rideCollectionId
   );
@@ -3138,6 +3239,14 @@ function App() {
     : allRideCatalogItems;
   const hasActiveParkCollection = Boolean(selectedParkCollection);
   const hasActiveRideCollection = Boolean(selectedRideCollection);
+  const visibleParkCount =
+    hasActiveParkCollection || !parksPageInfo
+      ? displayedParks.length
+      : parksPageInfo.totalCount;
+  const visibleRideCatalogCount =
+    hasActiveRideCollection || !ridesCatalogPageInfo
+      ? displayedRideCatalogItems.length
+      : ridesCatalogPageInfo.totalCount;
   const featuredParks = allParks.slice(0, 4);
   const landingFeaturedParks = featuredParks.slice(0, 3);
   const communityHighlights =
@@ -4104,7 +4213,7 @@ function App() {
             <div className="catalog-state-row" aria-label={copy.browse.loadingResults}>
               <span className="catalog-chip">
                 {parksStatus.state === "success"
-                  ? copy.browse.results(displayedParks.length)
+                  ? copy.browse.results(visibleParkCount)
                   : copy.browse.loadingResults}
               </span>
               {selectedParkCollection ? (
@@ -4132,77 +4241,91 @@ function App() {
           {parksStatus.state === "loading" ? <CatalogSkeletonGrid count={8} variant="park" /> : null}
           {parksStatus.state === "success" ? (
             displayedParks.length > 0 ? (
-              <div className="parks-list">
-                {displayedParks.map((park) => {
-                  const parkProgress = parkProgressBySlug?.get(park.slug);
-                  const parkEditorial = localizedParkEditorialBySlug[park.slug];
+              <>
+                <div className="parks-list">
+                  {displayedParks.map((park) => {
+                    const parkProgress = parkProgressBySlug?.get(park.slug);
+                    const parkEditorial = localizedParkEditorialBySlug[park.slug];
 
-                  return (
+                    return (
+                      <button
+                        className="park-card park-card-button"
+                        key={park.id}
+                        type="button"
+                        onClick={() => {
+                          navigateToPark(park.slug);
+                        }}
+                      >
+                        <MediaAsset
+                          kind="park"
+                          slug={park.slug}
+                          imageUrl={park.imageUrl}
+                          alt={`${park.name} park view`}
+                          frameClassName="media-frame media-frame-park"
+                          imageClassName="media-image"
+                        />
+                        <div className="card-header">
+                          <div className="park-link">
+                            <p className="park-name">{park.name}</p>
+                          </div>
+                          <span className="catalog-chip">
+                            {formatStatusLabel(locale, park.status)}
+                          </span>
+                        </div>
+                        <p className="park-location">{formatParkLocation(park)}</p>
+                        {parkEditorial ? (
+                          <p className="card-summary">{parkEditorial.summary}</p>
+                        ) : null}
+                        {parkEditorial?.cues.length ? (
+                          <div className="card-cues">
+                            {parkEditorial.cues.slice(0, 2).map((cue) => (
+                              <span className="catalog-chip route-chip" key={cue}>
+                                {translateCue(locale, cue)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        {parkProgress && parkProgress.riddenRides > 0 ? (
+                          <div className="park-progress">
+                            <div className="progress-copy">
+                              <span className="progress-label">{copy.home.progressLabel}</span>
+                              <strong className="progress-value">
+                                {parkProgress.completionPercentage}%
+                              </strong>
+                            </div>
+                            <div className="progress-rail" aria-hidden="true">
+                              <span
+                                className="progress-fill"
+                                style={{
+                                  width: `${parkProgress.completionPercentage}%`
+                                }}
+                              />
+                            </div>
+                            <p className="park-meta">
+                              {copy.park.riddenOutOf(
+                                parkProgress.riddenRides,
+                                parkProgress.totalRides
+                              )}
+                            </p>
+                          </div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+                {parksPageInfo?.hasMore && !selectedParkCollection ? (
+                  <div className="catalog-load-more-row">
                     <button
-                      className="park-card park-card-button"
-                      key={park.id}
+                      className="catalog-inline-button"
                       type="button"
-                      onClick={() => {
-                        navigateToPark(park.slug);
-                      }}
+                      onClick={loadMoreParks}
+                      disabled={isLoadingMoreParks}
                     >
-                      <MediaAsset
-                        kind="park"
-                        slug={park.slug}
-                        imageUrl={park.imageUrl}
-                        alt={`${park.name} park view`}
-                        frameClassName="media-frame media-frame-park"
-                        imageClassName="media-image"
-                      />
-                      <div className="card-header">
-                        <div className="park-link">
-                          <p className="park-name">{park.name}</p>
-                        </div>
-                        <span className="catalog-chip">
-                          {formatStatusLabel(locale, park.status)}
-                        </span>
-                      </div>
-                      <p className="park-location">{formatParkLocation(park)}</p>
-                      {parkEditorial ? (
-                        <p className="card-summary">{parkEditorial.summary}</p>
-                      ) : null}
-                      {parkEditorial?.cues.length ? (
-                        <div className="card-cues">
-                          {parkEditorial.cues.slice(0, 2).map((cue) => (
-                            <span className="catalog-chip route-chip" key={cue}>
-                              {translateCue(locale, cue)}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                      {parkProgress && parkProgress.riddenRides > 0 ? (
-                        <div className="park-progress">
-                          <div className="progress-copy">
-                            <span className="progress-label">{copy.home.progressLabel}</span>
-                            <strong className="progress-value">
-                              {parkProgress.completionPercentage}%
-                            </strong>
-                          </div>
-                          <div className="progress-rail" aria-hidden="true">
-                            <span
-                              className="progress-fill"
-                              style={{
-                                width: `${parkProgress.completionPercentage}%`
-                              }}
-                            />
-                          </div>
-                          <p className="park-meta">
-                            {copy.park.riddenOutOf(
-                              parkProgress.riddenRides,
-                              parkProgress.totalRides
-                            )}
-                          </p>
-                        </div>
-                      ) : null}
+                      {isLoadingMoreParks ? copy.browse.loadingResults : copy.browse.loadMore}
                     </button>
-                  );
-                })}
-              </div>
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="state-message state-message-empty">
                 <p>
@@ -4381,7 +4504,7 @@ function App() {
             <div className="catalog-state-row" aria-label={copy.route.ridesBrowse}>
               <span className="catalog-chip">
                 {ridesCatalogStatus.state === "success"
-                  ? copy.browse.results(displayedRideCatalogItems.length)
+                  ? copy.browse.results(visibleRideCatalogCount)
                   : copy.browse.loadingResults}
               </span>
               {selectedRideCollection ? (
@@ -4425,75 +4548,91 @@ function App() {
           ) : null}
           {ridesCatalogStatus.state === "success" ? (
             displayedRideCatalogItems.length > 0 ? (
-              <div className="rides-list rides-list-catalog">
-                {displayedRideCatalogItems.map((entry) => {
-                  const isRidden = riddenRideIds?.has(entry.ride.id) === true;
-                  const rideEditorial = localizedRideEditorialBySlug[entry.ride.slug];
+              <>
+                <div className="rides-list rides-list-catalog">
+                  {displayedRideCatalogItems.map((entry) => {
+                    const isRidden = riddenRideIds?.has(entry.ride.id) === true;
+                    const rideEditorial = localizedRideEditorialBySlug[entry.ride.slug];
 
-                  return (
-                    <button
-                      className={`ride-card ride-card-button${isRidden ? " ride-card-ridden" : ""}`}
-                      key={`${entry.park.slug}-${entry.ride.slug}`}
-                      type="button"
-                      onClick={() => {
-                        navigateToRide(entry.park.slug, entry.ride.slug, {
-                          origin: "rides"
-                        });
-                      }}
-                    >
-                      <MediaAsset
-                        kind="ride"
-                        slug={entry.ride.slug}
-                        imageUrl={entry.ride.imageUrl}
-                        alt={`${entry.ride.name} ride view`}
-                        frameClassName="media-frame media-frame-ride-card"
-                        imageClassName="media-image"
-                      />
-                      <div className="card-header">
-                        <div className="ride-card-heading">
-                          <p className="ride-card-kicker">{entry.park.name}</p>
-                          <div className="ride-link">
-                            <p className="ride-name">{entry.ride.name}</p>
+                    return (
+                      <button
+                        className={`ride-card ride-card-button${isRidden ? " ride-card-ridden" : ""}`}
+                        key={`${entry.park.slug}-${entry.ride.slug}`}
+                        type="button"
+                        onClick={() => {
+                          navigateToRide(entry.park.slug, entry.ride.slug, {
+                            origin: "rides"
+                          });
+                        }}
+                      >
+                        <MediaAsset
+                          kind="ride"
+                          slug={entry.ride.slug}
+                          imageUrl={entry.ride.imageUrl}
+                          alt={`${entry.ride.name} ride view`}
+                          frameClassName="media-frame media-frame-ride-card"
+                          imageClassName="media-image"
+                        />
+                        <div className="card-header">
+                          <div className="ride-card-heading">
+                            <p className="ride-card-kicker">{entry.park.name}</p>
+                            <div className="ride-link">
+                              <p className="ride-name">{entry.ride.name}</p>
+                            </div>
+                          </div>
+                          <div className="ride-card-chips">
+                            {isRidden ? (
+                              <span className="catalog-chip catalog-chip-ridden">
+                                {locale === "es" ? "Montada" : "Ridden"}
+                              </span>
+                            ) : null}
+                            <span className="catalog-chip">
+                              {formatStatusLabel(locale, entry.ride.status)}
+                            </span>
                           </div>
                         </div>
-                        <div className="ride-card-chips">
-                          {isRidden ? (
-                            <span className="catalog-chip catalog-chip-ridden">
-                              {locale === "es" ? "Montada" : "Ridden"}
+                        <p className="park-location">{formatParkLocation(entry.park)}</p>
+                        {rideEditorial ? (
+                          <p className="card-summary">{rideEditorial.summary}</p>
+                        ) : null}
+                        <div className="ride-facts-row">
+                          {rideEditorial?.cues.slice(0, 2).map((cue) => (
+                            <span className="ride-fact-pill ride-fact-pill-accent" key={cue}>
+                              {translateCue(locale, cue)}
+                            </span>
+                          ))}
+                          <span className="ride-fact-pill">{entry.ride.rideType}</span>
+                          {entry.ride.manufacturer ? (
+                            <span className="ride-fact-pill">{entry.ride.manufacturer}</span>
+                          ) : null}
+                          {entry.ride.openingYear !== undefined ? (
+                            <span className="ride-fact-pill">{entry.ride.openingYear}</span>
+                          ) : null}
+                          {entry.ride.speedKmh !== undefined ? (
+                            <span className="ride-fact-pill">
+                              {`${formatDecimalValue(entry.ride.speedKmh)} km/h`}
                             </span>
                           ) : null}
-                          <span className="catalog-chip">
-                            {formatStatusLabel(locale, entry.ride.status)}
-                          </span>
                         </div>
-                      </div>
-                      <p className="park-location">{formatParkLocation(entry.park)}</p>
-                      {rideEditorial ? (
-                        <p className="card-summary">{rideEditorial.summary}</p>
-                      ) : null}
-                      <div className="ride-facts-row">
-                        {rideEditorial?.cues.slice(0, 2).map((cue) => (
-                          <span className="ride-fact-pill ride-fact-pill-accent" key={cue}>
-                            {translateCue(locale, cue)}
-                          </span>
-                        ))}
-                        <span className="ride-fact-pill">{entry.ride.rideType}</span>
-                        {entry.ride.manufacturer ? (
-                          <span className="ride-fact-pill">{entry.ride.manufacturer}</span>
-                        ) : null}
-                        {entry.ride.openingYear !== undefined ? (
-                          <span className="ride-fact-pill">{entry.ride.openingYear}</span>
-                        ) : null}
-                        {entry.ride.speedKmh !== undefined ? (
-                          <span className="ride-fact-pill">
-                            {`${formatDecimalValue(entry.ride.speedKmh)} km/h`}
-                          </span>
-                        ) : null}
-                      </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {ridesCatalogPageInfo?.hasMore && !selectedRideCollection ? (
+                  <div className="catalog-load-more-row">
+                    <button
+                      className="catalog-inline-button"
+                      type="button"
+                      onClick={loadMoreRidesCatalog}
+                      disabled={isLoadingMoreRidesCatalog}
+                    >
+                      {isLoadingMoreRidesCatalog
+                        ? copy.browse.loadingResults
+                        : copy.browse.loadMore}
                     </button>
-                  );
-                })}
-              </div>
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="state-message state-message-empty">
                 <p>

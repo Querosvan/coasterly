@@ -9,6 +9,7 @@ import type {
   DemoUserParkProgress,
   ExternalEntityType,
   ExternalSourceName,
+  PageInfo,
   Park,
   ParkStatus,
   UserProfileResponse,
@@ -874,9 +875,24 @@ type RideListOptions = {
   sort?: RideSort;
 };
 
+type PaginationOptions = {
+  limit?: number;
+  offset?: number;
+};
+
 type RideCatalogListOptions = RideListOptions & {
   search?: string;
   parkSlug?: string;
+} & PaginationOptions;
+
+type PaginatedParksResult = {
+  parks: Park[];
+  pageInfo: PageInfo;
+};
+
+type PaginatedRideCatalogResult = {
+  rides: RideCatalogItem[];
+  pageInfo: PageInfo;
 };
 
 const getUserBySlug = async (slug: string): Promise<UserSummary | null> => {
@@ -1019,8 +1035,37 @@ const getRideIdentityBySlugs = async (parkSlug: string, rideSlug: string) => {
   return result.rows[0] ?? null;
 };
 
-export const listParks = async (search?: string): Promise<Park[]> => {
+export const listParks = async (
+  search?: string,
+  options: PaginationOptions = {}
+): Promise<PaginatedParksResult> => {
   const normalizedSearch = search?.trim();
+  const limit = options.limit ?? 24;
+  const offset = options.offset ?? 0;
+  const searchValues = normalizedSearch
+    ? [`%${escapeLikePattern(normalizedSearch)}%`]
+    : [];
+
+  const countResult = normalizedSearch
+    ? await pool.query<{ total_count: string }>(
+        `
+          SELECT COUNT(*)::text AS total_count
+          FROM parks
+          WHERE
+            name ILIKE $1 ESCAPE '\\'
+            OR country ILIKE $1 ESCAPE '\\'
+            OR COALESCE(city, '') ILIKE $1 ESCAPE '\\'
+        `,
+        searchValues
+      )
+    : await pool.query<{ total_count: string }>(
+        `
+          SELECT COUNT(*)::text AS total_count
+          FROM parks
+        `
+      );
+
+  const totalCount = Number.parseInt(countResult.rows[0]?.total_count ?? "0", 10);
 
   const result = normalizedSearch
     ? await pool.query<{
@@ -1055,8 +1100,10 @@ export const listParks = async (search?: string): Promise<Park[]> => {
             OR country ILIKE $1 ESCAPE '\\'
             OR COALESCE(city, '') ILIKE $1 ESCAPE '\\'
           ORDER BY name ASC
+          LIMIT $2
+          OFFSET $3
         `,
-        [`%${escapeLikePattern(normalizedSearch)}%`]
+        [...searchValues, limit, offset]
       )
     : await pool.query<{
         id: number;
@@ -1086,24 +1133,36 @@ export const listParks = async (search?: string): Promise<Park[]> => {
             image_url
           FROM parks
           ORDER BY name ASC
+          LIMIT $1
+          OFFSET $2
         `
+        ,
+        [limit, offset]
       );
 
-  return result.rows.map((park) => ({
-    id: park.id,
-    name: park.name,
-    slug: park.slug,
-    country: park.country,
-    status: park.status as ParkStatus,
-    ...toOptionalParkFields({
-      city: park.city,
-      continent: park.continent,
-      timezone: park.timezone,
-      latitude: park.latitude,
-      longitude: park.longitude,
-      imageUrl: park.image_url
-    })
-  }));
+  return {
+    parks: result.rows.map((park) => ({
+      id: park.id,
+      name: park.name,
+      slug: park.slug,
+      country: park.country,
+      status: park.status as ParkStatus,
+      ...toOptionalParkFields({
+        city: park.city,
+        continent: park.continent,
+        timezone: park.timezone,
+        latitude: park.latitude,
+        longitude: park.longitude,
+        imageUrl: park.image_url
+      })
+    })),
+    pageInfo: {
+      offset,
+      limit,
+      totalCount,
+      hasMore: offset + result.rows.length < totalCount
+    }
+  };
 };
 
 export const getParkBySlug = async (slug: string): Promise<Park | null> => {
@@ -1469,11 +1528,13 @@ export const listRidesForPark = async (
 
 export const listRideCatalog = async (
   options: RideCatalogListOptions = {}
-): Promise<RideCatalogItem[]> => {
+): Promise<PaginatedRideCatalogResult> => {
   const normalizedSearch = options.search?.trim();
   const normalizedParkSlug = options.parkSlug?.trim();
   const normalizedRideType = options.rideType?.trim();
   const normalizedManufacturer = options.manufacturer?.trim();
+  const limit = options.limit ?? 24;
+  const offset = options.offset ?? 0;
   const sortColumnMap = {
     name: "rides.name",
     opening_year: "rides.opening_year",
@@ -1484,7 +1545,7 @@ export const listRideCatalog = async (
       ? sortColumnMap[options.sort]
       : sortColumnMap.name;
   const filters: string[] = [];
-  const values: string[] = [];
+  const values: Array<string | number> = [];
 
   if (normalizedSearch) {
     values.push(`%${escapeLikePattern(normalizedSearch)}%`);
@@ -1510,6 +1571,20 @@ export const listRideCatalog = async (
     sortColumn === "rides.name"
       ? "rides.name ASC"
       : `${sortColumn} DESC NULLS LAST, rides.name ASC`;
+
+  const countResult = await pool.query<{ total_count: string }>(
+    `
+      SELECT COUNT(*)::text AS total_count
+      FROM rides
+      INNER JOIN parks ON parks.id = rides.park_id
+      ${filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : ""}
+    `,
+    values
+  );
+
+  const totalCount = Number.parseInt(countResult.rows[0]?.total_count ?? "0", 10);
+
+  const pagedValues = [...values, limit, offset];
 
   const result = await pool.query<{
     park_id: number;
@@ -1565,44 +1640,54 @@ export const listRideCatalog = async (
       INNER JOIN parks ON parks.id = rides.park_id
       ${filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : ""}
       ORDER BY ${orderBy}
+      LIMIT $${pagedValues.length - 1}
+      OFFSET $${pagedValues.length}
     `,
-    values
+    pagedValues
   );
 
-  return result.rows.map((row) => ({
-    park: {
-      id: row.park_id,
-      name: row.park_name,
-      slug: row.park_slug,
-      country: row.park_country,
-      status: row.park_status as ParkStatus,
-      ...toOptionalParkFields({
-        city: row.park_city,
-        continent: row.park_continent,
-        timezone: row.park_timezone,
-        latitude: row.park_latitude,
-        longitude: row.park_longitude,
-        imageUrl: row.park_image_url
-      })
-    },
-    ride: {
-      id: row.ride_id,
-      parkId: row.park_id,
-      name: row.ride_name,
-      slug: row.ride_slug,
-      status: row.ride_status as RideStatus,
-      rideType: row.ride_type,
-      ...toOptionalRideFields({
-        imageUrl: row.ride_image_url,
-        manufacturer: row.ride_manufacturer,
-        model: row.ride_model,
-        openingYear: row.ride_opening_year,
-        heightM: row.ride_height_m,
-        speedKmh: row.ride_speed_kmh,
-        inversions: row.ride_inversions
-      })
+  return {
+    rides: result.rows.map((row) => ({
+      park: {
+        id: row.park_id,
+        name: row.park_name,
+        slug: row.park_slug,
+        country: row.park_country,
+        status: row.park_status as ParkStatus,
+        ...toOptionalParkFields({
+          city: row.park_city,
+          continent: row.park_continent,
+          timezone: row.park_timezone,
+          latitude: row.park_latitude,
+          longitude: row.park_longitude,
+          imageUrl: row.park_image_url
+        })
+      },
+      ride: {
+        id: row.ride_id,
+        parkId: row.park_id,
+        name: row.ride_name,
+        slug: row.ride_slug,
+        status: row.ride_status as RideStatus,
+        rideType: row.ride_type,
+        ...toOptionalRideFields({
+          imageUrl: row.ride_image_url,
+          manufacturer: row.ride_manufacturer,
+          model: row.ride_model,
+          openingYear: row.ride_opening_year,
+          heightM: row.ride_height_m,
+          speedKmh: row.ride_speed_kmh,
+          inversions: row.ride_inversions
+        })
+      }
+    })),
+    pageInfo: {
+      offset,
+      limit,
+      totalCount,
+      hasMore: offset + result.rows.length < totalCount
     }
-  }));
+  };
 };
 
 export const getRideBySlugs = async (
