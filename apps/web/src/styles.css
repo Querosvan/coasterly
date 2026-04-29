@@ -1924,6 +1924,12 @@ img {
   border: 1px solid rgba(19, 37, 59, 0.08);
 }
 
+.catalog-load-more-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
 .rides-list {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }

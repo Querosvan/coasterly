@@ -22,8 +22,16 @@ export interface Park {
   imageUrl?: string;
 }
 
+export interface PageInfo {
+  offset: number;
+  limit: number;
+  totalCount: number;
+  hasMore: boolean;
+}
+
 export interface ParksResponse {
   parks: Park[];
+  pageInfo?: PageInfo;
 }
 
 export interface ParkResponse {
@@ -69,6 +77,7 @@ export interface RideCatalogItem {
 
 export interface RideCatalogResponse {
   rides: RideCatalogItem[];
+  pageInfo?: PageInfo;
 }
 
 export type UserRole =

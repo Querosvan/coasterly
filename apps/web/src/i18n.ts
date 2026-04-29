@@ -177,7 +177,7 @@ export const messages = {
       language: "Language"
     },
     home: {
-      heroTitle: "Europe's park catalog, built for coaster people.",
+      heroTitle: "A park catalog built for coaster people.",
       heroText:
         "Browse standout parks, track what you've ridden, and move through each lineup with less noise.",
       browseParks: "Browse parks",
@@ -314,6 +314,7 @@ export const messages = {
       broadenRideSearch: "Try a broader ride name or clear one of the current filters.",
       loadingParks: "Loading parks...",
       loadingRides: "Loading rides...",
+      loadMore: "Load more",
       unableLoadParks: "Unable to load parks.",
       unableLoadRides: "Unable to load rides.",
       tryAgain: "Try again"
@@ -427,7 +428,7 @@ export const messages = {
       language: "Idioma"
     },
     home: {
-      heroTitle: "El catálogo europeo de parques para gente de montañas rusas.",
+      heroTitle: "El catálogo de parques para gente de montañas rusas.",
       heroText:
         "Explora parques destacados, guarda lo que ya has montado y recorre cada lineup con menos ruido.",
       browseParks: "Ver parques",
@@ -564,6 +565,7 @@ export const messages = {
       broadenRideSearch: "Prueba con otro nombre o limpia alguno de los filtros.",
       loadingParks: "Cargando parques...",
       loadingRides: "Cargando atracciones...",
+      loadMore: "Cargar más",
       unableLoadParks: "No se pueden cargar los parques.",
       unableLoadRides: "No se pueden cargar las atracciones.",
       tryAgain: "Reintentar"
@@ -670,7 +672,7 @@ export const messages = {
 export const journalTeasersEs = [
   {
     category: "Guía",
-    title: "Notas para planificar parques por Europa",
+    title: "Notas para planificar parques",
     summary: "Planificación de viajes, contexto del lineup y guías listas para seguir tu progreso.",
     status: "Planificado"
   },

@@ -68,6 +68,18 @@ const app = Fastify({
 const isRideSort = (value: string | undefined): value is RideSort =>
   value === "name" || value === "opening_year" || value === "speed_kmh";
 
+const parsePositiveInteger = (value: string | undefined) => {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsedValue = Number.parseInt(value, 10);
+
+  return Number.isFinite(parsedValue) && parsedValue >= 0
+    ? Math.min(parsedValue, 5000)
+    : undefined;
+};
+
 const corsOrigin = process.env.CORS_ORIGIN
   ?.split(",")
   .map((origin) => origin.trim())
@@ -101,9 +113,19 @@ app.get("/health", async () => {
   return response;
 });
 
-app.get<{ Querystring: { search?: string } }>("/parks", async (request) => {
+app.get<{
+  Querystring: { search?: string; limit?: string; offset?: string };
+}>("/parks", async (request) => {
+  const limit = parsePositiveInteger(request.query.limit);
+  const offset = parsePositiveInteger(request.query.offset);
+  const result = await listParks(request.query.search, {
+    ...(typeof limit === "number" ? { limit } : {}),
+    ...(typeof offset === "number" ? { offset } : {})
+  });
+
   const response: ParksResponse = {
-    parks: await listParks(request.query.search)
+    parks: result.parks,
+    pageInfo: result.pageInfo
   };
 
   return response;
@@ -116,22 +138,30 @@ app.get<{
     rideType?: string;
     manufacturer?: string;
     sort?: "name" | "opening_year" | "speed_kmh";
+    limit?: string;
+    offset?: string;
   };
 }>("/rides", async (request) => {
   const sort = isRideSort(request.query.sort)
     ? request.query.sort
     : undefined;
+  const limit = parsePositiveInteger(request.query.limit);
+  const offset = parsePositiveInteger(request.query.offset);
+  const result = await listRideCatalog({
+    ...(request.query.search ? { search: request.query.search } : {}),
+    ...(request.query.park ? { parkSlug: request.query.park } : {}),
+    ...(request.query.rideType ? { rideType: request.query.rideType } : {}),
+    ...(request.query.manufacturer
+      ? { manufacturer: request.query.manufacturer }
+      : {}),
+    ...(sort ? { sort } : {}),
+    ...(typeof limit === "number" ? { limit } : {}),
+    ...(typeof offset === "number" ? { offset } : {})
+  });
 
   const response: RideCatalogResponse = {
-    rides: await listRideCatalog({
-      ...(request.query.search ? { search: request.query.search } : {}),
-      ...(request.query.park ? { parkSlug: request.query.park } : {}),
-      ...(request.query.rideType ? { rideType: request.query.rideType } : {}),
-      ...(request.query.manufacturer
-        ? { manufacturer: request.query.manufacturer }
-        : {}),
-      ...(sort ? { sort } : {})
-    })
+    rides: result.rides,
+    pageInfo: result.pageInfo
   };
 
   return response;
