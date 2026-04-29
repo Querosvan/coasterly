@@ -1924,10 +1924,20 @@ img {
   border: 1px solid rgba(19, 37, 59, 0.08);
 }
 
-.catalog-load-more-row {
+.catalog-pagination-row {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 0.9rem;
   margin-top: 1.25rem;
+}
+
+.catalog-pagination-label {
+  min-width: 8rem;
+  text-align: center;
+  color: #51646d;
+  font-size: 0.94rem;
+  font-weight: 700;
 }
 
 .rides-list {
