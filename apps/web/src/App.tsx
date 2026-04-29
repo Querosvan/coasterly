@@ -1075,6 +1075,54 @@ function CommunityHighlightCard({
   );
 }
 
+function CommunityRankingCard({
+  title,
+  summary,
+  profiles,
+  onOpenProfile
+}: {
+  title: string;
+  summary: string;
+  profiles: CommunityHighlightsResponse["profiles"];
+  onOpenProfile: (userSlug: string) => void;
+}) {
+  return (
+    <article className="community-ranking-card">
+      <div className="community-ranking-copy">
+        <p className="status-label">Ranking</p>
+        <h3>{title}</h3>
+        <p>{summary}</p>
+      </div>
+      <div className="community-ranking-list">
+        {profiles.map((profile, index) => (
+          <button
+            className="community-ranking-item"
+            key={profile.user.id}
+            type="button"
+            onClick={() => {
+              onOpenProfile(profile.user.slug);
+            }}
+          >
+            <span className="community-ranking-position">{index + 1}</span>
+            <div className="community-ranking-item-copy">
+              <strong>{profile.user.name}</strong>
+              <span>
+                {title === "Highest level"
+                  ? `Level ${profile.identity.level} / ${profile.identity.totalXp} XP`
+                  : title === "Longest streak"
+                    ? `${profile.identity.currentStreak} day streak`
+                    : profile.recentActivity[0]
+                      ? `${profile.recentActivity[0].rideName} / ${profile.recentActivity[0].parkName}`
+                      : `${profile.totalRiddenRides} ridden`}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 function DailyChallengePanel({
   dailyChallengeStatus,
   isSubmitting,
@@ -3045,6 +3093,40 @@ function App() {
   const communityHighlights =
     communityHighlightsStatus.state === "success" ? communityHighlightsStatus.profiles : [];
   const landingCommunityHighlights = communityHighlights.slice(0, 2);
+  const highestLevelProfiles = [...communityHighlights]
+    .sort(
+      (left, right) =>
+        right.identity.level - left.identity.level ||
+        right.identity.totalXp - left.identity.totalXp ||
+        right.totalRiddenRides - left.totalRiddenRides ||
+        left.user.name.localeCompare(right.user.name)
+    )
+    .slice(0, 3);
+  const longestStreakProfiles = [...communityHighlights]
+    .sort(
+      (left, right) =>
+        right.identity.currentStreak - left.identity.currentStreak ||
+        right.identity.completedDays - left.identity.completedDays ||
+        right.identity.totalXp - left.identity.totalXp ||
+        left.user.name.localeCompare(right.user.name)
+    )
+    .slice(0, 3);
+  const recentlyActiveProfiles = [...communityHighlights]
+    .sort((left, right) => {
+      const leftTime = left.recentActivity[0]?.riddenAt
+        ? Date.parse(left.recentActivity[0].riddenAt)
+        : 0;
+      const rightTime = right.recentActivity[0]?.riddenAt
+        ? Date.parse(right.recentActivity[0].riddenAt)
+        : 0;
+
+      return (
+        rightTime - leftTime ||
+        right.identity.currentStreak - left.identity.currentStreak ||
+        left.user.name.localeCompare(right.user.name)
+      );
+    })
+    .slice(0, 3);
   const spotlightPark = landingFeaturedParks[0];
   const spotlightProgress = spotlightPark
     ? parkProgressBySlug?.get(spotlightPark.slug)
@@ -4454,6 +4536,54 @@ function App() {
                 />
               ))}
             </div>
+          </section>
+
+          <section className="catalog-panel nested-panel">
+            <div className="catalog-header landing-header">
+              <div className="catalog-copy">
+                <p className="status-label">Ranked now</p>
+                <h2 className="section-title">A quicker read on active riders.</h2>
+              </div>
+            </div>
+            {communityHighlightsStatus.state === "loading" ? (
+              <div className="state-message state-message-loading state-message-compact">
+                <p>Loading rankings...</p>
+              </div>
+            ) : null}
+            {communityHighlightsStatus.state === "success" ? (
+              communityHighlights.length > 0 ? (
+                <div className="community-ranking-grid">
+                  <CommunityRankingCard
+                    title="Highest level"
+                    summary="Riders stacking the most XP so far."
+                    profiles={highestLevelProfiles}
+                    onOpenProfile={navigateToPublicProfile}
+                  />
+                  <CommunityRankingCard
+                    title="Longest streak"
+                    summary="Riders keeping the daily loop alive."
+                    profiles={longestStreakProfiles}
+                    onOpenProfile={navigateToPublicProfile}
+                  />
+                  <CommunityRankingCard
+                    title="Recently active"
+                    summary="Fresh credits and profile momentum."
+                    profiles={recentlyActiveProfiles}
+                    onOpenProfile={navigateToPublicProfile}
+                  />
+                </div>
+              ) : (
+                <div className="state-message state-message-empty state-message-compact">
+                  <p>No rankings yet.</p>
+                </div>
+              )
+            ) : null}
+            {communityHighlightsStatus.state === "error" ? (
+              <div className="state-message state-message-error state-message-compact">
+                <p>Unable to load rankings.</p>
+                <p>{communityHighlightsStatus.message}</p>
+              </div>
+            ) : null}
           </section>
 
           <section className="catalog-panel nested-panel">

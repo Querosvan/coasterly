@@ -1109,7 +1109,14 @@ img {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
+.community-ranking-grid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
 .community-card,
+.community-ranking-card,
 .community-card-header,
 .community-card-copy,
 .community-card-stats,
@@ -1125,6 +1132,96 @@ img {
   background:
     radial-gradient(circle at top right, rgba(245, 130, 32, 0.08), transparent 28%),
     rgba(255, 255, 255, 0.94);
+}
+
+.community-ranking-card {
+  padding: 1rem;
+  border-radius: 22px;
+  border: 1px solid rgba(19, 37, 59, 0.07);
+  background:
+    radial-gradient(circle at top right, rgba(245, 130, 32, 0.1), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 247, 244, 0.96));
+}
+
+.community-ranking-copy,
+.community-ranking-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.community-ranking-copy h3,
+.community-ranking-copy p {
+  margin: 0;
+}
+
+.community-ranking-copy h3 {
+  color: var(--brand-navy-strong);
+  font-size: 1.08rem;
+  line-height: 1.12;
+}
+
+.community-ranking-copy p {
+  color: #566971;
+  line-height: 1.5;
+}
+
+.community-ranking-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.72rem 0.78rem;
+  appearance: none;
+  border: 1px solid rgba(19, 37, 59, 0.06);
+  border-radius: 16px;
+  background: rgba(248, 249, 247, 0.9);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.community-ranking-item:hover {
+  border-color: rgba(19, 37, 59, 0.14);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.community-ranking-item:focus-visible {
+  outline: 2px solid rgba(19, 37, 59, 0.22);
+  outline-offset: 4px;
+}
+
+.community-ranking-position {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: rgba(245, 130, 32, 0.14);
+  color: var(--brand-orange-strong);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.community-ranking-item-copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.community-ranking-item-copy strong,
+.community-ranking-item-copy span {
+  overflow-wrap: anywhere;
+}
+
+.community-ranking-item-copy strong {
+  color: var(--brand-navy-strong);
+}
+
+.community-ranking-item-copy span {
+  color: #63757e;
+  font-size: 0.88rem;
 }
 
 .community-card-header {
