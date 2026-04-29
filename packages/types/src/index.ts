@@ -13,7 +13,11 @@ export interface Park {
   name: string;
   slug: string;
   country: string;
-  city: string;
+  city?: string;
+  continent?: string;
+  timezone?: string;
+  latitude?: number;
+  longitude?: number;
   status: ParkStatus;
   imageUrl?: string;
 }

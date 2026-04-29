@@ -217,6 +217,20 @@ type QueueTimesRideRecord = {
   last_updated?: string;
 };
 
+type QueueTimesDirectoryPark = {
+  id: number;
+  name: string;
+  country?: string;
+  continent?: string;
+  latitude?: number;
+  longitude?: number;
+  timezone?: string;
+};
+
+type QueueTimesDirectoryGroup = {
+  parks?: QueueTimesDirectoryPark[];
+};
+
 type QueueTimesLandRecord = {
   rides?: QueueTimesRideRecord[];
 };
@@ -234,9 +248,51 @@ export type QueueTimesLiveRide = {
   lastUpdated: string | null;
 };
 
+export type QueueTimesParkDirectoryEntry = {
+  externalId: string;
+  name: string;
+  country?: string;
+  continent?: string;
+  latitude?: number;
+  longitude?: number;
+  timezone?: string;
+};
+
 export const buildQueueTimesPublicParkUrl = officialQueueTimesParkUrl;
 export const buildQueueTimesPublicParkStatsUrl = officialQueueTimesParkStatsUrl;
 export const buildQueueTimesPublicRideUrl = officialQueueTimesRideUrl;
+
+export const fetchQueueTimesParkDirectory = async (): Promise<
+  QueueTimesParkDirectoryEntry[]
+> => {
+  const response = await fetch(new URL("/parks.json", queueTimesBaseUrl), {
+    headers: {
+      accept: "application/json"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Queue-Times park directory request failed with status ${response.status}.`
+    );
+  }
+
+  const payload = (await response.json()) as QueueTimesDirectoryGroup[];
+
+  return payload.flatMap((group) =>
+    (group.parks ?? []).map((park) => ({
+      externalId: String(park.id),
+      name: park.name,
+      ...(park.country ? { country: park.country } : {}),
+      ...(park.continent ? { continent: park.continent } : {}),
+      ...(typeof park.latitude === "number" ? { latitude: park.latitude } : {}),
+      ...(typeof park.longitude === "number"
+        ? { longitude: park.longitude }
+        : {}),
+      ...(park.timezone ? { timezone: park.timezone } : {})
+    }))
+  );
+};
 
 export const fetchQueueTimesParkQueue = async (externalParkId: string) => {
   const response = await fetch(

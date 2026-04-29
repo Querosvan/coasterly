@@ -529,7 +529,11 @@ export const initializeDatabase = async () => {
         name TEXT NOT NULL,
         slug TEXT NOT NULL UNIQUE,
         country TEXT NOT NULL,
-        city TEXT NOT NULL,
+        city TEXT,
+        continent TEXT,
+        timezone TEXT,
+        latitude DOUBLE PRECISION,
+        longitude DOUBLE PRECISION,
         status TEXT NOT NULL CHECK (status IN ('operating', 'closed', 'planned')),
         image_url TEXT
       )
@@ -537,7 +541,16 @@ export const initializeDatabase = async () => {
 
     await client.query(`
       ALTER TABLE parks
-      ADD COLUMN IF NOT EXISTS image_url TEXT
+      ADD COLUMN IF NOT EXISTS image_url TEXT,
+      ADD COLUMN IF NOT EXISTS continent TEXT,
+      ADD COLUMN IF NOT EXISTS timezone TEXT,
+      ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
+      ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION
+    `);
+
+    await client.query(`
+      ALTER TABLE parks
+      ALTER COLUMN city DROP NOT NULL
     `);
 
     await client.query(`
@@ -821,6 +834,22 @@ export const initializeDatabase = async () => {
 
 const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, "\\$&");
 
+const toOptionalParkFields = (fields: {
+  city: string | null;
+  continent: string | null;
+  timezone: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  imageUrl: string | null;
+}) => ({
+  ...(fields.city !== null ? { city: fields.city } : {}),
+  ...(fields.continent !== null ? { continent: fields.continent } : {}),
+  ...(fields.timezone !== null ? { timezone: fields.timezone } : {}),
+  ...(fields.latitude !== null ? { latitude: fields.latitude } : {}),
+  ...(fields.longitude !== null ? { longitude: fields.longitude } : {}),
+  ...(fields.imageUrl !== null ? { imageUrl: fields.imageUrl } : {})
+});
+
 const toOptionalRideFields = (fields: {
   imageUrl: string | null;
   manufacturer: string | null;
@@ -999,17 +1028,32 @@ export const listParks = async (search?: string): Promise<Park[]> => {
         name: string;
         slug: string;
         country: string;
-        city: string;
+        city: string | null;
+        continent: string | null;
+        timezone: string | null;
+        latitude: number | null;
+        longitude: number | null;
         status: string;
         image_url: string | null;
       }>(
         `
-          SELECT id, name, slug, country, city, status, image_url
+          SELECT
+            id,
+            name,
+            slug,
+            country,
+            city,
+            continent,
+            timezone,
+            latitude,
+            longitude,
+            status,
+            image_url
           FROM parks
           WHERE
             name ILIKE $1 ESCAPE '\\'
             OR country ILIKE $1 ESCAPE '\\'
-            OR city ILIKE $1 ESCAPE '\\'
+            OR COALESCE(city, '') ILIKE $1 ESCAPE '\\'
           ORDER BY name ASC
         `,
         [`%${escapeLikePattern(normalizedSearch)}%`]
@@ -1019,12 +1063,27 @@ export const listParks = async (search?: string): Promise<Park[]> => {
         name: string;
         slug: string;
         country: string;
-        city: string;
+        city: string | null;
+        continent: string | null;
+        timezone: string | null;
+        latitude: number | null;
+        longitude: number | null;
         status: string;
         image_url: string | null;
       }>(
         `
-          SELECT id, name, slug, country, city, status, image_url
+          SELECT
+            id,
+            name,
+            slug,
+            country,
+            city,
+            continent,
+            timezone,
+            latitude,
+            longitude,
+            status,
+            image_url
           FROM parks
           ORDER BY name ASC
         `
@@ -1035,9 +1094,15 @@ export const listParks = async (search?: string): Promise<Park[]> => {
     name: park.name,
     slug: park.slug,
     country: park.country,
-    city: park.city,
     status: park.status as ParkStatus,
-    ...(park.image_url ? { imageUrl: park.image_url } : {})
+    ...toOptionalParkFields({
+      city: park.city,
+      continent: park.continent,
+      timezone: park.timezone,
+      latitude: park.latitude,
+      longitude: park.longitude,
+      imageUrl: park.image_url
+    })
   }));
 };
 
@@ -1047,12 +1112,27 @@ export const getParkBySlug = async (slug: string): Promise<Park | null> => {
     name: string;
     slug: string;
     country: string;
-    city: string;
+    city: string | null;
+    continent: string | null;
+    timezone: string | null;
+    latitude: number | null;
+    longitude: number | null;
     status: string;
     image_url: string | null;
   }>(
     `
-      SELECT id, name, slug, country, city, status, image_url
+      SELECT
+        id,
+        name,
+        slug,
+        country,
+        city,
+        continent,
+        timezone,
+        latitude,
+        longitude,
+        status,
+        image_url
       FROM parks
       WHERE slug = $1
       LIMIT 1
@@ -1071,9 +1151,230 @@ export const getParkBySlug = async (slug: string): Promise<Park | null> => {
     name: park.name,
     slug: park.slug,
     country: park.country,
-    city: park.city,
     status: park.status as ParkStatus,
-    ...(park.image_url ? { imageUrl: park.image_url } : {})
+    ...toOptionalParkFields({
+      city: park.city,
+      continent: park.continent,
+      timezone: park.timezone,
+      latitude: park.latitude,
+      longitude: park.longitude,
+      imageUrl: park.image_url
+    })
+  };
+};
+
+export const upsertParkCatalogRecord = async (input: {
+  name: string;
+  slug: string;
+  country: string;
+  city?: string;
+  continent?: string;
+  timezone?: string;
+  latitude?: number;
+  longitude?: number;
+  status: ParkStatus;
+  imageUrl?: string;
+}): Promise<Park> => {
+  const result = await pool.query<{
+    id: number;
+    name: string;
+    slug: string;
+    country: string;
+    city: string | null;
+    continent: string | null;
+    timezone: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    status: string;
+    image_url: string | null;
+  }>(
+    `
+      INSERT INTO parks (
+        name,
+        slug,
+        country,
+        city,
+        continent,
+        timezone,
+        latitude,
+        longitude,
+        status,
+        image_url
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ON CONFLICT (slug) DO UPDATE
+      SET
+        name = EXCLUDED.name,
+        country = EXCLUDED.country,
+        city = COALESCE(EXCLUDED.city, parks.city),
+        continent = COALESCE(EXCLUDED.continent, parks.continent),
+        timezone = COALESCE(EXCLUDED.timezone, parks.timezone),
+        latitude = COALESCE(EXCLUDED.latitude, parks.latitude),
+        longitude = COALESCE(EXCLUDED.longitude, parks.longitude),
+        status = EXCLUDED.status,
+        image_url = COALESCE(parks.image_url, EXCLUDED.image_url)
+      RETURNING
+        id,
+        name,
+        slug,
+        country,
+        city,
+        continent,
+        timezone,
+        latitude,
+        longitude,
+        status,
+        image_url
+    `,
+    [
+      input.name,
+      input.slug,
+      input.country,
+      input.city?.trim() || null,
+      input.continent?.trim() || null,
+      input.timezone?.trim() || null,
+      input.latitude ?? null,
+      input.longitude ?? null,
+      input.status,
+      input.imageUrl ?? null
+    ]
+  );
+
+  const park = result.rows[0];
+
+  if (!park) {
+    throw new Error(`Unable to upsert park record for slug '${input.slug}'.`);
+  }
+
+  return {
+    id: park.id,
+    name: park.name,
+    slug: park.slug,
+    country: park.country,
+    status: park.status as ParkStatus,
+    ...toOptionalParkFields({
+      city: park.city,
+      continent: park.continent,
+      timezone: park.timezone,
+      latitude: park.latitude,
+      longitude: park.longitude,
+      imageUrl: park.image_url
+    })
+  };
+};
+
+export const upsertRideCatalogRecord = async (input: {
+  parkId: number;
+  name: string;
+  slug: string;
+  status: RideStatus;
+  rideType: string;
+  imageUrl?: string;
+  manufacturer?: string;
+  model?: string;
+  openingYear?: number;
+  heightM?: number;
+  speedKmh?: number;
+  inversions?: number;
+}): Promise<Ride> => {
+  const result = await pool.query<{
+    id: number;
+    park_id: number;
+    name: string;
+    slug: string;
+    status: string;
+    ride_type: string;
+    image_url: string | null;
+    manufacturer: string | null;
+    model: string | null;
+    opening_year: number | null;
+    height_m: number | null;
+    speed_kmh: number | null;
+    inversions: number | null;
+  }>(
+    `
+      INSERT INTO rides (
+        park_id,
+        name,
+        slug,
+        status,
+        ride_type,
+        image_url,
+        manufacturer,
+        model,
+        opening_year,
+        height_m,
+        speed_kmh,
+        inversions
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ON CONFLICT (park_id, slug) DO UPDATE
+      SET
+        name = EXCLUDED.name,
+        status = EXCLUDED.status,
+        ride_type = COALESCE(rides.ride_type, EXCLUDED.ride_type),
+        image_url = COALESCE(rides.image_url, EXCLUDED.image_url),
+        manufacturer = COALESCE(rides.manufacturer, EXCLUDED.manufacturer),
+        model = COALESCE(rides.model, EXCLUDED.model),
+        opening_year = COALESCE(rides.opening_year, EXCLUDED.opening_year),
+        height_m = COALESCE(rides.height_m, EXCLUDED.height_m),
+        speed_kmh = COALESCE(rides.speed_kmh, EXCLUDED.speed_kmh),
+        inversions = COALESCE(rides.inversions, EXCLUDED.inversions)
+      RETURNING
+        id,
+        park_id,
+        name,
+        slug,
+        status,
+        ride_type,
+        image_url,
+        manufacturer,
+        model,
+        opening_year,
+        height_m,
+        speed_kmh,
+        inversions
+    `,
+    [
+      input.parkId,
+      input.name,
+      input.slug,
+      input.status,
+      input.rideType,
+      input.imageUrl ?? null,
+      input.manufacturer ?? null,
+      input.model ?? null,
+      input.openingYear ?? null,
+      input.heightM ?? null,
+      input.speedKmh ?? null,
+      input.inversions ?? null
+    ]
+  );
+
+  const ride = result.rows[0];
+
+  if (!ride) {
+    throw new Error(
+      `Unable to upsert ride record for park '${input.parkId}' and slug '${input.slug}'.`
+    );
+  }
+
+  return {
+    id: ride.id,
+    parkId: ride.park_id,
+    name: ride.name,
+    slug: ride.slug,
+    status: ride.status as RideStatus,
+    rideType: ride.ride_type,
+    ...toOptionalRideFields({
+      imageUrl: ride.image_url,
+      manufacturer: ride.manufacturer,
+      model: ride.model,
+      openingYear: ride.opening_year,
+      heightM: ride.height_m,
+      speedKmh: ride.speed_kmh,
+      inversions: ride.inversions
+    })
   };
 };
 
@@ -1215,7 +1516,11 @@ export const listRideCatalog = async (
     park_name: string;
     park_slug: string;
     park_country: string;
-    park_city: string;
+    park_city: string | null;
+    park_continent: string | null;
+    park_timezone: string | null;
+    park_latitude: number | null;
+    park_longitude: number | null;
     park_status: string;
     park_image_url: string | null;
     ride_id: number;
@@ -1238,6 +1543,10 @@ export const listRideCatalog = async (
         parks.slug AS park_slug,
         parks.country AS park_country,
         parks.city AS park_city,
+        parks.continent AS park_continent,
+        parks.timezone AS park_timezone,
+        parks.latitude AS park_latitude,
+        parks.longitude AS park_longitude,
         parks.status AS park_status,
         parks.image_url AS park_image_url,
         rides.id AS ride_id,
@@ -1266,9 +1575,15 @@ export const listRideCatalog = async (
       name: row.park_name,
       slug: row.park_slug,
       country: row.park_country,
-      city: row.park_city,
       status: row.park_status as ParkStatus,
-      ...(row.park_image_url ? { imageUrl: row.park_image_url } : {})
+      ...toOptionalParkFields({
+        city: row.park_city,
+        continent: row.park_continent,
+        timezone: row.park_timezone,
+        latitude: row.park_latitude,
+        longitude: row.park_longitude,
+        imageUrl: row.park_image_url
+      })
     },
     ride: {
       id: row.ride_id,
@@ -1299,7 +1614,11 @@ export const getRideBySlugs = async (
     park_name: string;
     park_slug: string;
     park_country: string;
-    park_city: string;
+    park_city: string | null;
+    park_continent: string | null;
+    park_timezone: string | null;
+    park_latitude: number | null;
+    park_longitude: number | null;
     park_status: string;
     park_image_url: string | null;
     ride_id: number;
@@ -1322,6 +1641,10 @@ export const getRideBySlugs = async (
         parks.slug AS park_slug,
         parks.country AS park_country,
         parks.city AS park_city,
+        parks.continent AS park_continent,
+        parks.timezone AS park_timezone,
+        parks.latitude AS park_latitude,
+        parks.longitude AS park_longitude,
         parks.status AS park_status,
         parks.image_url AS park_image_url,
         rides.id AS ride_id,
@@ -1356,9 +1679,15 @@ export const getRideBySlugs = async (
       name: record.park_name,
       slug: record.park_slug,
       country: record.park_country,
-      city: record.park_city,
       status: record.park_status as ParkStatus,
-      ...(record.park_image_url ? { imageUrl: record.park_image_url } : {})
+      ...toOptionalParkFields({
+        city: record.park_city,
+        continent: record.park_continent,
+        timezone: record.park_timezone,
+        latitude: record.park_latitude,
+        longitude: record.park_longitude,
+        imageUrl: record.park_image_url
+      })
     },
     ride: {
       id: record.ride_id,
@@ -2090,6 +2419,48 @@ export const removeDemoUserRideCredit = async (
   const user = await getPrimarySeedUser();
 
   return removeRideCreditForUser(user, parkSlug, rideSlug);
+};
+
+export const upsertExternalSourceMapping = async (input: {
+  sourceName: ExternalSourceName;
+  entityType: ExternalEntityType;
+  internalEntityId: number;
+  externalId: string;
+  externalUrl?: string;
+  notes?: string;
+  lastVerifiedAt?: string;
+}): Promise<void> => {
+  await pool.query(
+    `
+      INSERT INTO external_source_mappings (
+        source_name,
+        entity_type,
+        internal_entity_id,
+        external_id,
+        external_url,
+        last_verified_at,
+        notes,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      ON CONFLICT (source_name, entity_type, internal_entity_id) DO UPDATE
+      SET
+        external_id = EXCLUDED.external_id,
+        external_url = EXCLUDED.external_url,
+        last_verified_at = EXCLUDED.last_verified_at,
+        notes = EXCLUDED.notes,
+        updated_at = NOW()
+    `,
+    [
+      input.sourceName,
+      input.entityType,
+      input.internalEntityId,
+      input.externalId,
+      input.externalUrl ?? null,
+      input.lastVerifiedAt ?? new Date().toISOString(),
+      input.notes ?? null
+    ]
+  );
 };
 
 export const getExternalSourceMapping = async (

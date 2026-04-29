@@ -2,10 +2,11 @@
 
 ## Current Shape
 
-The repository is split into three application surfaces and one shared package:
+The repository is split into four application surfaces and one shared package:
 
 - `apps/web`: public-facing browser application
 - `apps/api`: backend API for future business logic and integrations
+- `apps/catalog-import`: short-lived Queue-Times catalog import job
 - `apps/queue-times-cron`: scheduled Queue-Times snapshot ingestion job
 - `packages/types`: shared contracts used across clients and services
 
@@ -43,6 +44,13 @@ The starter does not include extra orchestration tools or platform abstractions 
 - Expose HTTP endpoints
 - Hold business logic as the platform grows
 - Become the integration layer for databases and external services later
+
+### `apps/catalog-import`
+
+- Run Queue-Times catalog import as a short-lived batch process
+- Create or update Coasterly park and ride records from Queue-Times directory and queue data
+- Maintain Queue-Times external mappings without turning import into a public API concern
+- Exit cleanly so Railway can run it manually or on a schedule later
 
 ### `apps/queue-times-cron`
 
@@ -107,6 +115,14 @@ Live queue data is handled as an enrichment layer:
 - `wait_time_snapshots` stores the minimal history foundation needed for future trend and historical features
 
 The initial ingestion path is intentionally small. The codebase now has a dedicated `apps/queue-times-cron` batch service that can run in Railway Cron Jobs and persist snapshots without turning the API into a scheduler.
+
+The next catalog-depth foundation is separate from live waits:
+
+- `apps/catalog-import` imports park and ride structure from Queue-Times
+- Queue-Times is treated as an external catalog source, not the canonical Coasterly runtime model
+- imported parks can now keep sparse metadata truthfully, including missing city values when Queue-Times does not provide them
+- imported rides currently default to a generic `attraction` ride type unless richer Coasterly editorial data exists
+- media is intentionally out of scope for this importer and should come from a separate media pipeline later
 
 ## User And Admin Foundations
 
