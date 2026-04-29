@@ -3356,6 +3356,7 @@ function App() {
   const hasMappedLiveWaits = liveWaitSource?.state === "mapped";
   const liveWaitRides =
     parkLiveWaitsStatus.state === "success" ? parkLiveWaitsStatus.rides : [];
+  const liveWaitByRideId = new Map(liveWaitRides.map((ride) => [ride.rideId, ride]));
   const parkQueueTimesLinks = dedupeExternalLinks(
     parkQueueTimesReference
       ? [
@@ -3389,6 +3390,8 @@ function App() {
     route.view === "ride" && rideDetailStatus.state === "success"
       ? localizedRideEditorialBySlug[rideDetailStatus.ride.slug]
       : undefined;
+  const showParkQueueTimesSupport =
+    parkLiveWaitsStatus.state !== "idle" || parkQueueTimesLinks.length > 0;
   const currentRideLiveWait =
     route.view === "ride" &&
     rideDetailStatus.state === "success" &&
@@ -5231,97 +5234,6 @@ function App() {
                   </div>
                 </div>
 
-                {parkLiveWaitsStatus.state !== "idle" ||
-                parkQueueTimesLinks.length > 0 ? (
-                  <div className="live-waits-section">
-                    <div className="section-row">
-                      <div>
-                        <p className="status-label">{copy.park.queueTimes}</p>
-                      </div>
-                      <div className="detail-chip-row">
-                        {liveWaitSource ? (
-                          <span className="catalog-chip">
-                            {liveWaitSource.state === "mapped"
-                              ? copy.park.liveRideCount(liveWaitRides.length)
-                              : copy.park.notMapped}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <QueueTimesExternalLinks links={parkQueueTimesLinks} />
-
-                    {parkLiveWaitsStatus.state === "loading" ? (
-                      <div className="state-message state-message-loading state-message-compact">
-                        <p>{copy.park.loadingLiveWaits}</p>
-                      </div>
-                    ) : null}
-
-                    {parkLiveWaitsStatus.state === "error" ? (
-                      <div className="state-message state-message-error state-message-compact">
-                        <p>{copy.park.liveWaitsUnavailable}</p>
-                        <p>{parkLiveWaitsStatus.message}</p>
-                      </div>
-                    ) : null}
-
-                    {parkLiveWaitsStatus.state === "success" &&
-                    parkLiveWaitsStatus.source.state === "mapped" ? (
-                      parkLiveWaitsStatus.rides.length > 0 ? (
-                        <>
-                          <div className="wait-times-list">
-                            {parkLiveWaitsStatus.rides.map((ride) => (
-                              <article className="wait-time-card" key={ride.rideId}>
-                                <div>
-                                  <p className="wait-time-ride-name">{ride.rideName}</p>
-                                  <p className="wait-time-meta">
-                                    {ride.rideType}
-                                    {ride.sourceLastUpdated
-                                      ? ` | ${copy.common.updatedAt(
-                                          formatTimeLabel(locale, ride.sourceLastUpdated) ??
-                                            ride.sourceLastUpdated
-                                        )}`
-                                      : ""}
-                                  </p>
-                                </div>
-                                <div className="wait-time-value-block">
-                                  <strong className="wait-time-value">
-                                    {formatLiveWaitLabel(locale, ride)}
-                                  </strong>
-                                  <span
-                                    className={`catalog-chip wait-time-chip${
-                                      ride.isOpen === false
-                                        ? " wait-time-chip-closed"
-                                        : ride.isOpen === true
-                                          ? " wait-time-chip-open"
-                                          : ""
-                                    }`}
-                                  >
-                                    {ride.isOpen === false
-                                      ? copy.common.closed
-                                      : ride.isOpen === true
-                                        ? copy.common.open
-                                        : copy.common.unknown}
-                                  </span>
-                                </div>
-                              </article>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="state-message state-message-empty state-message-compact">
-                          <p>{copy.park.noLiveRideUpdates}</p>
-                        </div>
-                      )
-                    ) : parkLiveWaitsStatus.state === "success" ? (
-                      <div className="state-message state-message-empty state-message-compact">
-                        <p>{copy.park.parkNotLinked}</p>
-                      </div>
-                    ) : null}
-
-                    <QueueTimesAttribution locale={locale} copy={copy} />
-                  </div>
-                ) : null}
-
                 <div className="rides-section">
                   <div className="section-row">
                     <div>
@@ -5333,8 +5245,50 @@ function App() {
                           {formatCountLabel(locale, parkRidesStatus.rides.length, "ride")}
                         </span>
                       ) : null}
+                      {liveWaitSource ? (
+                        <span className="catalog-chip">
+                          {liveWaitSource.state === "mapped"
+                            ? copy.park.liveRideCount(liveWaitRides.length)
+                            : copy.park.notMapped}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
+                  {showParkQueueTimesSupport ? (
+                    <div className="queue-times-inline-panel">
+                      <div className="queue-times-inline-header">
+                        <p className="status-label">{copy.park.queueTimes}</p>
+                        <QueueTimesExternalLinks links={parkQueueTimesLinks} />
+                      </div>
+                      {parkLiveWaitsStatus.state === "loading" ? (
+                        <div className="state-message state-message-loading state-message-compact">
+                          <p>{copy.park.loadingLiveWaits}</p>
+                        </div>
+                      ) : null}
+                      {parkLiveWaitsStatus.state === "error" ? (
+                        <div className="state-message state-message-error state-message-compact">
+                          <p>{copy.park.liveWaitsUnavailable}</p>
+                          <p>{parkLiveWaitsStatus.message}</p>
+                        </div>
+                      ) : null}
+                      {parkLiveWaitsStatus.state === "success" &&
+                      parkLiveWaitsStatus.source.state === "mapped" &&
+                      parkLiveWaitsStatus.rides.length === 0 ? (
+                        <div className="state-message state-message-empty state-message-compact">
+                          <p>{copy.park.noLiveRideUpdates}</p>
+                        </div>
+                      ) : null}
+                      {parkLiveWaitsStatus.state === "success" &&
+                      parkLiveWaitsStatus.source.state === "unmapped" ? (
+                        <div className="state-message state-message-empty state-message-compact">
+                          <p>{copy.park.parkNotLinked}</p>
+                        </div>
+                      ) : null}
+                      {parkLiveWaitsStatus.state === "success" ? (
+                        <QueueTimesAttribution locale={locale} copy={copy} />
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="toolbar-panel">
                     <div className="ride-toolbar" aria-label="Ride filters and sorting">
                       <div className="toolbar-field">
@@ -5428,6 +5382,7 @@ function App() {
                       <div className="rides-list">
                         {parkRidesStatus.rides.map((ride) => {
                           const rideEditorial = localizedRideEditorialBySlug[ride.slug];
+                          const rideLiveWait = liveWaitByRideId.get(ride.id);
 
                           return (
                             <button
@@ -5475,6 +5430,37 @@ function App() {
                                   <span className="ride-fact-pill">{ride.manufacturer}</span>
                                 ) : null}
                               </div>
+                              {rideLiveWait ? (
+                                <div className="ride-live-row">
+                                  <div className="ride-live-copy">
+                                    <span className="ride-live-label">{copy.park.queueTimes}</span>
+                                    <strong className="ride-live-value">
+                                      {formatLiveWaitLabel(locale, rideLiveWait)}
+                                    </strong>
+                                    <span className="ride-live-meta">
+                                      {rideLiveWait.sourceLastUpdated
+                                        ? copy.common.updatedAt(
+                                            formatTimeLabel(
+                                              locale,
+                                              rideLiveWait.sourceLastUpdated
+                                            ) ?? rideLiveWait.sourceLastUpdated
+                                          )
+                                        : copy.common.currentStatus}
+                                    </span>
+                                  </div>
+                                  <span
+                                    className={`catalog-chip wait-time-chip${
+                                      rideLiveWait.isOpen === false
+                                        ? " wait-time-chip-closed"
+                                        : rideLiveWait.isOpen === true
+                                          ? " wait-time-chip-open"
+                                          : ""
+                                    }`}
+                                  >
+                                    {formatWaitStateLabel(locale, rideLiveWait.isOpen)}
+                                  </span>
+                                </div>
+                              ) : null}
                             </button>
                           );
                         })}
@@ -5564,6 +5550,11 @@ function App() {
                     <span className="catalog-chip">
                       {formatStatusLabel(locale, rideDetailStatus.ride.status)}
                     </span>
+                    {currentRideLiveWait ? (
+                      <span className="catalog-chip route-chip">
+                        {formatLiveWaitLabel(locale, currentRideLiveWait)}
+                      </span>
+                    ) : null}
                     {isCurrentRideRidden ? (
                       <span className="catalog-chip catalog-chip-ridden">
                         {locale === "es" ? "Montada" : "Ridden"}
