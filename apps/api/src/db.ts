@@ -1690,6 +1690,82 @@ export const listRideCatalog = async (
   };
 };
 
+export const listRideCatalogOptions = async (): Promise<{
+  parks: Park[];
+  rideTypes: string[];
+  manufacturers: string[];
+}> => {
+  const [parksResult, rideTypesResult, manufacturersResult] = await Promise.all([
+    pool.query<{
+      id: number;
+      name: string;
+      slug: string;
+      country: string;
+      city: string | null;
+      continent: string | null;
+      timezone: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      status: string;
+      image_url: string | null;
+    }>(
+      `
+        SELECT DISTINCT
+          parks.id,
+          parks.name,
+          parks.slug,
+          parks.country,
+          parks.city,
+          parks.continent,
+          parks.timezone,
+          parks.latitude,
+          parks.longitude,
+          parks.status,
+          parks.image_url
+        FROM parks
+        INNER JOIN rides ON rides.park_id = parks.id
+        ORDER BY parks.name ASC
+      `
+    ),
+    pool.query<{ ride_type: string }>(
+      `
+        SELECT DISTINCT ride_type
+        FROM rides
+        WHERE ride_type <> ''
+        ORDER BY ride_type ASC
+      `
+    ),
+    pool.query<{ manufacturer: string }>(
+      `
+        SELECT DISTINCT manufacturer
+        FROM rides
+        WHERE manufacturer IS NOT NULL AND manufacturer <> ''
+        ORDER BY manufacturer ASC
+      `
+    )
+  ]);
+
+  return {
+    parks: parksResult.rows.map((park) => ({
+      id: park.id,
+      name: park.name,
+      slug: park.slug,
+      country: park.country,
+      status: park.status as ParkStatus,
+      ...toOptionalParkFields({
+        city: park.city,
+        continent: park.continent,
+        timezone: park.timezone,
+        latitude: park.latitude,
+        longitude: park.longitude,
+        imageUrl: park.image_url
+      })
+    })),
+    rideTypes: rideTypesResult.rows.map((entry) => entry.ride_type),
+    manufacturers: manufacturersResult.rows.map((entry) => entry.manufacturer)
+  };
+};
+
 export const getRideBySlugs = async (
   parkSlug: string,
   rideSlug: string

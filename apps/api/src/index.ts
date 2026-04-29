@@ -20,6 +20,7 @@ import {
   getRideBySlugs,
   initializeDatabase,
   listCommunityHighlights,
+  listRideCatalogOptions,
   listRideCreditsForUser,
   listRideCatalog,
   listDemoUserRideCredits,
@@ -54,6 +55,7 @@ import type {
   UserProfileResponse,
   UserProgressionResponse,
   RideCatalogResponse,
+  RideCatalogOptionsResponse,
   RideCreditMutationResponse,
   RideCreditsResponse,
   RideResponse,
@@ -162,6 +164,18 @@ app.get<{
   const response: RideCatalogResponse = {
     rides: result.rides,
     pageInfo: result.pageInfo
+  };
+
+  return response;
+});
+
+app.get("/rides/options", async () => {
+  const options = await listRideCatalogOptions();
+
+  const response: RideCatalogOptionsResponse = {
+    parks: options.parks,
+    rideTypes: options.rideTypes,
+    manufacturers: options.manufacturers
   };
 
   return response;
