@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import cookie from "@fastify/cookie";
 
 import {
   addRideCreditForUser,
@@ -34,6 +35,12 @@ import {
   CurrentUserResolutionError,
   resolveRequestCurrentUser
 } from "./current-user.js";
+import {
+  clearAuthSession,
+  completeGoogleAuth,
+  isGoogleAuthConfigured,
+  registerGoogleAuthStart
+} from "./auth.js";
 import { getQueueTimesLiveWaitsForPark } from "./services/wait-times.js";
 import {
   QUEUE_TIMES_SOURCE_NAME,
@@ -90,11 +97,24 @@ const corsOrigin = process.env.CORS_ORIGIN
 const corsOptions =
   corsOrigin && corsOrigin.length > 0
     ? {
-        origin: corsOrigin.length === 1 ? corsOrigin[0]! : corsOrigin
+        origin: corsOrigin.length === 1 ? corsOrigin[0]! : corsOrigin,
+        credentials: true
       }
     : {
         origin: false
       };
+
+const sessionCookieSecret = process.env.SESSION_COOKIE_SECRET?.trim();
+
+if (!sessionCookieSecret) {
+  app.log.warn(
+    "SESSION_COOKIE_SECRET is not configured. Google auth session support will stay disabled."
+  );
+}
+
+await app.register(cookie, {
+  secret: sessionCookieSecret ?? "coasterly-dev-cookie-secret"
+});
 
 await app.register(cors, {
   // Keep hosted environments deny-by-default until allowed origins are set.
@@ -113,6 +133,41 @@ app.get("/health", async () => {
   };
 
   return response;
+});
+
+app.get<{
+  Querystring: { returnTo?: string };
+}>("/auth/google/start", async (request, reply) => {
+  if (!isGoogleAuthConfigured()) {
+    return reply.code(503).send({
+      message: "Google auth is not configured."
+    });
+  }
+
+  registerGoogleAuthStart(reply, request.query.returnTo);
+});
+
+app.get<{
+  Querystring: { code?: string; state?: string };
+}>("/auth/google/callback", async (request, reply) => {
+  try {
+    await completeGoogleAuth(request, reply, {
+      ...(request.query.code ? { code: request.query.code } : {}),
+      ...(request.query.state ? { state: request.query.state } : {})
+    });
+  } catch (error) {
+    app.log.error(error);
+
+    return reply.code(400).send({
+      message: error instanceof Error ? error.message : "Google sign-in failed."
+    });
+  }
+});
+
+app.post("/auth/sign-out", async (_request, reply) => {
+  clearAuthSession(reply);
+
+  return reply.code(204).send();
 });
 
 app.get<{

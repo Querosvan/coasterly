@@ -97,6 +97,22 @@ Document these values in Railway instead of relying on local-only `.env` usage.
   - Optional override for the Queue-Times API base URL.
   - Default: `https://queue-times.com`
   - Leave unset in normal Railway environments unless you intentionally proxy or mock the integration.
+- `WEB_BASE_URL`
+  - Public web origin used to return users to the app after Google sign-in.
+  - Example: `https://coasterly-web.up.railway.app`
+- `SESSION_COOKIE_SECRET`
+  - Long random secret used to sign OAuth state and authenticated session cookies.
+- `GOOGLE_CLIENT_ID`
+  - Google OAuth client ID for the Railway API environment.
+- `GOOGLE_CLIENT_SECRET`
+  - Google OAuth client secret for the Railway API environment.
+- `GOOGLE_REDIRECT_URI`
+  - OAuth callback URL registered with Google.
+  - Example: `https://coasterly-api-production.up.railway.app/auth/google/callback`
+- `COASTERLY_ENABLE_SEEDED_FALLBACK`
+  - Optional seeded-user fallback toggle for local or non-auth environments.
+  - Recommended production value: `false`
+  - Enable only intentionally for local development or temporary non-auth preview flows.
 
 ### Queue-Times Cron (`apps/queue-times-cron`)
 
@@ -147,10 +163,13 @@ Document these values in Railway instead of relying on local-only `.env` usage.
 4. Build with `pnpm --filter @coasterly/api build`.
 5. Start with `node apps/api/dist/index.js`.
 6. Set the healthcheck path to `/health`.
-7. Add `DATABASE_URL`, `CORS_ORIGIN`, `HOST`, `PORT`, and `NODE_ENV`.
-8. If Queue-Times-backed live waits are enabled, keep `QUEUE_TIMES_BASE_URL` unset unless you need a non-default API host.
-9. After first deploy, verify `GET /parks` returns the seeded parks from PostgreSQL.
-10. Verify `GET /parks/:slug/live-waits` returns a normalized Coasterly response and keep the required `Powered by Queue-Times.com` attribution visible in the web UI.
+7. Add `DATABASE_URL`, `CORS_ORIGIN`, `HOST`, `PORT`, `NODE_ENV`, `WEB_BASE_URL`, `SESSION_COOKIE_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`.
+8. Keep `COASTERLY_ENABLE_SEEDED_FALLBACK=false` in production. Only enable it deliberately in local development or short-lived non-auth environments.
+9. If Queue-Times-backed live waits are enabled, keep `QUEUE_TIMES_BASE_URL` unset unless you need a non-default API host.
+10. Register the Railway API callback URL with the Google OAuth client and ensure the Railway web origin is allowed in `CORS_ORIGIN`.
+11. After first deploy, verify `GET /parks` returns the seeded parks from PostgreSQL.
+12. Verify `GET /me` returns `401` when signed out in production and an authenticated user after Google sign-in.
+13. Verify `GET /parks/:slug/live-waits` returns a normalized Coasterly response and keep the required `Powered by Queue-Times.com` attribution visible in the web UI.
 
 ### Railway PostgreSQL
 

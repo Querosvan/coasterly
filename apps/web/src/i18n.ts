@@ -173,6 +173,8 @@ export const messages = {
       rides: "Rides",
       discover: "Discover",
       profile: "Profile",
+      signIn: "Sign in",
+      signOut: "Sign out",
       journal: "Journal",
       language: "Language"
     },
@@ -242,6 +244,8 @@ export const messages = {
       latestCredits: "Latest credits",
       noRecentCredits: "Recent ride credits will appear here.",
       openRide: "Open ride",
+      signInTitle: "Sign in to track your rides.",
+      signInBody: "Use Google to save credits, missions, and profile progress.",
       level: (level: number) => `Level ${level}`,
       xp: (xp: number) => `${xp} XP`,
       streak: (days: number) => `${days} day streak`,
@@ -383,6 +387,7 @@ export const messages = {
       saving: "Saving...",
       markRidden: "Mark ridden",
       removeRide: "Remove ride",
+      signInToTrack: "Sign in to track this ride.",
       queueTimes: "Queue-Times",
       loadingWait: "Loading current wait.",
       currentWaitUnavailable: "Current wait unavailable right now.",
@@ -407,6 +412,7 @@ export const messages = {
     common: {
       source: "Source",
       serviceIssue: "Service issue",
+      signIn: "Sign in",
       noUpdate: "No update",
       open: "Open",
       closed: "Closed",
@@ -427,6 +433,8 @@ export const messages = {
       rides: "Atracciones",
       discover: "Descubrir",
       profile: "Perfil",
+      signIn: "Iniciar sesiÃ³n",
+      signOut: "Cerrar sesiÃ³n",
       journal: "Revista",
       language: "Idioma"
     },
