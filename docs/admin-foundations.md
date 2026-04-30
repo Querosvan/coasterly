@@ -42,6 +42,34 @@ This is intentional:
 - it avoids premature RBAC complexity
 - it gives future auth work a stable target for user claims and admin checks
 
+## Current Admin Enforcement
+
+The foundation now includes the first real server-side role enforcement for admin-only API surfaces.
+
+Allowed roles for the current admin review endpoints:
+
+- `moderator`
+- `regional_editor`
+- `global_editor`
+- `super_admin`
+
+Current protected endpoints:
+
+- `GET /admin/parks`
+- `GET /admin/rides`
+
+Behavior:
+
+- signed-out requests are rejected through the normal current-user resolution path
+- signed-in users without an admin/editorial role receive `403`
+- public catalog endpoints remain unchanged and public
+
+This is still intentionally lightweight:
+
+- there is no broad RBAC matrix yet
+- there are no per-field permissions yet
+- there is no scoped regional ownership enforcement yet
+
 ## Future Backoffice Scope
 
 The expected editable areas for a future admin/backoffice surface are:
@@ -54,7 +82,31 @@ The expected editable areas for a future admin/backoffice surface are:
 - summaries
 - featured and curated flags
 
-The current phase does not add admin UI yet. It only makes the future ownership boundaries clearer.
+## Current Admin Review Surface
+
+The current phase now adds a minimal web admin surface at `/admin`.
+
+This surface is intentionally read-only and only visible to moderator/editor/admin roles.
+
+Current review coverage:
+
+- parks list
+- rides list
+- status
+- media availability
+- Queue-Times mapping availability
+- name and slug inspection
+
+This is not a full backoffice yet.
+
+Still out of scope:
+
+- editing
+- moderation workflows
+- audit history
+- bulk actions
+- media management tools
+- source-mapping editors
 
 ## Future Moderation And Editorial Path
 
