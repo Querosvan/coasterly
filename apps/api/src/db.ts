@@ -1320,7 +1320,7 @@ const updateStoredUserAuthIdentity = async (
         auth_provider = $4,
         auth_subject = $5,
         role = CASE
-          WHEN $6 IS NOT NULL AND users.role = 'user' THEN $6
+          WHEN $6::text IS NOT NULL AND users.role = 'user' THEN $6::text
           ELSE users.role
         END,
         updated_at = NOW()
@@ -1368,7 +1368,7 @@ const insertAuthLinkedUser = async (options: {
         is_seeded,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, FALSE, NOW())
+      VALUES ($1, $2, $3::text, $4, $5, $6, FALSE, NOW())
       RETURNING id, slug, name, role, is_seeded, email, auth_provider, auth_subject
     `,
     [
