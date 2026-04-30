@@ -1228,6 +1228,44 @@ img {
   gap: 1rem;
 }
 
+.profile-empty-panel,
+.profile-empty-copy,
+.profile-empty-value-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.profile-empty-panel {
+  background:
+    radial-gradient(circle at top right, rgba(245, 130, 32, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(247, 250, 254, 0.98), rgba(239, 244, 250, 0.98));
+}
+
+.profile-empty-panel-compact {
+  gap: 0.6rem;
+}
+
+.profile-empty-value-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.profile-empty-value-card {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.95rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+  background: rgba(251, 253, 255, 0.94);
+  box-shadow: 0 10px 24px rgba(16, 30, 47, 0.04);
+  color: var(--brand-navy-strong);
+}
+
+.profile-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .profile-identity-strip {
   display: flex;
   flex-wrap: wrap;
