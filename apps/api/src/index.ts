@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
 
@@ -20,6 +20,8 @@ import {
   getParkBySlug,
   getRideBySlugs,
   initializeDatabase,
+  listAdminParks,
+  listAdminRides,
   listCommunityHighlights,
   listRideCatalogOptions,
   listRideCreditsForUser,
@@ -50,6 +52,8 @@ import {
 } from "./integrations/queue-times.js";
 
 import type {
+  AdminParksResponse,
+  AdminRidesResponse,
   CommunityHighlightsResponse,
   CurrentUserResponse,
   DailyChallengeAnswerRequest,
@@ -67,7 +71,8 @@ import type {
   RideCreditsResponse,
   RideResponse,
   RideSort,
-  RidesResponse
+  RidesResponse,
+  UserRole
 } from "@coasterly/types";
 
 const app = Fastify({
@@ -76,6 +81,15 @@ const app = Fastify({
 
 const isRideSort = (value: string | undefined): value is RideSort =>
   value === "name" || value === "opening_year" || value === "speed_kmh";
+
+const adminRoles = new Set<UserRole>([
+  "moderator",
+  "regional_editor",
+  "global_editor",
+  "super_admin"
+]);
+
+const isAdminRole = (role: UserRole) => adminRoles.has(role);
 
 const parsePositiveInteger = (value: string | undefined) => {
   if (!value) {
@@ -87,6 +101,35 @@ const parsePositiveInteger = (value: string | undefined) => {
   return Number.isFinite(parsedValue) && parsedValue >= 0
     ? Math.min(parsedValue, 5000)
     : undefined;
+};
+
+const requireAdminUser = async (
+  request: FastifyRequest,
+  reply: FastifyReply
+) => {
+  try {
+    const currentUser = await resolveRequestCurrentUser(request);
+
+    if (!isAdminRole(currentUser.user.role)) {
+      reply.code(403).send({
+        message: "Admin access is required."
+      });
+
+      return null;
+    }
+
+    return currentUser;
+  } catch (error) {
+    if (error instanceof CurrentUserResolutionError) {
+      reply.code(error.statusCode).send({
+        message: error.message
+      });
+
+      return null;
+    }
+
+    throw error;
+  }
 };
 
 const corsOrigin = process.env.CORS_ORIGIN
@@ -513,6 +556,54 @@ app.get("/me/profile", async (request, reply) => {
 
     throw error;
   }
+});
+
+app.get<{
+  Querystring: { limit?: string; offset?: string };
+}>("/admin/parks", async (request, reply) => {
+  const currentUser = await requireAdminUser(request, reply);
+
+  if (!currentUser) {
+    return;
+  }
+
+  const limit = parsePositiveInteger(request.query.limit);
+  const offset = parsePositiveInteger(request.query.offset);
+  const result = await listAdminParks({
+    ...(typeof limit === "number" ? { limit } : {}),
+    ...(typeof offset === "number" ? { offset } : {})
+  });
+
+  const response: AdminParksResponse = {
+    parks: result.parks,
+    pageInfo: result.pageInfo
+  };
+
+  return response;
+});
+
+app.get<{
+  Querystring: { limit?: string; offset?: string };
+}>("/admin/rides", async (request, reply) => {
+  const currentUser = await requireAdminUser(request, reply);
+
+  if (!currentUser) {
+    return;
+  }
+
+  const limit = parsePositiveInteger(request.query.limit);
+  const offset = parsePositiveInteger(request.query.offset);
+  const result = await listAdminRides({
+    ...(typeof limit === "number" ? { limit } : {}),
+    ...(typeof offset === "number" ? { offset } : {})
+  });
+
+  const response: AdminRidesResponse = {
+    rides: result.rides,
+    pageInfo: result.pageInfo
+  };
+
+  return response;
 });
 
 app.get("/me/daily-challenge", async (request, reply) => {

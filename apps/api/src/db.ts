@@ -1,6 +1,8 @@
 import { Pool } from "pg";
 
 import type {
+  AdminParkCatalogItem,
+  AdminRideCatalogItem,
   CommunityHighlightsResponse,
   CurrentUserResponse,
   DailyChallengeAttempt,
@@ -1581,6 +1583,76 @@ export const listParks = async (
   };
 };
 
+export const listAdminParks = async (
+  options: PaginationOptions = {}
+): Promise<{
+  parks: AdminParkCatalogItem[];
+  pageInfo: PageInfo;
+}> => {
+  const limit = options.limit ?? 24;
+  const offset = options.offset ?? 0;
+  const countResult = await pool.query<{ total_count: string }>(
+    `
+      SELECT COUNT(*)::text AS total_count
+      FROM parks
+    `
+  );
+  const totalCount = Number.parseInt(countResult.rows[0]?.total_count ?? "0", 10);
+  const result = await pool.query<{
+    id: number;
+    name: string;
+    slug: string;
+    status: string;
+    country: string;
+    city: string | null;
+    has_image: boolean;
+    has_queue_times_mapping: boolean;
+  }>(
+    `
+      SELECT
+        parks.id,
+        parks.name,
+        parks.slug,
+        parks.status,
+        parks.country,
+        parks.city,
+        (parks.image_url IS NOT NULL) AS has_image,
+        EXISTS (
+          SELECT 1
+          FROM external_source_mappings
+          WHERE
+            source_name = $3
+            AND entity_type = 'park'
+            AND internal_entity_id = parks.id
+        ) AS has_queue_times_mapping
+      FROM parks
+      ORDER BY parks.name ASC
+      LIMIT $1
+      OFFSET $2
+    `,
+    [limit, offset, QUEUE_TIMES_SOURCE_NAME]
+  );
+
+  return {
+    parks: result.rows.map((park) => ({
+      id: park.id,
+      name: park.name,
+      slug: park.slug,
+      status: park.status as ParkStatus,
+      country: park.country,
+      ...(park.city ? { city: park.city } : {}),
+      hasImage: park.has_image,
+      hasQueueTimesMapping: park.has_queue_times_mapping
+    })),
+    pageInfo: {
+      offset,
+      limit,
+      totalCount,
+      hasMore: offset + result.rows.length < totalCount
+    }
+  };
+};
+
 export const getParkBySlug = async (slug: string): Promise<Park | null> => {
   const result = await pool.query<{
     id: number;
@@ -2154,6 +2226,80 @@ export const listRideCatalog = async (
           inversions: row.ride_inversions
         })
       }
+    })),
+    pageInfo: {
+      offset,
+      limit,
+      totalCount,
+      hasMore: offset + result.rows.length < totalCount
+    }
+  };
+};
+
+export const listAdminRides = async (
+  options: PaginationOptions = {}
+): Promise<{
+  rides: AdminRideCatalogItem[];
+  pageInfo: PageInfo;
+}> => {
+  const limit = options.limit ?? 24;
+  const offset = options.offset ?? 0;
+  const countResult = await pool.query<{ total_count: string }>(
+    `
+      SELECT COUNT(*)::text AS total_count
+      FROM rides
+    `
+  );
+  const totalCount = Number.parseInt(countResult.rows[0]?.total_count ?? "0", 10);
+  const result = await pool.query<{
+    id: number;
+    name: string;
+    slug: string;
+    status: string;
+    ride_type: string;
+    park_name: string;
+    park_slug: string;
+    has_image: boolean;
+    has_queue_times_mapping: boolean;
+  }>(
+    `
+      SELECT
+        rides.id,
+        rides.name,
+        rides.slug,
+        rides.status,
+        rides.ride_type,
+        parks.name AS park_name,
+        parks.slug AS park_slug,
+        (rides.image_url IS NOT NULL) AS has_image,
+        EXISTS (
+          SELECT 1
+          FROM external_source_mappings
+          WHERE
+            source_name = $3
+            AND entity_type = 'ride'
+            AND internal_entity_id = rides.id
+        ) AS has_queue_times_mapping
+      FROM rides
+      INNER JOIN parks ON parks.id = rides.park_id
+      ORDER BY parks.name ASC, rides.name ASC
+      LIMIT $1
+      OFFSET $2
+    `,
+    [limit, offset, QUEUE_TIMES_SOURCE_NAME]
+  );
+
+  return {
+    rides: result.rows.map((ride) => ({
+      id: ride.id,
+      name: ride.name,
+      slug: ride.slug,
+      status: ride.status as RideStatus,
+      parkName: ride.park_name,
+      parkSlug: ride.park_slug,
+      rideType: ride.ride_type,
+      hasImage: ride.has_image,
+      hasQueueTimesMapping: ride.has_queue_times_mapping
     })),
     pageInfo: {
       offset,

@@ -86,6 +86,39 @@ export interface RideCatalogOptionsResponse {
   manufacturers: string[];
 }
 
+export interface AdminParkCatalogItem {
+  id: number;
+  name: string;
+  slug: string;
+  status: ParkStatus;
+  country: string;
+  city?: string;
+  hasImage: boolean;
+  hasQueueTimesMapping: boolean;
+}
+
+export interface AdminParksResponse {
+  parks: AdminParkCatalogItem[];
+  pageInfo?: PageInfo;
+}
+
+export interface AdminRideCatalogItem {
+  id: number;
+  name: string;
+  slug: string;
+  status: RideStatus;
+  parkName: string;
+  parkSlug: string;
+  rideType: string;
+  hasImage: boolean;
+  hasQueueTimesMapping: boolean;
+}
+
+export interface AdminRidesResponse {
+  rides: AdminRideCatalogItem[];
+  pageInfo?: PageInfo;
+}
+
 export type UserRole =
   | "user"
   | "moderator"
