@@ -29,6 +29,23 @@ import type {
   UserProgressionResponse
 } from "@coasterly/types";
 
+import { AppHeader } from "./components/layout/AppHeader";
+import { RouteBar } from "./components/layout/RouteBar";
+import { AuthPromptPanel } from "./components/shared/AuthPromptPanel";
+import { CatalogSkeletonGrid } from "./components/shared/CatalogSkeletonGrid";
+import {
+  CommunityHighlightCard,
+  CommunityRankingCard
+} from "./components/shared/CommunityCards";
+import { CuratedCollectionCard } from "./components/shared/CuratedCollectionCard";
+import { DailyChallengePanel } from "./components/shared/DailyChallengePanel";
+import { MediaAsset } from "./components/shared/MediaAsset";
+import { ProfileSurface } from "./components/shared/ProfileSurface";
+import { ProgressionPanel } from "./components/shared/ProgressionPanel";
+import {
+  QueueTimesAttribution,
+  QueueTimesExternalLinks
+} from "./components/shared/QueueTimes";
 import {
   curatedCollectionsEs,
   formatCountLabel,
@@ -39,22 +56,19 @@ import {
   formatWaitStateLabel,
   getInitialLocale,
   journalTeasersEs,
-  localeLabels,
   localeStorageKey,
   messages,
   normalizeLocale,
   parkEditorialBySlugEs,
-  queueTimesAttribution,
   rideEditorialBySlugEs,
   translateCue,
   type Locale
 } from "./i18n";
+import { JournalPage } from "./pages/JournalPage";
+import { ProfilePage } from "./pages/ProfilePage";
+import { PublicProfilePage } from "./pages/PublicProfilePage";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-const brandLogoDark = "/brand/coasterly-logo-horizontal-dark.png";
-const brandIconDark = "/brand/coasterly-logo-icon-dark.png";
-const placeholderImageHost = "placehold.co";
-const queueTimesAttributionUrl = "https://queue-times.com/";
 const authFailureStatusCode = 401;
 
 const fetchWithSession = (input: URL | RequestInfo, init?: RequestInit) =>
@@ -682,20 +696,9 @@ type BreadcrumbItem = {
   onClick?: () => void;
 };
 
-type MediaKind = "park" | "ride";
 type ExternalInsightLink = {
   label: string;
   href: string;
-};
-
-type MediaAssetProps = {
-  kind: MediaKind;
-  slug: string;
-  imageUrl?: string | undefined;
-  alt: string;
-  frameClassName: string;
-  imageClassName: string;
-  loading?: "eager" | "lazy";
 };
 
 const defaultParkRideSort: ParkRideSort = "name";
@@ -777,27 +780,6 @@ const buildPathWithQuery = (pathname: string, params: URLSearchParams) => {
   return query ? `${pathname}?${query}` : pathname;
 };
 
-const isPlaceholderImageUrl = (value?: string) => value?.includes(placeholderImageHost) ?? false;
-
-const getLocalMediaPath = (kind: MediaKind, slug: string) =>
-  kind === "park"
-    ? `/media/parks/${slug}/cover.png`
-    : `/media/rides/${slug}/cover.png`;
-
-const getMediaSources = (kind: MediaKind, slug: string, imageUrl?: string) => {
-  const localMediaPath = getLocalMediaPath(kind, slug);
-
-  if (imageUrl && !isPlaceholderImageUrl(imageUrl)) {
-    return [imageUrl, localMediaPath];
-  }
-
-  if (imageUrl) {
-    return [localMediaPath, imageUrl];
-  }
-
-  return [localMediaPath];
-};
-
 const dedupeExternalLinks = (links: ExternalInsightLink[]) => {
   const seen = new Set<string>();
 
@@ -869,869 +851,6 @@ const getRoute = (pathname: string): Route => {
 
   return { view: "home" };
 };
-
-const renderBreadcrumbs = (items: BreadcrumbItem[]) => (
-  <nav className="breadcrumbs" aria-label="Breadcrumb">
-    <ol className="breadcrumb-list">
-      {items.map((item, index) => {
-        const isLast = index === items.length - 1;
-
-        return (
-          <li className="breadcrumb-item" key={`${item.label}-${index}`}>
-            {item.href && item.onClick && !isLast ? (
-              <a
-                className="breadcrumb-link"
-                href={item.href}
-                onClick={(event) => {
-                  event.preventDefault();
-                  item.onClick?.();
-                }}
-              >
-                {item.label}
-              </a>
-            ) : (
-              <span
-                className={`breadcrumb-current${isLast ? " breadcrumb-current-active" : ""}`}
-                aria-current={isLast ? "page" : undefined}
-              >
-                {item.label}
-              </span>
-            )}
-            {!isLast ? <span className="breadcrumb-separator">/</span> : null}
-          </li>
-        );
-      })}
-    </ol>
-  </nav>
-);
-
-function MediaAsset({
-  kind,
-  slug,
-  imageUrl,
-  alt,
-  frameClassName,
-  imageClassName,
-  loading = "lazy"
-}: MediaAssetProps) {
-  const sources = getMediaSources(kind, slug, imageUrl);
-  const sourceKey = sources.join("|");
-  const [activeSourceIndex, setActiveSourceIndex] = useState(0);
-
-  useEffect(() => {
-    setActiveSourceIndex(0);
-  }, [sourceKey]);
-
-  const activeSource = sources[activeSourceIndex];
-
-  return (
-    <div className={`${frameClassName}${activeSource ? "" : " media-frame-fallback"}`}>
-      {activeSource ? (
-        <img
-          className={imageClassName}
-          src={activeSource}
-          alt={alt}
-          loading={loading}
-          onError={() => {
-            setActiveSourceIndex((currentIndex) => currentIndex + 1);
-          }}
-        />
-      ) : (
-        <div className="media-fallback" aria-hidden="true">
-          <img className="media-fallback-mark" src={brandIconDark} alt="" />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function QueueTimesExternalLinks({ links }: { links: ExternalInsightLink[] }) {
-  if (links.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="queue-times-links">
-      {links.map((link) => (
-        <a
-          className="catalog-inline-button catalog-inline-link"
-          href={link.href}
-          key={`${link.label}-${link.href}`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          {link.label}
-        </a>
-      ))}
-    </div>
-  );
-}
-
-function QueueTimesAttribution({
-  locale,
-  copy
-}: {
-  locale: Locale;
-  copy: UiCopy;
-}) {
-  return (
-    <p className="source-note">
-      {copy.common.source}:{" "}
-      <a href={queueTimesAttributionUrl} target="_blank" rel="noreferrer">
-        {queueTimesAttribution[locale]}
-      </a>
-    </p>
-  );
-}
-
-function AuthPromptPanel({
-  title,
-  summary,
-  actionLabel,
-  onAction
-}: {
-  title: string;
-  summary: string;
-  actionLabel: string;
-  onAction: () => void;
-}) {
-  return (
-    <section className="stats-panel auth-prompt-panel" aria-label={title}>
-      <div className="auth-prompt-copy">
-        <p className="status-label">{actionLabel}</p>
-        <h3 className="section-title auth-prompt-title">{title}</h3>
-        <p className="section-copy">{summary}</p>
-      </div>
-      <div className="auth-prompt-actions">
-        <button className="primary-button auth-prompt-button" type="button" onClick={onAction}>
-          {actionLabel}
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function ProgressionPanel({
-  userProgressionStatus,
-  locale,
-  copy
-}: {
-  userProgressionStatus: UserProgressionStatus;
-  locale: Locale;
-  copy: UiCopy;
-}) {
-  if (userProgressionStatus.state === "idle") {
-    return null;
-  }
-
-  if (userProgressionStatus.state === "loading") {
-    return (
-      <div className="state-message state-message-loading">
-        <p>{copy.progression.loadingMissions}</p>
-      </div>
-    );
-  }
-
-  if (userProgressionStatus.state === "error") {
-    return (
-      <div className="state-message state-message-error">
-        <p>{copy.progression.unableLoadMissions}</p>
-        <p>{userProgressionStatus.message}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="progression-panel">
-      <div className="progression-section">
-        <div className="section-row section-row-compact">
-          <div>
-            <p className="status-label">{copy.progression.activeMissions}</p>
-          </div>
-          <span className="catalog-chip">
-            {formatCountLabel(locale, userProgressionStatus.activeMissions.length, "mission")}
-          </span>
-        </div>
-        <div className="mission-grid">
-          {userProgressionStatus.activeMissions.map((mission) => (
-            <article className="mission-card" key={mission.id}>
-              <div className="mission-copy">
-                <strong className="mission-title">{mission.title}</strong>
-                <p className="card-summary">{mission.summary}</p>
-              </div>
-              <div className="mission-progress-row">
-                <span className="progress-label">{mission.progressLabel}</span>
-                <strong className="mission-progress-value">
-                  {mission.completionPercentage}%
-                </strong>
-              </div>
-              <div className="progress-rail" aria-hidden="true">
-                <span
-                  className="progress-fill"
-                  style={{ width: `${mission.completionPercentage}%` }}
-                />
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-
-      <div className="progression-section">
-        <div className="section-row section-row-compact">
-          <div>
-            <p className="status-label">{copy.progression.recentBadges}</p>
-          </div>
-          <span className="catalog-chip catalog-chip-ridden">
-            {formatCountLabel(locale, userProgressionStatus.badges.length, "badge")}
-          </span>
-        </div>
-        <div className="badge-grid">
-          {userProgressionStatus.badges.length > 0 ? (
-            userProgressionStatus.badges.slice(0, 4).map((badge) => (
-              <article className={`badge-card badge-card-${badge.tone}`} key={badge.id}>
-                <div className="badge-copy">
-                  <strong className="mission-title">{badge.title}</strong>
-                  <p className="card-summary">{badge.summary}</p>
-                </div>
-                <span className="badge-earned-at">
-                  {copy.progression.earnedOn(formatDateLabel(locale, badge.earnedAt))}
-                </span>
-              </article>
-            ))
-          ) : (
-            <div className="state-message state-message-empty state-message-compact">
-              <p>{copy.progression.emptyBadges}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProfileSurface({
-  profile,
-  isCurrentUser,
-  onOpenPark,
-  onOpenRide,
-  onBrowseParks,
-  onBrowseRides,
-  onOpenPublicProfile,
-  onCopyPublicProfile,
-  locale,
-  copy
-}: {
-  profile: UserProfileResponse;
-  isCurrentUser: boolean;
-  onOpenPark: (parkSlug: string) => void;
-  onOpenRide: (parkSlug: string, rideSlug: string) => void;
-  onBrowseParks?: () => void;
-  onBrowseRides?: () => void;
-  onOpenPublicProfile?: (userSlug: string) => void;
-  onCopyPublicProfile?: (userSlug: string) => void;
-  locale: Locale;
-  copy: UiCopy;
-}) {
-  const showProfileActions =
-    isCurrentUser && (onOpenPublicProfile !== undefined || onCopyPublicProfile !== undefined);
-  const hasRideActivity = profile.totalRiddenRides > 0;
-  const showOnboardingState = isCurrentUser && !hasRideActivity;
-  const emptyStateLabel =
-    locale === "es" ? "Empieza aqui" : "Get started";
-  const emptyStateTitle =
-    locale === "es"
-      ? "Empieza a construir tu historial coaster."
-      : "Start building your coaster history.";
-  const emptyStateBody =
-    locale === "es"
-      ? "Registra tus primeras atracciones para guardar creditos, ver tu progreso en parques y crear un perfil publico presentable."
-      : "Log your first rides to track credits, build park progress, and turn this into a public profile worth sharing.";
-  const emptyStateValueCredits =
-    locale === "es" ? "Guardar creditos coaster" : "Track coaster credits";
-  const emptyStateValueParks =
-    locale === "es" ? "Construir progreso en parques" : "Build park progress";
-  const emptyStateValuePublic =
-    locale === "es" ? "Crear un perfil publico" : "Create a public profile";
-  const emptyStateBrowseParks =
-    locale === "es" ? "Ver parques" : "Browse parks";
-  const emptyStateBrowseRides =
-    locale === "es" ? "Ver atracciones" : "Browse rides";
-  const publicEmptyTitle =
-    locale === "es" ? "Todavia no hay atracciones registradas." : "No rides logged yet.";
-  const publicEmptyBody =
-    locale === "es"
-      ? "Este perfil ganara contexto cuando empiece a registrar atracciones."
-      : "This profile will start to fill out once rides are logged.";
-
-  return (
-    <div className="profile-layout">
-      <section className="profile-hero">
-        <div className="profile-hero-copy">
-          <h3 className="section-title">{profile.user.name}</h3>
-          <div className="profile-identity-strip" aria-label={copy.profile.progressionLabel}>
-            <span className="ride-fact-pill ride-fact-pill-accent">
-              {copy.profile.level(profile.identity.level)}
-            </span>
-            <span className="ride-fact-pill">{copy.profile.xp(profile.identity.totalXp)}</span>
-            <span className="ride-fact-pill">
-              {copy.profile.streak(profile.identity.currentStreak)}
-            </span>
-            <span className="ride-fact-pill">
-              {copy.profile.completedChallenges(profile.identity.completedDays)}
-            </span>
-          </div>
-        </div>
-        {showProfileActions ? (
-          <div className="detail-chip-row">
-            {isCurrentUser && onOpenPublicProfile ? (
-              <button
-                className="catalog-inline-button"
-                type="button"
-                onClick={() => {
-                  onOpenPublicProfile(profile.user.slug);
-                }}
-              >
-                {copy.profile.viewPublicPage}
-              </button>
-            ) : null}
-            {isCurrentUser && onCopyPublicProfile ? (
-              <button
-                className="catalog-inline-button"
-                type="button"
-                onClick={() => {
-                  onCopyPublicProfile(profile.user.slug);
-                }}
-              >
-                {copy.profile.copyLink}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </section>
-
-      <section className="stats-panel" aria-label={copy.profile.title}>
-        <div className="stats-grid">
-          <article className="stats-card">
-            <span className="stats-card-label">{copy.profile.ridesLabel}</span>
-            <strong className="stats-card-value">{profile.totalRiddenRides}</strong>
-          </article>
-          <article className="stats-card">
-            <span className="stats-card-label">{copy.profile.parksLabel}</span>
-            <strong className="stats-card-value">{profile.totalParksWithRiddenRides}</strong>
-          </article>
-        </div>
-        {profile.parks.length > 0 ? (
-          <div className="stats-breakdown">
-            {profile.parks.slice(0, 4).map((park) => (
-              <button
-                className="stats-park-card"
-                key={park.parkId}
-                type="button"
-                onClick={() => {
-                  onOpenPark(park.parkSlug);
-                }}
-              >
-                <span className="stats-park-name">{park.parkName}</span>
-                <span className="stats-park-value">
-                  {copy.park.riddenOutOf(park.riddenRides, park.totalRides)}
-                </span>
-                <div className="progress-rail" aria-hidden="true">
-                  <span
-                    className="progress-fill"
-                    style={{ width: `${park.completionPercentage}%` }}
-                  />
-                </div>
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </section>
-
-      {showOnboardingState ? (
-        <section className="stats-panel profile-empty-panel" aria-label={emptyStateTitle}>
-          <div className="profile-empty-copy">
-            <p className="status-label">{emptyStateLabel}</p>
-            <h2 className="section-title">{emptyStateTitle}</h2>
-            <p className="section-copy">{emptyStateBody}</p>
-          </div>
-          <div className="profile-empty-value-grid">
-            <article className="profile-empty-value-card">
-              <strong>{emptyStateValueCredits}</strong>
-            </article>
-            <article className="profile-empty-value-card">
-              <strong>{emptyStateValueParks}</strong>
-            </article>
-            <article className="profile-empty-value-card">
-              <strong>{emptyStateValuePublic}</strong>
-            </article>
-          </div>
-          <div className="profile-empty-actions">
-            {onBrowseParks ? (
-              <button className="primary-button" type="button" onClick={onBrowseParks}>
-                {emptyStateBrowseParks}
-              </button>
-            ) : null}
-            {onBrowseRides ? (
-              <button className="ghost-button" type="button" onClick={onBrowseRides}>
-                {emptyStateBrowseRides}
-              </button>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-
-      {hasRideActivity ? (
-        <section className="stats-panel" aria-label={copy.profile.progressionLabel}>
-          <ProgressionPanel
-            userProgressionStatus={{
-              state: "success",
-              userName: profile.user.name,
-              badges: profile.badges,
-              activeMissions: profile.activeMissions
-            }}
-            locale={locale}
-            copy={copy}
-          />
-        </section>
-      ) : null}
-
-      {hasRideActivity ? (
-        <section className="catalog-panel nested-panel">
-          <div className="catalog-header landing-header">
-            <div className="catalog-copy">
-              <p className="status-label">{copy.profile.recentActivityLabel}</p>
-              <h2 className="section-title">{copy.profile.latestCredits}</h2>
-            </div>
-          </div>
-          {profile.recentActivity.length > 0 ? (
-            <div className="activity-list">
-              {profile.recentActivity.map((entry) => (
-                <article className="activity-card" key={`${entry.rideId}-${entry.riddenAt}`}>
-                  <div className="activity-copy">
-                    <strong className="mission-title">{entry.rideName}</strong>
-                    <p className="card-summary">{entry.parkName}</p>
-                  </div>
-                  <div className="activity-meta">
-                    <span className="badge-earned-at">{formatDateLabel(locale, entry.riddenAt)}</span>
-                    <button
-                      className="catalog-inline-button"
-                      type="button"
-                      onClick={() => {
-                        onOpenRide(entry.parkSlug, entry.rideSlug);
-                      }}
-                    >
-                      {copy.profile.openRide}
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="state-message state-message-empty">
-              <p>{copy.profile.noRecentCredits}</p>
-            </div>
-          )}
-        </section>
-      ) : !isCurrentUser ? (
-        <section className="stats-panel profile-empty-panel profile-empty-panel-compact" aria-label={publicEmptyTitle}>
-          <div className="profile-empty-copy">
-            <p className="status-label">{copy.profile.publicTitle}</p>
-            <h2 className="section-title">{publicEmptyTitle}</h2>
-            <p className="section-copy">{publicEmptyBody}</p>
-          </div>
-        </section>
-      ) : null}
-    </div>
-  );
-}
-
-function CommunityHighlightCard({
-  profile,
-  onOpenProfile,
-  onOpenPark,
-  onOpenRide,
-  locale,
-  copy
-}: {
-  profile: CommunityHighlightsResponse["profiles"][number];
-  onOpenProfile: (userSlug: string) => void;
-  onOpenPark: (parkSlug: string) => void;
-  onOpenRide: (parkSlug: string, rideSlug: string) => void;
-  locale: Locale;
-  copy: UiCopy;
-}) {
-  return (
-    <article className="community-card">
-      <div className="community-card-header">
-        <div className="community-card-copy">
-          <button
-            className="community-profile-link"
-            type="button"
-            onClick={() => {
-              onOpenProfile(profile.user.slug);
-            }}
-          >
-            {profile.user.name}
-          </button>
-        </div>
-        <div className="detail-chip-row">
-          {profile.featuredPark ? (
-            <button
-              className="catalog-chip route-chip"
-              type="button"
-              onClick={() => {
-                onOpenPark(profile.featuredPark!.parkSlug);
-              }}
-            >
-              {copy.community.featuredParkProgress(
-                profile.featuredPark.completionPercentage,
-                profile.featuredPark.parkName
-              )}
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="community-card-stats">
-        <span className="ride-fact-pill ride-fact-pill-accent">
-          {copy.profile.level(profile.identity.level)}
-        </span>
-        <span className="ride-fact-pill">{copy.profile.streak(profile.identity.currentStreak)}</span>
-        <span className="ride-fact-pill">
-          {formatCountLabel(locale, profile.totalRiddenRides, "riddenRide")}
-        </span>
-        <span className="ride-fact-pill">
-          {formatCountLabel(locale, profile.totalParksWithRiddenRides, "park")}
-        </span>
-        {profile.badges.map((badge) => (
-          <span className="ride-fact-pill ride-fact-pill-accent" key={badge.id}>
-            {badge.title}
-          </span>
-        ))}
-      </div>
-
-      {profile.recentActivity.length > 0 ? (
-        <div className="community-activity-list">
-          {profile.recentActivity.map((entry) => (
-            <button
-              className="community-activity-item"
-              key={`${entry.rideId}-${entry.riddenAt}`}
-              type="button"
-              onClick={() => {
-                onOpenRide(entry.parkSlug, entry.rideSlug);
-              }}
-            >
-              <span className="community-activity-ride">{entry.rideName}</span>
-              <span className="community-activity-meta">
-                {entry.parkName} / {formatDateLabel(locale, entry.riddenAt)}
-              </span>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="state-message state-message-empty state-message-compact">
-          <p>{copy.community.noRecentActivity}</p>
-        </div>
-      )}
-    </article>
-  );
-}
-
-function CommunityRankingCard({
-  kind,
-  title,
-  summary,
-  profiles,
-  onOpenProfile,
-  locale,
-  copy
-}: {
-  kind: "level" | "streak" | "recent";
-  title: string;
-  summary: string;
-  profiles: CommunityHighlightsResponse["profiles"];
-  onOpenProfile: (userSlug: string) => void;
-  locale: Locale;
-  copy: UiCopy;
-}) {
-  return (
-    <article className="community-ranking-card">
-      <div className="community-ranking-copy">
-        <p className="status-label">{copy.rankings.label}</p>
-        <h3>{title}</h3>
-        <p>{summary}</p>
-      </div>
-      <div className="community-ranking-list">
-        {profiles.map((profile, index) => (
-          <button
-            className="community-ranking-item"
-            key={profile.user.id}
-            type="button"
-            onClick={() => {
-              onOpenProfile(profile.user.slug);
-            }}
-          >
-            <span className="community-ranking-position">{index + 1}</span>
-            <div className="community-ranking-item-copy">
-              <strong>{profile.user.name}</strong>
-              <span>
-                {kind === "level"
-                  ? copy.rankings.levelValue(
-                      profile.identity.level,
-                      profile.identity.totalXp
-                    )
-                  : kind === "streak"
-                    ? copy.rankings.streakValue(profile.identity.currentStreak)
-                    : profile.recentActivity[0]
-                      ? copy.rankings.recentValue(
-                          profile.recentActivity[0].rideName,
-                          profile.recentActivity[0].parkName
-                        )
-                      : formatCountLabel(locale, profile.totalRiddenRides, "riddenRide")}
-              </span>
-            </div>
-          </button>
-        ))}
-      </div>
-    </article>
-  );
-}
-
-function DailyChallengePanel({
-  dailyChallengeStatus,
-  isSubmitting,
-  isClaimingReward,
-  onAnswer,
-  onClaimReward,
-  onOpenRide,
-  locale,
-  copy
-}: {
-  dailyChallengeStatus: DailyChallengeStatus;
-  isSubmitting: boolean;
-  isClaimingReward: boolean;
-  onAnswer: (optionId: string) => void;
-  onClaimReward: () => void;
-  onOpenRide: (parkSlug: string, rideSlug: string) => void;
-  locale: Locale;
-  copy: UiCopy;
-}) {
-  if (dailyChallengeStatus.state === "idle") {
-    return null;
-  }
-
-  if (dailyChallengeStatus.state === "loading") {
-    return (
-      <section className="stats-panel" aria-label={copy.daily.title}>
-        <div className="state-message state-message-loading">
-          <p>{copy.daily.loading}</p>
-        </div>
-      </section>
-    );
-  }
-
-  if (dailyChallengeStatus.state === "error") {
-    return (
-      <section className="stats-panel" aria-label={copy.daily.title}>
-        <div className="state-message state-message-error">
-          <p>{copy.daily.error}</p>
-          <p>{dailyChallengeStatus.message}</p>
-        </div>
-      </section>
-    );
-  }
-
-  const { response } = dailyChallengeStatus;
-  const { challenge, summary, attempt, reward } = response;
-  const canClaimReward = reward.claimedAt === undefined;
-  const resultTone = attempt?.isCorrect
-    ? "state-message-success"
-    : attempt
-      ? "state-message-empty"
-      : "state-message-loading";
-
-  return (
-    <section className="stats-panel daily-challenge-panel" aria-label={copy.daily.title}>
-      <div className="section-row">
-        <div>
-          <p className="status-label">{copy.daily.today}</p>
-          <h2 className="section-title">{copy.daily.title}</h2>
-        </div>
-        <div className="detail-chip-row">
-          <span className="catalog-chip">{copy.daily.level(summary.level)}</span>
-          <span className="catalog-chip catalog-chip-ridden">{copy.daily.xp(summary.totalXp)}</span>
-          <span className="catalog-chip route-chip">{copy.daily.streak(summary.currentStreak)}</span>
-          <button
-            className={`catalog-inline-button${canClaimReward ? " catalog-inline-button-accent" : ""}`}
-            type="button"
-            disabled={!canClaimReward || isClaimingReward}
-            onClick={onClaimReward}
-          >
-            {canClaimReward
-              ? isClaimingReward
-                ? copy.daily.claiming
-                : copy.daily.claimXp(reward.availableXp)
-              : copy.daily.claimedXp(reward.claimedXp)}
-          </button>
-        </div>
-      </div>
-
-      <div className="daily-challenge-layout">
-        <div className="daily-challenge-media-column">
-          <MediaAsset
-            kind="ride"
-            slug={challenge.ride.slug}
-            imageUrl={challenge.ride.imageUrl}
-            alt={`${challenge.ride.name} ride view`}
-            frameClassName="media-frame media-frame-ride-card"
-            imageClassName="media-image"
-          />
-          <button
-            className="catalog-inline-button"
-            type="button"
-            onClick={() => {
-              onOpenRide(challenge.ride.parkSlug, challenge.ride.slug);
-            }}
-          >
-            {copy.daily.openRide}
-          </button>
-        </div>
-
-        <div className="daily-challenge-copy">
-          <p className="status-label">{challenge.title}</p>
-          <h3 className="section-title">{challenge.prompt}</h3>
-
-          <div className={`state-message state-message-compact daily-challenge-feedback ${resultTone}`}>
-            <p>
-              {attempt
-                ? attempt.isCorrect
-                  ? copy.daily.correct(attempt.earnedXp)
-                  : copy.daily.locked(attempt.earnedXp)
-                : copy.daily.idle}
-            </p>
-            <p>
-              {canClaimReward
-                ? copy.daily.rewardAvailable(reward.availableXp)
-                : copy.daily.rewardClaimed(
-                    reward.claimedAt ? formatDateLabel(locale, reward.claimedAt) : undefined
-                  )}
-            </p>
-          </div>
-
-          <div className="daily-challenge-options">
-            {challenge.options.map((option) => {
-              const isSelected = attempt?.selectedOptionId === option.id;
-              const isCorrect = attempt?.correctOptionId === option.id;
-
-              return (
-                <button
-                  key={option.id}
-                  className={`daily-challenge-option${
-                    isSelected ? " daily-challenge-option-selected" : ""
-                  }${isCorrect ? " daily-challenge-option-correct" : ""}`}
-                  type="button"
-                  disabled={Boolean(attempt) || isSubmitting || isClaimingReward}
-                  onClick={() => {
-                    onAnswer(option.id);
-                  }}
-                >
-                  <span>{option.label}</span>
-                  {attempt ? (
-                    <span className="daily-challenge-option-meta">
-                      {isCorrect
-                        ? locale === "es"
-                          ? "Respuesta"
-                          : "Answer"
-                        : isSelected
-                          ? locale === "es"
-                            ? "Tu opci\u00f3n"
-                            : "Your pick"
-                          : ""}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-
-          <p className="catalog-note">{copy.daily.completed(summary.completedDays)}</p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-type CuratedCollectionCardProps = {
-  collection: CuratedCollection;
-  isActive?: boolean;
-  onOpen: () => void;
-  locale: Locale;
-  copy: UiCopy;
-};
-
-function CuratedCollectionCard({
-  collection,
-  isActive = false,
-  onOpen,
-  locale,
-  copy
-}: CuratedCollectionCardProps) {
-  return (
-    <button
-      className={`collection-card${isActive ? " collection-card-active" : ""}`}
-      type="button"
-      onClick={onOpen}
-    >
-      <div className="collection-card-header">
-        <span className="editorial-tag">{collection.badge}</span>
-        {isActive ? (
-          <span className="catalog-chip catalog-chip-ridden">{copy.collections.viewingNow}</span>
-        ) : null}
-      </div>
-      <div className="collection-card-copy">
-        <h3>{collection.title}</h3>
-        <p>{collection.summary}</p>
-      </div>
-      <span className="collection-card-meta">
-        {copy.collections.insideCollection(
-          formatCountLabel(locale, collection.itemSlugs.length, collection.kind)
-        )}
-      </span>
-    </button>
-  );
-}
-
-function CatalogSkeletonGrid({
-  count,
-  variant
-}: {
-  count: number;
-  variant: "park" | "ride";
-}) {
-  return (
-    <div
-      className={`catalog-skeleton-grid ${
-        variant === "ride" ? "rides-list-catalog" : "parks-list"
-      }`}
-      aria-label={`${variant === "ride" ? "Rides" : "Parks"} loading`}
-      aria-busy="true"
-    >
-      {Array.from({ length: count }, (_, index) => (
-        <article className="catalog-skeleton-card" key={`${variant}-skeleton-${index}`}>
-          <div className="skeleton-block skeleton-media" />
-          <div className="skeleton-row skeleton-row-title" />
-          <div className="skeleton-row skeleton-row-short" />
-          <div className="skeleton-row" />
-          <div className="skeleton-row skeleton-row-medium" />
-          <div className="skeleton-chip-row">
-            <span className="skeleton-chip" />
-            <span className="skeleton-chip" />
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
 
 function App() {
   const [route, setRoute] = useState<Route>(() => getRoute(window.location.pathname));
@@ -4552,100 +3671,37 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className={`topbar${isMobileNavOpen ? " topbar-nav-open" : ""}`}>
-        <div className="topbar-primary">
-          <button
-            className="brand-link brand-link-image"
-            type="button"
-            onClick={() => {
-              setIsMobileNavOpen(false);
-              navigateHome();
-            }}
-          >
-            <img className="brand-logo" src={brandLogoDark} alt="Coasterly" />
-          </button>
-          <span className="mobile-route-label">{activeNavigationLabel}</span>
-          <button
-            className="mobile-menu-button"
-            type="button"
-            aria-expanded={isMobileNavOpen}
-            aria-controls="primary-navigation"
-            onClick={() => {
-              setIsMobileNavOpen((isOpen) => !isOpen);
-            }}
-          >
-            {copy.nav.menu}
-          </button>
-        </div>
-        <nav className="topbar-nav" id="primary-navigation" aria-label={copy.nav.menu}>
-          {topNavigation.map((item) => (
-            <a
-              key={item.label}
-              className={`topbar-nav-link${item.active ? " topbar-nav-link-active" : ""}`}
-              href={item.href}
-              onClick={(event) => {
-                event.preventDefault();
-                setIsMobileNavOpen(false);
-                item.onClick();
-              }}
-            >
-              {item.label}
-            </a>
-          ))}
-        </nav>
-        <div className="topbar-meta">
-          <div className="language-switcher" aria-label={copy.nav.language}>
-            {(Object.keys(localeLabels) as Locale[]).map((nextLocale) => (
-              <button
-                key={nextLocale}
-                className={`language-button${locale === nextLocale ? " language-button-active" : ""}`}
-                type="button"
-                onClick={() => {
-                  setLocale(nextLocale);
-                }}
-              >
-                {localeLabels[nextLocale]}
-              </button>
-            ))}
-          </div>
-          {isAuthenticated ? (
-            <button className="secondary-button topbar-auth-button" type="button" onClick={() => {
-              void signOut();
-            }}>
-              {copy.nav.signOut}
-            </button>
-          ) : (
-            <button className="primary-button topbar-auth-button" type="button" onClick={() => {
-              beginGoogleSignIn();
-            }}>
-              {copy.nav.signIn}
-            </button>
-          )}
-          <div className="status-cluster" aria-live="polite">
-            {apiStatus.state === "error" ? (
-              <span className="status-chip status-chip-error">{copy.common.serviceIssue}</span>
-            ) : null}
-          </div>
-        </div>
-      </header>
+      <AppHeader
+        isMobileNavOpen={isMobileNavOpen}
+        activeNavigationLabel={activeNavigationLabel}
+        topNavigation={topNavigation}
+        locale={locale}
+        copy={copy}
+        isAuthenticated={isAuthenticated}
+        apiStatus={apiStatus}
+        onToggleMobileNav={() => {
+          setIsMobileNavOpen((isOpen) => !isOpen);
+        }}
+        onCloseMobileNav={() => {
+          setIsMobileNavOpen(false);
+        }}
+        onNavigateHome={navigateHome}
+        onLocaleChange={setLocale}
+        onSignIn={() => {
+          beginGoogleSignIn();
+        }}
+        onSignOut={() => {
+          void signOut();
+        }}
+      />
 
       {showRouteBar ? (
-        <section className="route-bar" aria-label="Current route">
-          <div className="route-bar-main">
-            {renderBreadcrumbs(breadcrumbItems)}
-            <div className="route-context">
-              <p className="route-context-label">{routeBarLabel}</p>
-              <strong className="route-context-value">{routeBarTitle}</strong>
-            </div>
-          </div>
-          <div className="route-bar-actions">
-            {routeBarChips.map((chip) => (
-              <span className="catalog-chip route-chip" key={chip}>
-                {chip}
-              </span>
-            ))}
-          </div>
-        </section>
+        <RouteBar
+          breadcrumbItems={breadcrumbItems}
+          routeBarLabel={routeBarLabel}
+          routeBarTitle={routeBarTitle}
+          routeBarChips={routeBarChips}
+        />
       ) : null}
 
       {route.view === "home" ? (
@@ -6139,139 +5195,59 @@ function App() {
       ) : null}
 
       {route.view === "profile" ? (
-        <section className="catalog-panel browse-panel" aria-live="polite">
-          <div className="catalog-header">
-            <div className="catalog-copy">
-              <p className="status-label">{copy.nav.profile}</p>
-              <h2 className="section-title">{copy.profile.title}</h2>
-            </div>
-          </div>
-
-          {currentUserStatus.state === "signed_out" ? (
-            <AuthPromptPanel
-              title={signInPromptTitle}
-              summary={signInPromptBody}
-              actionLabel={copy.nav.signIn}
-              onAction={() => {
-                beginGoogleSignIn("/profile");
-              }}
-            />
-          ) : null}
-
-          {userProfileStatus.state === "loading" ? (
-            <div className="state-message state-message-loading">
-              <p>{locale === "es" ? "Cargando perfil..." : "Loading profile..."}</p>
-            </div>
-          ) : null}
-
-          {currentUserStatus.state === "signed_in" && userProfileStatus.state === "success" ? (
-            <>
-              {profileShareMessage ? (
-                <div className="state-message state-message-compact">
-                  <p>{profileShareMessage}</p>
-                </div>
-              ) : null}
-              <ProfileSurface
-                profile={userProfileStatus.profile}
-                isCurrentUser
-                locale={locale}
-                copy={copy}
-                onOpenPark={(parkSlug) => {
-                  navigateToPark(parkSlug);
-                }}
-                onOpenRide={(parkSlug, rideSlug) => {
-                  navigateToRide(parkSlug, rideSlug);
-                }}
-                onBrowseParks={() => {
-                  navigateToParks();
-                }}
-                onBrowseRides={() => {
-                  navigateToRides();
-                }}
-                onOpenPublicProfile={navigateToPublicProfile}
-                onCopyPublicProfile={copyPublicProfileLink}
-              />
-              {userProfileStatus.profile.totalRiddenRides > 0 ? (
-                <DailyChallengePanel
-                  dailyChallengeStatus={dailyChallengeStatus}
-                  isSubmitting={isSubmittingDailyChallenge}
-                  isClaimingReward={isClaimingDailyReward}
-                  onAnswer={submitDailyChallengeAnswer}
-                  onClaimReward={claimDailyReward}
-                  locale={locale}
-                  copy={copy}
-                  onOpenRide={(parkSlug, rideSlug) => {
-                    navigateToRide(parkSlug, rideSlug);
-                  }}
-                />
-              ) : null}
-            </>
-          ) : null}
-
-          {userProfileStatus.state === "error" ? (
-            <div className="state-message state-message-error">
-              <p>{locale === "es" ? "No se puede cargar tu perfil." : "Unable to load your profile."}</p>
-              <p>{userProfileStatus.message}</p>
-            </div>
-          ) : null}
-        </section>
+        <ProfilePage
+          currentUserStatus={currentUserStatus}
+          userProfileStatus={userProfileStatus}
+          dailyChallengeStatus={dailyChallengeStatus}
+          isSubmittingDailyChallenge={isSubmittingDailyChallenge}
+          isClaimingDailyReward={isClaimingDailyReward}
+          profileShareMessage={profileShareMessage}
+          signInPromptTitle={signInPromptTitle}
+          signInPromptBody={signInPromptBody}
+          locale={locale}
+          copy={copy}
+          onSignIn={beginGoogleSignIn}
+          onOpenPark={(parkSlug) => {
+            navigateToPark(parkSlug);
+          }}
+          onOpenRide={(parkSlug, rideSlug) => {
+            navigateToRide(parkSlug, rideSlug);
+          }}
+          onBrowseParks={() => {
+            navigateToParks();
+          }}
+          onBrowseRides={() => {
+            navigateToRides();
+          }}
+          onOpenPublicProfile={navigateToPublicProfile}
+          onCopyPublicProfile={copyPublicProfileLink}
+          onAnswerDailyChallenge={submitDailyChallengeAnswer}
+          onClaimDailyReward={claimDailyReward}
+        />
       ) : null}
 
       {route.view === "user-profile" ? (
-        <section className="catalog-panel browse-panel" aria-live="polite">
-          {userProfileStatus.state === "loading" ? (
-            <div className="state-message state-message-loading">
-              <p>{locale === "es" ? "Cargando perfil..." : "Loading profile..."}</p>
-            </div>
-          ) : null}
-
-          {userProfileStatus.state === "success" ? (
-            <ProfileSurface
-              profile={userProfileStatus.profile}
-              isCurrentUser={false}
-              locale={locale}
-              copy={copy}
-              onOpenPark={(parkSlug) => {
-                navigateToPark(parkSlug);
-              }}
-              onOpenRide={(parkSlug, rideSlug) => {
-                navigateToRide(parkSlug, rideSlug);
-              }}
-            />
-          ) : null}
-
-          {userProfileStatus.state === "error" ? (
-            <div className="state-message state-message-error">
-              <p>{locale === "es" ? "No se puede cargar este perfil." : "Unable to load this profile."}</p>
-              <p>{userProfileStatus.message}</p>
-            </div>
-          ) : null}
-        </section>
+        <PublicProfilePage
+          userProfileStatus={userProfileStatus}
+          locale={locale}
+          copy={copy}
+          onOpenPark={(parkSlug) => {
+            navigateToPark(parkSlug);
+          }}
+          onOpenRide={(parkSlug, rideSlug) => {
+            navigateToRide(parkSlug, rideSlug);
+          }}
+        />
       ) : null}
 
       {route.view === "journal" ? (
-        <section className="catalog-panel browse-panel" aria-live="polite">
-          <div className="catalog-header">
-            <div className="catalog-copy">
-              <p className="status-label">{copy.nav.journal}</p>
-              <h2 className="section-title">{copy.journal.title}</h2>
-            </div>
-          </div>
-          <div className="editorial-grid">
-            {journalTeasers.map((entry) => (
-              <article className="editorial-card" key={entry.title}>
-                <span className="editorial-tag">{entry.category}</span>
-                <h3>{entry.title}</h3>
-                <p>{entry.summary}</p>
-                <button className="catalog-inline-button" type="button" onClick={() => {
-                  navigateToParks({ preserveSearch: true });
-                }}>
-                  {copy.journal.browseParks}
-                </button>
-              </article>
-            ))}
-          </div>
-        </section>
+        <JournalPage
+          journalTeasers={journalTeasers}
+          copy={copy}
+          onBrowseParks={() => {
+            navigateToParks({ preserveSearch: true });
+          }}
+        />
       ) : null}
 
       {route.view === "park" ? (
@@ -6902,4 +5878,3 @@ function catalogStateChip(locale: Locale, copy: UiCopy, status: ParksStatus | Ri
 }
 
 export default App;
-
