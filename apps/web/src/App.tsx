@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type {
   CommunityHighlightsResponse,
+  CurrentUserResponse,
   DailyChallengeAnswerRequest,
   DailyChallengeResponse,
   DemoUserStatsResponse,
@@ -49,6 +50,13 @@ const brandLogoDark = "/brand/coasterly-logo-horizontal-dark.png";
 const brandIconDark = "/brand/coasterly-logo-icon-dark.png";
 const placeholderImageHost = "placehold.co";
 const queueTimesAttributionUrl = "https://queue-times.com/";
+const authFailureStatusCode = 401;
+
+const fetchWithSession = (input: URL | RequestInfo, init?: RequestInit) =>
+  fetch(input, {
+    ...init,
+    credentials: "include"
+  });
 
 const journalTeasers = [
   {
@@ -506,11 +514,13 @@ type RidesCatalogOptions = ParkRideOptions & {
 type RideDetailOrigin = "park" | "rides";
 
 type RideCreditsStatus =
+  | { state: "idle" }
   | { state: "loading" }
   | { state: "success"; rideIds: number[]; userName: string }
   | { state: "error"; message: string };
 
 type DemoUserStatsStatus =
+  | { state: "idle" }
   | { state: "loading" }
   | {
       state: "success";
@@ -522,6 +532,7 @@ type DemoUserStatsStatus =
   | { state: "error"; message: string };
 
 type UserProgressionStatus =
+  | { state: "idle" }
   | { state: "loading" }
   | {
       state: "success";
@@ -543,8 +554,15 @@ type CommunityHighlightsStatus =
   | { state: "error"; message: string };
 
 type DailyChallengeStatus =
+  | { state: "idle" }
   | { state: "loading" }
   | { state: "success"; response: DailyChallengeResponse }
+  | { state: "error"; message: string };
+
+type CurrentUserStatus =
+  | { state: "loading" }
+  | { state: "signed_out" }
+  | { state: "signed_in"; currentUser: CurrentUserResponse }
   | { state: "error"; message: string };
 
 type RideDetailStatus =
@@ -863,6 +881,30 @@ function QueueTimesAttribution({
   );
 }
 
+function AuthPromptPanel({
+  title,
+  summary,
+  actionLabel,
+  onAction
+}: {
+  title: string;
+  summary: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <section className="stats-panel" aria-label={title}>
+      <div className="state-message state-message-empty">
+        <p>{title}</p>
+        <p>{summary}</p>
+        <button className="catalog-inline-button" type="button" onClick={onAction}>
+          {actionLabel}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function ProgressionPanel({
   userProgressionStatus,
   locale,
@@ -872,6 +914,10 @@ function ProgressionPanel({
   locale: Locale;
   copy: UiCopy;
 }) {
+  if (userProgressionStatus.state === "idle") {
+    return null;
+  }
+
   if (userProgressionStatus.state === "loading") {
     return (
       <div className="state-message state-message-loading">
@@ -1285,6 +1331,10 @@ function DailyChallengePanel({
   locale: Locale;
   copy: UiCopy;
 }) {
+  if (dailyChallengeStatus.state === "idle") {
+    return null;
+  }
+
   if (dailyChallengeStatus.state === "loading") {
     return (
       <section className="stats-panel" aria-label={copy.daily.title}>
@@ -1571,14 +1621,17 @@ function App() {
   const [rideDetailOrigin, setRideDetailOrigin] = useState<RideDetailOrigin>(() =>
     getRideDetailOriginFromUrl(window.location.search)
   );
-  const [rideCreditsStatus, setRideCreditsStatus] = useState<RideCreditsStatus>({
+  const [currentUserStatus, setCurrentUserStatus] = useState<CurrentUserStatus>({
     state: "loading"
+  });
+  const [rideCreditsStatus, setRideCreditsStatus] = useState<RideCreditsStatus>({
+    state: "idle"
   });
   const [demoUserStatsStatus, setDemoUserStatsStatus] = useState<DemoUserStatsStatus>({
-    state: "loading"
+    state: "idle"
   });
   const [userProgressionStatus, setUserProgressionStatus] = useState<UserProgressionStatus>({
-    state: "loading"
+    state: "idle"
   });
   const [userProfileStatus, setUserProfileStatus] = useState<UserProfileStatus>({
     state: "idle"
@@ -1588,7 +1641,7 @@ function App() {
       state: "loading"
     });
   const [dailyChallengeStatus, setDailyChallengeStatus] = useState<DailyChallengeStatus>({
-    state: "loading"
+    state: "idle"
   });
   const [rideDetailStatus, setRideDetailStatus] = useState<RideDetailStatus>({
     state: "idle"
@@ -1602,6 +1655,18 @@ function App() {
   const [rideCreditMessage, setRideCreditMessage] = useState<string | null>(null);
   const [profileShareMessage, setProfileShareMessage] = useState<string | null>(null);
   const copy = messages[locale];
+  const signInPromptTitle =
+    locale === "es"
+      ? "Inicia sesi\u00f3n para guardar tu progreso."
+      : "Sign in to save your progress.";
+  const signInPromptBody =
+    locale === "es"
+      ? "Usa Google para guardar cr\u00e9ditos, misiones y progreso del perfil."
+      : "Use Google to save credits, missions, and profile progress.";
+  const rideSignInPrompt =
+    locale === "es"
+      ? "Inicia sesi\u00f3n para guardar esta atracci\u00f3n."
+      : "Sign in to track this ride.";
   const localizedJournalTeasers = locale === "es" ? journalTeasersEs : journalTeasers;
   const landingJournalTeasers = localizedJournalTeasers.slice(0, 1);
   const localizedParkEditorialBySlug =
@@ -1621,6 +1686,55 @@ function App() {
     localizedCollections.find((collection) => collection.id === "parks-with-strong-lineups")
   ].filter((collection): collection is CuratedCollection => Boolean(collection));
 
+  const loadCurrentUser = async (signal?: AbortSignal) => {
+    if (!apiBaseUrl) {
+      setCurrentUserStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    setCurrentUserStatus({ state: "loading" });
+
+    try {
+      const response = await fetchWithSession(new URL("/me", apiBaseUrl), {
+        ...(signal ? { signal } : {})
+      });
+
+      if (response.status === authFailureStatusCode) {
+        setCurrentUserStatus({ state: "signed_out" });
+        return;
+      }
+
+      if (!response.ok) {
+        setCurrentUserStatus({
+          state: "error",
+          message: `Current user request failed with status ${response.status}.`
+        });
+
+        return;
+      }
+
+      const payload = (await response.json()) as CurrentUserResponse;
+
+      setCurrentUserStatus({
+        state: "signed_in",
+        currentUser: payload
+      });
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setCurrentUserStatus({
+        state: "error",
+        message: error instanceof Error ? error.message : "The current user request failed."
+      });
+    }
+  };
+
   const loadDemoUserStats = async (signal?: AbortSignal) => {
     if (!apiBaseUrl) {
       setDemoUserStatsStatus({
@@ -1634,14 +1748,20 @@ function App() {
     setDemoUserStatsStatus({ state: "loading" });
 
     try {
-      const response = await fetch(new URL("/demo-user/stats", apiBaseUrl), {
+      const response = await fetchWithSession(new URL("/me/stats", apiBaseUrl), {
         ...(signal ? { signal } : {})
       });
+
+      if (response.status === authFailureStatusCode) {
+        setDemoUserStatsStatus({ state: "idle" });
+
+        return;
+      }
 
       if (!response.ok) {
         setDemoUserStatsStatus({
           state: "error",
-          message: `Demo user stats request failed with status ${response.status}.`
+          message: `User stats request failed with status ${response.status}.`
         });
 
         return;
@@ -1684,9 +1804,15 @@ function App() {
     setUserProgressionStatus({ state: "loading" });
 
     try {
-      const response = await fetch(new URL("/me/progression", apiBaseUrl), {
+      const response = await fetchWithSession(new URL("/me/progression", apiBaseUrl), {
         ...(signal ? { signal } : {})
       });
+
+      if (response.status === authFailureStatusCode) {
+        setUserProgressionStatus({ state: "idle" });
+
+        return;
+      }
 
       if (!response.ok) {
         setUserProgressionStatus({
@@ -1733,9 +1859,15 @@ function App() {
     setUserProfileStatus({ state: "loading" });
 
     try {
-      const response = await fetch(new URL("/me/profile", apiBaseUrl), {
+      const response = await fetchWithSession(new URL("/me/profile", apiBaseUrl), {
         ...(signal ? { signal } : {})
       });
+
+      if (response.status === authFailureStatusCode) {
+        setUserProfileStatus({ state: "idle" });
+
+        return;
+      }
 
       if (!response.ok) {
         setUserProfileStatus({
@@ -1828,9 +1960,15 @@ function App() {
     setDailyChallengeStatus({ state: "loading" });
 
     try {
-      const response = await fetch(new URL("/me/daily-challenge", apiBaseUrl), {
+      const response = await fetchWithSession(new URL("/me/daily-challenge", apiBaseUrl), {
         ...(signal ? { signal } : {})
       });
+
+      if (response.status === authFailureStatusCode) {
+        setDailyChallengeStatus({ state: "idle" });
+
+        return;
+      }
 
       if (!response.ok) {
         setDailyChallengeStatus({
@@ -2006,6 +2144,22 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+
+    void loadCurrentUser(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (currentUserStatus.state !== "signed_in") {
+      setRideCreditsStatus({ state: "idle" });
+
+      return;
+    }
+
     if (!apiBaseUrl) {
       setRideCreditsStatus({
         state: "error",
@@ -2019,10 +2173,15 @@ function App() {
 
     const loadRideCredits = async () => {
       try {
-        const response = await fetch(
-          new URL("/demo-user/ride-credits", apiBaseUrl),
-          { signal: controller.signal }
-        );
+        const response = await fetchWithSession(new URL("/me/ride-credits", apiBaseUrl), {
+          signal: controller.signal
+        });
+
+        if (response.status === authFailureStatusCode) {
+          setRideCreditsStatus({ state: "idle" });
+
+          return;
+        }
 
         if (!response.ok) {
           setRideCreditsStatus({
@@ -2060,20 +2219,27 @@ function App() {
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [currentUserStatus.state]);
 
   useEffect(() => {
     const controller = new AbortController();
 
-    void loadDemoUserStats(controller.signal);
-    void loadUserProgression(controller.signal);
+    if (currentUserStatus.state === "signed_in") {
+      void loadDemoUserStats(controller.signal);
+      void loadUserProgression(controller.signal);
+      void loadDailyChallenge(controller.signal);
+    } else {
+      setDemoUserStatsStatus({ state: "idle" });
+      setUserProgressionStatus({ state: "idle" });
+      setDailyChallengeStatus({ state: "idle" });
+    }
+
     void loadCommunityHighlights(controller.signal);
-    void loadDailyChallenge(controller.signal);
 
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [currentUserStatus.state]);
 
   useEffect(() => {
     if (route.view !== "profile" && route.view !== "user-profile") {
@@ -2085,16 +2251,18 @@ function App() {
 
     const controller = new AbortController();
 
-    if (route.view === "profile") {
+    if (route.view === "profile" && currentUserStatus.state === "signed_in") {
       void loadUserProfile(controller.signal);
-    } else {
+    } else if (route.view === "user-profile") {
       void loadPublicUserProfile(route.slug, controller.signal);
+    } else {
+      setUserProfileStatus({ state: "idle" });
     }
 
     return () => {
       controller.abort();
     };
-  }, [route]);
+  }, [route, currentUserStatus.state]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -2976,6 +3144,41 @@ function App() {
     navigateWithParams("/", new URLSearchParams());
   };
 
+  const beginGoogleSignIn = (returnTo?: string) => {
+    if (!apiBaseUrl) {
+      return;
+    }
+
+    const authUrl = new URL("/auth/google/start", apiBaseUrl);
+    authUrl.searchParams.set(
+      "returnTo",
+      returnTo ?? `${window.location.pathname}${window.location.search}`
+    );
+    window.location.assign(authUrl.toString());
+  };
+
+  const signOut = async () => {
+    if (!apiBaseUrl) {
+      return;
+    }
+
+    await fetchWithSession(new URL("/auth/sign-out", apiBaseUrl), {
+      method: "POST"
+    });
+
+    setCurrentUserStatus({ state: "signed_out" });
+    setRideCreditsStatus({ state: "idle" });
+    setDemoUserStatsStatus({ state: "idle" });
+    setUserProgressionStatus({ state: "idle" });
+    setDailyChallengeStatus({ state: "idle" });
+    setUserProfileStatus({ state: "idle" });
+    setProfileShareMessage(null);
+
+    if (route.view === "profile") {
+      navigateHome();
+    }
+  };
+
   const navigateToParks = (options?: { preserveSearch?: boolean; collectionId?: string }) => {
     if (!options?.preserveSearch) {
       setSearchQuery("");
@@ -3115,7 +3318,7 @@ function App() {
     setIsSubmittingDailyChallenge(true);
 
     try {
-      const response = await fetch(new URL("/me/daily-challenge/answer", apiBaseUrl), {
+      const response = await fetchWithSession(new URL("/me/daily-challenge/answer", apiBaseUrl), {
         method: "POST",
         headers: {
           "content-type": "application/json"
@@ -3126,6 +3329,12 @@ function App() {
       });
 
       if (!response.ok) {
+        if (response.status === authFailureStatusCode) {
+          setCurrentUserStatus({ state: "signed_out" });
+          setDailyChallengeStatus({ state: "idle" });
+          return;
+        }
+
         setDailyChallengeStatus({
           state: "error",
           message: `Daily challenge answer failed with status ${response.status}.`
@@ -3161,11 +3370,17 @@ function App() {
     setIsClaimingDailyReward(true);
 
     try {
-      const response = await fetch(new URL("/me/daily-challenge/reward", apiBaseUrl), {
+      const response = await fetchWithSession(new URL("/me/daily-challenge/reward", apiBaseUrl), {
         method: "POST"
       });
 
       if (!response.ok) {
+        if (response.status === authFailureStatusCode) {
+          setCurrentUserStatus({ state: "signed_out" });
+          setDailyChallengeStatus({ state: "idle" });
+          return;
+        }
+
         setDailyChallengeStatus({
           state: "error",
           message: `Daily reward claim failed with status ${response.status}.`
@@ -3275,6 +3490,13 @@ function App() {
       return;
     }
 
+    if (currentUserStatus.state !== "signed_in") {
+      setRideCreditMessage(rideSignInPrompt);
+      beginGoogleSignIn(`${window.location.pathname}${window.location.search}`);
+
+      return;
+    }
+
     setIsUpdatingRideCredit(true);
     setRideCreditMessage(null);
 
@@ -3283,11 +3505,18 @@ function App() {
         `/parks/${route.parkSlug}/rides/${route.rideSlug}/credit`,
         apiBaseUrl
       );
-      const response = await fetch(creditUrl, {
+      const response = await fetchWithSession(creditUrl, {
         method: nextRidden ? "PUT" : "DELETE"
       });
 
       if (!response.ok) {
+        if (response.status === authFailureStatusCode) {
+          setCurrentUserStatus({ state: "signed_out" });
+          setRideCreditsStatus({ state: "idle" });
+          setRideCreditMessage(rideSignInPrompt);
+          return;
+        }
+
         setRideCreditMessage(`Unable to update ride credit (${response.status}).`);
 
         return;
@@ -3298,6 +3527,7 @@ function App() {
       updateRiddenRide(payload.rideId, payload.ridden);
       await loadDemoUserStats();
       await loadUserProgression();
+      await loadUserProfile();
       setRideCreditMessage(
         payload.ridden ? "Ride marked as ridden." : "Ride marked as not ridden."
       );
@@ -3316,6 +3546,7 @@ function App() {
   const normalizedRideCatalogSearchQuery = rideCatalogSearchQuery.trim();
   const hasActiveRideCatalogSearch =
     route.view === "rides" && normalizedRideCatalogSearchQuery.length > 0;
+  const isAuthenticated = currentUserStatus.state === "signed_in";
   const heroCountLabel =
     parksStatus.state === "success"
       ? formatCountLabel(
@@ -3327,12 +3558,16 @@ function App() {
   const riddenRideCountLabel =
     demoUserStatsStatus.state === "success"
       ? formatCountLabel(locale, demoUserStatsStatus.totalRiddenRides, "riddenRide")
+      : currentUserStatus.state === "signed_out"
+        ? copy.nav.signIn
       : demoUserStatsStatus.state === "loading"
         ? copy.browse.loadingResults
         : copy.route.statsUnavailable;
   const riddenParkCountLabel =
     demoUserStatsStatus.state === "success"
       ? formatCountLabel(locale, demoUserStatsStatus.totalParksWithRiddenRides, "park")
+      : currentUserStatus.state === "signed_out"
+        ? copy.nav.signIn
       : demoUserStatsStatus.state === "loading"
         ? copy.browse.loadingResults
         : copy.route.statsUnavailable;
@@ -3827,12 +4062,16 @@ function App() {
       active: route.view === "discover",
       onClick: navigateToDiscover
     },
-    {
-      label: copy.nav.profile,
-      href: "/profile",
-      active: route.view === "profile" || route.view === "user-profile",
-      onClick: navigateToProfile
-    },
+    ...(isAuthenticated
+      ? [
+          {
+            label: copy.nav.profile,
+            href: "/profile",
+            active: route.view === "profile" || route.view === "user-profile",
+            onClick: navigateToProfile
+          }
+        ]
+      : []),
     {
       label: copy.nav.journal,
       href: "/journal",
@@ -3901,6 +4140,19 @@ function App() {
               </button>
             ))}
           </div>
+          {isAuthenticated ? (
+            <button className="catalog-inline-button" type="button" onClick={() => {
+              void signOut();
+            }}>
+              {copy.nav.signOut}
+            </button>
+          ) : (
+            <button className="catalog-inline-button" type="button" onClick={() => {
+              beginGoogleSignIn();
+            }}>
+              {copy.nav.signIn}
+            </button>
+          )}
           <div className="status-cluster" aria-live="polite">
             {apiStatus.state === "error" ? (
               <span className="status-chip status-chip-error">{copy.common.serviceIssue}</span>
@@ -3940,8 +4192,18 @@ function App() {
                 }}>
                   {copy.home.browseParks}
                 </button>
-                <button className="secondary-button" type="button" onClick={navigateToProfile}>
-                  {copy.home.openProfile}
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => {
+                    if (isAuthenticated) {
+                      navigateToProfile();
+                    } else {
+                      beginGoogleSignIn();
+                    }
+                  }}
+                >
+                  {isAuthenticated ? copy.home.openProfile : copy.nav.signIn}
                 </button>
               </div>
               <div className="hero-stats" aria-label="Catalog summary">
@@ -4147,16 +4409,25 @@ function App() {
                     copy={copy}
                   />
                 </div>
-              ) : demoUserStatsStatus.state === "loading" ? (
+              ) : currentUserStatus.state === "signed_out" ? (
+                <AuthPromptPanel
+                  title={signInPromptTitle}
+                  summary={signInPromptBody}
+                  actionLabel={copy.nav.signIn}
+                  onAction={() => {
+                    beginGoogleSignIn();
+                  }}
+                />
+              ) : demoUserStatsStatus.state === "loading" || currentUserStatus.state === "loading" ? (
                 <div className="state-message state-message-loading">
                   <p>{copy.browse.loadingResults}</p>
                 </div>
-              ) : (
+              ) : demoUserStatsStatus.state === "error" ? (
                 <div className="state-message state-message-error">
                   <p>{copy.progression.unableLoadMissions}</p>
                   <p>{demoUserStatsStatus.message}</p>
                 </div>
-              )}
+              ) : null}
             </section>
           </section>
 
@@ -4187,18 +4458,29 @@ function App() {
             </div>
           </section>
 
-          <DailyChallengePanel
-            dailyChallengeStatus={dailyChallengeStatus}
-            isSubmitting={isSubmittingDailyChallenge}
-            isClaimingReward={isClaimingDailyReward}
-            onAnswer={submitDailyChallengeAnswer}
-            onClaimReward={claimDailyReward}
-            locale={locale}
-            copy={copy}
-            onOpenRide={(parkSlug, rideSlug) => {
-              navigateToRide(parkSlug, rideSlug);
-            }}
-          />
+          {currentUserStatus.state === "signed_out" ? (
+            <AuthPromptPanel
+              title={signInPromptTitle}
+              summary={signInPromptBody}
+              actionLabel={copy.nav.signIn}
+              onAction={() => {
+                beginGoogleSignIn();
+              }}
+            />
+          ) : (
+            <DailyChallengePanel
+              dailyChallengeStatus={dailyChallengeStatus}
+              isSubmitting={isSubmittingDailyChallenge}
+              isClaimingReward={isClaimingDailyReward}
+              onAnswer={submitDailyChallengeAnswer}
+              onClaimReward={claimDailyReward}
+              locale={locale}
+              copy={copy}
+              onOpenRide={(parkSlug, rideSlug) => {
+                navigateToRide(parkSlug, rideSlug);
+              }}
+            />
+          )}
 
           <section className="catalog-panel landing-panel">
               <div className="catalog-header landing-header">
@@ -4774,18 +5056,29 @@ function App() {
             </div>
           </div>
 
-          <DailyChallengePanel
-            dailyChallengeStatus={dailyChallengeStatus}
-            isSubmitting={isSubmittingDailyChallenge}
-            isClaimingReward={isClaimingDailyReward}
-            onAnswer={submitDailyChallengeAnswer}
-            onClaimReward={claimDailyReward}
-            locale={locale}
-            copy={copy}
-            onOpenRide={(parkSlug, rideSlug) => {
-              navigateToRide(parkSlug, rideSlug);
-            }}
-          />
+          {currentUserStatus.state === "signed_out" ? (
+            <AuthPromptPanel
+              title={signInPromptTitle}
+              summary={signInPromptBody}
+              actionLabel={copy.nav.signIn}
+              onAction={() => {
+                beginGoogleSignIn();
+              }}
+            />
+          ) : (
+            <DailyChallengePanel
+              dailyChallengeStatus={dailyChallengeStatus}
+              isSubmitting={isSubmittingDailyChallenge}
+              isClaimingReward={isClaimingDailyReward}
+              onAnswer={submitDailyChallengeAnswer}
+              onClaimReward={claimDailyReward}
+              locale={locale}
+              copy={copy}
+              onOpenRide={(parkSlug, rideSlug) => {
+                navigateToRide(parkSlug, rideSlug);
+              }}
+            />
+          )}
 
           {demoUserStatsStatus.state === "success" ? (
             <section className="stats-panel" aria-label={copy.discover.rideProgress}>
@@ -4844,6 +5137,15 @@ function App() {
                 copy={copy}
               />
             </section>
+          ) : currentUserStatus.state === "signed_out" ? (
+            <AuthPromptPanel
+              title={signInPromptTitle}
+              summary={signInPromptBody}
+              actionLabel={copy.nav.signIn}
+              onAction={() => {
+                beginGoogleSignIn();
+              }}
+            />
           ) : null}
 
           <section className="catalog-panel nested-panel">
@@ -5070,13 +5372,24 @@ function App() {
             </div>
           </div>
 
+          {currentUserStatus.state === "signed_out" ? (
+            <AuthPromptPanel
+              title={signInPromptTitle}
+              summary={signInPromptBody}
+              actionLabel={copy.nav.signIn}
+              onAction={() => {
+                beginGoogleSignIn("/profile");
+              }}
+            />
+          ) : null}
+
           {userProfileStatus.state === "loading" ? (
             <div className="state-message state-message-loading">
               <p>{locale === "es" ? "Cargando perfil..." : "Loading profile..."}</p>
             </div>
           ) : null}
 
-          {userProfileStatus.state === "success" ? (
+          {currentUserStatus.state === "signed_in" && userProfileStatus.state === "success" ? (
             <>
               {profileShareMessage ? (
                 <div className="state-message state-message-compact">
@@ -5613,7 +5926,9 @@ function App() {
                   <div>
                     <p className="status-label">{copy.ride.rideLog}</p>
                     <p className="credit-copy">
-                      {rideCreditsStatus.state === "success"
+                      {currentUserStatus.state === "signed_out"
+                        ? rideSignInPrompt
+                        : rideCreditsStatus.state === "success"
                         ? isCurrentRideRidden
                           ? copy.ride.saved
                           : copy.ride.savePrompt
@@ -5626,12 +5941,22 @@ function App() {
                     className={`credit-button${isCurrentRideRidden ? " credit-button-active" : ""}`}
                     type="button"
                     onClick={() => {
+                      if (currentUserStatus.state === "signed_out") {
+                        beginGoogleSignIn(`${window.location.pathname}${window.location.search}`);
+                        return;
+                      }
+
                       void toggleRideCredit(!isCurrentRideRidden);
                     }}
-                    disabled={isUpdatingRideCredit || rideCreditsStatus.state !== "success"}
+                    disabled={
+                      isUpdatingRideCredit ||
+                      (currentUserStatus.state === "signed_in" && rideCreditsStatus.state !== "success")
+                    }
                   >
                     {isUpdatingRideCredit
                       ? copy.ride.saving
+                      : currentUserStatus.state === "signed_out"
+                        ? copy.nav.signIn
                       : isCurrentRideRidden
                         ? copy.ride.removeRide
                         : copy.ride.markRidden}

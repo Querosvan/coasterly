@@ -1,6 +1,7 @@
 import type { FastifyRequest } from "fastify";
 
 import { resolveCurrentUser } from "./db.js";
+import { getSessionIdentityFromRequest } from "./auth.js";
 
 export class CurrentUserResolutionError extends Error {
   statusCode: number;
@@ -22,12 +23,15 @@ const readSingleHeaderValue = (
 };
 
 export const getAuthIdentityFromRequest = (request: FastifyRequest) => {
-  const authProvider = readSingleHeaderValue(
+  const headerAuthProvider = readSingleHeaderValue(
     request.headers["x-coasterly-auth-provider"]
   );
-  const authSubject = readSingleHeaderValue(
+  const headerAuthSubject = readSingleHeaderValue(
     request.headers["x-coasterly-auth-subject"]
   );
+  const sessionIdentity = getSessionIdentityFromRequest(request);
+  const authProvider = headerAuthProvider ?? sessionIdentity?.authProvider;
+  const authSubject = headerAuthSubject ?? sessionIdentity?.authSubject;
 
   return {
     ...(authProvider ? { authProvider } : {}),
@@ -41,6 +45,7 @@ export const resolveRequestCurrentUser = async (request: FastifyRequest) => {
   } catch (error) {
     if (error instanceof Error) {
       if (
+        error.message === "Auth identity is required." ||
         error.message === "Incomplete auth identity." ||
         error.message === "Auth identity is not linked to a Coasterly user."
       ) {

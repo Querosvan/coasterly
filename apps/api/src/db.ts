@@ -59,6 +59,8 @@ const demoUserSeed = {
   isSeeded: true
 } as const;
 
+const seededFallbackEnabled = process.env.COASTERLY_ENABLE_SEEDED_FALLBACK === "true";
+
 const createSeedImageUrl = (kind: "park" | "ride", name: string) =>
   `https://placehold.co/${
     kind === "park" ? "1600x900" : "1400x900"
@@ -1108,16 +1110,44 @@ type PaginatedRideCatalogResult = {
   pageInfo: PageInfo;
 };
 
-const getUserBySlug = async (slug: string): Promise<UserSummary | null> => {
-  const result = await pool.query<{
-    id: number;
-    slug: string;
-    name: string;
-    role: string;
-    is_seeded: boolean;
-  }>(
+type StoredUserRecord = {
+  id: number;
+  slug: string;
+  name: string;
+  role: string;
+  is_seeded: boolean;
+  email: string | null;
+  auth_provider: string | null;
+  auth_subject: string | null;
+};
+
+const mapStoredUserRecordToSummary = (record: StoredUserRecord): UserSummary => ({
+  id: record.id,
+  slug: record.slug,
+  name: record.name,
+  role: record.role as UserRole,
+  ...(record.is_seeded ? { isSeeded: true } : {})
+});
+
+const normalizeUserSlug = (value: string) =>
+  value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+
+const buildUserSlugBase = (value: string) => {
+  const normalizedValue = normalizeUserSlug(value);
+
+  return normalizedValue || "coasterly-rider";
+};
+
+const getStoredUserBySlug = async (slug: string): Promise<StoredUserRecord | null> => {
+  const result = await pool.query<StoredUserRecord>(
     `
-      SELECT id, slug, name, role, is_seeded
+      SELECT id, slug, name, role, is_seeded, email, auth_provider, auth_subject
       FROM users
       WHERE slug = $1
       LIMIT 1
@@ -1125,19 +1155,13 @@ const getUserBySlug = async (slug: string): Promise<UserSummary | null> => {
     [slug]
   );
 
-  const record = result.rows[0];
+  return result.rows[0] ?? null;
+};
 
-  if (!record) {
-    return null;
-  }
+const getUserBySlug = async (slug: string): Promise<UserSummary | null> => {
+  const record = await getStoredUserBySlug(slug);
 
-  return {
-    id: record.id,
-    slug: record.slug,
-    name: record.name,
-    role: record.role as UserRole,
-    ...(record.is_seeded ? { isSeeded: true } : {})
-  };
+  return record ? mapStoredUserRecordToSummary(record) : null;
 };
 
 const getPrimarySeedUser = async (): Promise<UserSummary> => {
@@ -1161,15 +1185,9 @@ const getUserByAuthIdentity = async (
     return null;
   }
 
-  const result = await pool.query<{
-    id: number;
-    slug: string;
-    name: string;
-    role: string;
-    is_seeded: boolean;
-  }>(
+  const result = await pool.query<StoredUserRecord>(
     `
-      SELECT id, slug, name, role, is_seeded
+      SELECT id, slug, name, role, is_seeded, email, auth_provider, auth_subject
       FROM users
       WHERE auth_provider = $1 AND auth_subject = $2
       LIMIT 1
@@ -1183,13 +1201,194 @@ const getUserByAuthIdentity = async (
     return null;
   }
 
-  return {
-    id: record.id,
-    slug: record.slug,
-    name: record.name,
-    role: record.role as UserRole,
-    ...(record.is_seeded ? { isSeeded: true } : {})
-  };
+  return mapStoredUserRecordToSummary(record);
+};
+
+const getStoredUserByEmail = async (email: string): Promise<StoredUserRecord | null> => {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const result = await pool.query<StoredUserRecord>(
+    `
+      SELECT id, slug, name, role, is_seeded, email, auth_provider, auth_subject
+      FROM users
+      WHERE LOWER(email) = $1
+      LIMIT 1
+    `,
+    [normalizedEmail]
+  );
+
+  return result.rows[0] ?? null;
+};
+
+const getAvailableUserSlug = async (baseValue: string) => {
+  const normalizedBase = buildUserSlugBase(baseValue);
+
+  for (let index = 0; index < 1000; index += 1) {
+    const candidateSlug = index === 0 ? normalizedBase : `${normalizedBase}-${index + 1}`;
+    const existingUser = await getStoredUserBySlug(candidateSlug);
+
+    if (!existingUser) {
+      return candidateSlug;
+    }
+  }
+
+  throw new Error("Unable to allocate a unique user slug.");
+};
+
+const updateStoredUserAuthIdentity = async (
+  userId: number,
+  options: {
+    authProvider: string;
+    authSubject: string;
+    email?: string;
+    name?: string;
+  }
+) => {
+  const result = await pool.query<StoredUserRecord>(
+    `
+      UPDATE users
+      SET
+        name = COALESCE($2, users.name),
+        email = COALESCE($3, users.email),
+        auth_provider = $4,
+        auth_subject = $5,
+        updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, slug, name, role, is_seeded, email, auth_provider, auth_subject
+    `,
+    [
+      userId,
+      options.name?.trim() || null,
+      options.email?.trim().toLowerCase() || null,
+      options.authProvider.trim(),
+      options.authSubject.trim()
+    ]
+  );
+
+  const record = result.rows[0];
+
+  if (!record) {
+    throw new Error("Unable to update auth-linked user.");
+  }
+
+  return record;
+};
+
+const insertAuthLinkedUser = async (options: {
+  authProvider: string;
+  authSubject: string;
+  email?: string;
+  name: string;
+}) => {
+  const slug = await getAvailableUserSlug(options.email ?? options.name);
+  const normalizedName = options.name.trim() || "Coasterly Rider";
+  const normalizedEmail = options.email?.trim().toLowerCase() || null;
+  const result = await pool.query<StoredUserRecord>(
+    `
+      INSERT INTO users (
+        slug,
+        name,
+        role,
+        email,
+        auth_provider,
+        auth_subject,
+        is_seeded,
+        updated_at
+      )
+      VALUES ($1, $2, 'user', $3, $4, $5, FALSE, NOW())
+      RETURNING id, slug, name, role, is_seeded, email, auth_provider, auth_subject
+    `,
+    [
+      slug,
+      normalizedName,
+      normalizedEmail,
+      options.authProvider.trim(),
+      options.authSubject.trim()
+    ]
+  );
+
+  const record = result.rows[0];
+
+  if (!record) {
+    throw new Error("Unable to create auth-linked user.");
+  }
+
+  return record;
+};
+
+export const findOrCreateUserFromAuthIdentity = async (options: {
+  authProvider: string;
+  authSubject: string;
+  email?: string;
+  name?: string;
+}): Promise<UserSummary> => {
+  const normalizedAuthProvider = options.authProvider.trim();
+  const normalizedAuthSubject = options.authSubject.trim();
+  const normalizedEmail = options.email?.trim().toLowerCase() || undefined;
+  const normalizedName =
+    options.name?.trim() ||
+    normalizedEmail?.split("@")[0]?.replace(/[._-]+/g, " ") ||
+    "Coasterly Rider";
+
+  if (!normalizedAuthProvider || !normalizedAuthSubject) {
+    throw new Error("Auth provider and subject are required.");
+  }
+
+  const existingUser = await getUserByAuthIdentity(normalizedAuthProvider, normalizedAuthSubject);
+
+  if (existingUser) {
+    if (normalizedEmail || normalizedName) {
+      const storedUser = await getStoredUserBySlug(existingUser.slug);
+
+      if (storedUser) {
+        await updateStoredUserAuthIdentity(storedUser.id, {
+          authProvider: normalizedAuthProvider,
+          authSubject: normalizedAuthSubject,
+          ...(normalizedEmail ? { email: normalizedEmail } : {}),
+          ...(normalizedName ? { name: normalizedName } : {})
+        });
+      }
+    }
+
+    return existingUser;
+  }
+
+  if (normalizedEmail) {
+    const existingEmailUser = await getStoredUserByEmail(normalizedEmail);
+
+    if (existingEmailUser) {
+      if (
+        existingEmailUser.auth_provider &&
+        existingEmailUser.auth_subject &&
+        (existingEmailUser.auth_provider !== normalizedAuthProvider ||
+          existingEmailUser.auth_subject !== normalizedAuthSubject)
+      ) {
+        throw new Error("Email is already linked to another auth identity.");
+      }
+
+      const linkedUser = await updateStoredUserAuthIdentity(existingEmailUser.id, {
+        authProvider: normalizedAuthProvider,
+        authSubject: normalizedAuthSubject,
+        email: normalizedEmail,
+        name: normalizedName
+      });
+
+      return mapStoredUserRecordToSummary(linkedUser);
+    }
+  }
+
+  const createdUser = await insertAuthLinkedUser({
+    authProvider: normalizedAuthProvider,
+    authSubject: normalizedAuthSubject,
+    ...(normalizedEmail ? { email: normalizedEmail } : {}),
+    name: normalizedName
+  });
+
+  return mapStoredUserRecordToSummary(createdUser);
 };
 
 export const resolveCurrentUser = async (options?: {
@@ -1221,6 +1420,10 @@ export const resolveCurrentUser = async (options?: {
         subject: normalizedAuthSubject
       }
     };
+  }
+
+  if (!seededFallbackEnabled) {
+    throw new Error("Auth identity is required.");
   }
 
   const fallbackUser = await getPrimarySeedUser();
