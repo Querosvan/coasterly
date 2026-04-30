@@ -318,6 +318,56 @@ const curatedCollections: CuratedCollection[] = [
 const formatDecimalValue = (value: number) =>
   Number.isInteger(value) ? String(value) : value.toFixed(1);
 
+const getParkCardMetric = (
+  locale: Locale,
+  copy: UiCopy,
+  park: Pick<Park, "status">,
+  parkProgress?: { riddenRides: number; completionPercentage: number }
+) => {
+  if (parkProgress && parkProgress.riddenRides > 0) {
+    return {
+      label: copy.home.progressLabel,
+      value: `${parkProgress.completionPercentage}%`
+    };
+  }
+
+  return {
+    label: copy.park.status,
+    value: formatStatusLabel(locale, park.status)
+  };
+};
+
+const getRideCardMetric = (
+  copy: UiCopy,
+  ride: Pick<Ride, "rideType" | "manufacturer" | "openingYear" | "speedKmh">
+) => {
+  if (ride.speedKmh !== undefined) {
+    return {
+      label: copy.browse.topSpeed,
+      value: `${formatDecimalValue(ride.speedKmh)} km/h`
+    };
+  }
+
+  if (ride.openingYear !== undefined) {
+    return {
+      label: copy.ride.openingYear,
+      value: String(ride.openingYear)
+    };
+  }
+
+  if (ride.manufacturer) {
+    return {
+      label: copy.ride.manufacturer,
+      value: ride.manufacturer
+    };
+  }
+
+  return {
+    label: copy.ride.rideType,
+    value: ride.rideType
+  };
+};
+
 type Route =
   | { view: "home" }
   | { view: "parks" }
@@ -3857,18 +3907,8 @@ function App() {
                   <div className="spotlight-copy">
                     <div className="spotlight-row">
                       <span className="catalog-chip">
-                        {formatStatusLabel(locale, spotlightPark.status)}
+                        {getParkCardMetric(locale, copy, spotlightPark, spotlightProgress).value}
                       </span>
-                      {spotlightParkEditorial?.cues.slice(0, 1).map((cue) => (
-                        <span className="catalog-chip route-chip" key={cue}>
-                          {translateCue(locale, cue)}
-                        </span>
-                      ))}
-                      {spotlightProgress ? (
-                        <span className="catalog-chip catalog-chip-ridden">
-                          {`${spotlightProgress.completionPercentage}% ${copy.park.completion}`}
-                        </span>
-                      ) : null}
                     </div>
                     <p className="eyebrow">{copy.home.featuredPark}</p>
                     <h2>{spotlightPark.name}</h2>
@@ -3940,6 +3980,7 @@ function App() {
                 {landingFeaturedParks.map((park) => {
                   const parkProgress = parkProgressBySlug?.get(park.slug);
                   const parkEditorial = localizedParkEditorialBySlug[park.slug];
+                  const parkMetric = getParkCardMetric(locale, copy, park, parkProgress);
 
                   return (
                     <button
@@ -3962,41 +4003,15 @@ function App() {
                         <div className="park-link">
                           <p className="park-name">{park.name}</p>
                         </div>
-                        <span className="catalog-chip">
-                          {formatStatusLabel(locale, park.status)}
-                        </span>
                       </div>
                       <p className="park-location">{formatParkLocation(park)}</p>
                       {parkEditorial ? (
                         <p className="card-summary">{parkEditorial.summary}</p>
                       ) : null}
-                      {parkEditorial?.cues.length ? (
-                        <div className="card-cues">
-                          {parkEditorial.cues.slice(0, 2).map((cue) => (
-                            <span className="catalog-chip route-chip" key={cue}>
-                              {translateCue(locale, cue)}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                      {parkProgress && parkProgress.riddenRides > 0 ? (
-                        <div className="park-progress">
-                          <div className="progress-copy">
-                            <span className="progress-label">{copy.home.progressLabel}</span>
-                            <strong className="progress-value">
-                              {parkProgress.completionPercentage}%
-                            </strong>
-                          </div>
-                          <div className="progress-rail" aria-hidden="true">
-                            <span
-                              className="progress-fill"
-                              style={{
-                                width: `${parkProgress.completionPercentage}%`
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ) : null}
+                      <p className="card-key-stat">
+                        <span className="card-stat-label">{parkMetric.label}</span>
+                        <strong className="card-stat-value">{parkMetric.value}</strong>
+                      </p>
                     </button>
                   );
                 })}
@@ -4285,6 +4300,7 @@ function App() {
                   {displayedParks.map((park) => {
                     const parkProgress = parkProgressBySlug?.get(park.slug);
                     const parkEditorial = localizedParkEditorialBySlug[park.slug];
+                    const parkMetric = getParkCardMetric(locale, copy, park, parkProgress);
 
                     return (
                       <button
@@ -4307,47 +4323,15 @@ function App() {
                           <div className="park-link">
                             <p className="park-name">{park.name}</p>
                           </div>
-                          <span className="catalog-chip">
-                            {formatStatusLabel(locale, park.status)}
-                          </span>
                         </div>
                         <p className="park-location">{formatParkLocation(park)}</p>
                         {parkEditorial ? (
                           <p className="card-summary">{parkEditorial.summary}</p>
                         ) : null}
-                        {parkEditorial?.cues.length ? (
-                          <div className="card-cues">
-                            {parkEditorial.cues.slice(0, 2).map((cue) => (
-                              <span className="catalog-chip route-chip" key={cue}>
-                                {translateCue(locale, cue)}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-                        {parkProgress && parkProgress.riddenRides > 0 ? (
-                          <div className="park-progress">
-                            <div className="progress-copy">
-                              <span className="progress-label">{copy.home.progressLabel}</span>
-                              <strong className="progress-value">
-                                {parkProgress.completionPercentage}%
-                              </strong>
-                            </div>
-                            <div className="progress-rail" aria-hidden="true">
-                              <span
-                                className="progress-fill"
-                                style={{
-                                  width: `${parkProgress.completionPercentage}%`
-                                }}
-                              />
-                            </div>
-                            <p className="park-meta">
-                              {copy.park.riddenOutOf(
-                                parkProgress.riddenRides,
-                                parkProgress.totalRides
-                              )}
-                            </p>
-                          </div>
-                        ) : null}
+                        <p className="card-key-stat">
+                          <span className="card-stat-label">{parkMetric.label}</span>
+                          <strong className="card-stat-value">{parkMetric.value}</strong>
+                        </p>
                       </button>
                     );
                   })}
@@ -4612,8 +4596,9 @@ function App() {
               <>
                 <div className="rides-list rides-list-catalog">
                   {displayedRideCatalogItems.map((entry) => {
-                    const isRidden = riddenRideIds?.has(entry.ride.id) === true;
                     const rideEditorial = localizedRideEditorialBySlug[entry.ride.slug];
+                    const isRidden = riddenRideIds?.has(entry.ride.id) === true;
+                    const rideMetric = getRideCardMetric(copy, entry.ride);
 
                     return (
                       <button
@@ -4641,40 +4626,19 @@ function App() {
                               <p className="ride-name">{entry.ride.name}</p>
                             </div>
                           </div>
-                          <div className="ride-card-chips">
-                            {isRidden ? (
-                              <span className="catalog-chip catalog-chip-ridden">
-                                {locale === "es" ? "Montada" : "Ridden"}
-                              </span>
-                            ) : null}
-                            <span className="catalog-chip">
-                              {formatStatusLabel(locale, entry.ride.status)}
-                            </span>
-                          </div>
                         </div>
-                        <p className="park-location">{formatParkLocation(entry.park)}</p>
                         {rideEditorial ? (
                           <p className="card-summary">{rideEditorial.summary}</p>
                         ) : null}
-                        <div className="ride-facts-row">
-                          {rideEditorial?.cues.slice(0, 2).map((cue) => (
-                            <span className="ride-fact-pill ride-fact-pill-accent" key={cue}>
-                              {translateCue(locale, cue)}
-                            </span>
-                          ))}
-                          <span className="ride-fact-pill">{entry.ride.rideType}</span>
-                          {entry.ride.manufacturer ? (
-                            <span className="ride-fact-pill">{entry.ride.manufacturer}</span>
-                          ) : null}
-                          {entry.ride.openingYear !== undefined ? (
-                            <span className="ride-fact-pill">{entry.ride.openingYear}</span>
-                          ) : null}
-                          {entry.ride.speedKmh !== undefined ? (
-                            <span className="ride-fact-pill">
-                              {`${formatDecimalValue(entry.ride.speedKmh)} km/h`}
-                            </span>
-                          ) : null}
-                        </div>
+                        <p className="card-key-stat">
+                          <span className="card-stat-label">{rideMetric.label}</span>
+                          <strong className="card-stat-value">{rideMetric.value}</strong>
+                        </p>
+                        {entry.ride.status !== "operating" ? (
+                          <p className="card-support-line">
+                            {formatStatusLabel(locale, entry.ride.status)}
+                          </p>
+                        ) : null}
                       </button>
                     );
                   })}
@@ -4908,7 +4872,11 @@ function App() {
             </div>
             <div className="parks-list parks-list-featured">
               {featuredProgressParks.length > 0
-                ? featuredProgressParks.map(({ park, progress }) => (
+                ? featuredProgressParks.map(({ park, progress }) => {
+                    const parkEditorial = localizedParkEditorialBySlug[park.slug];
+                    const parkMetric = getParkCardMetric(locale, copy, park, progress);
+
+                    return (
                     <button
                       className="park-card park-card-button"
                       key={park.id}
@@ -4929,14 +4897,23 @@ function App() {
                         <div className="park-link">
                           <p className="park-name">{park.name}</p>
                         </div>
-                        <span className="catalog-chip catalog-chip-ridden">
-                          {progress.completionPercentage}% complete
-                        </span>
                       </div>
                       <p className="park-location">{formatParkLocation(park)}</p>
+                      {parkEditorial ? (
+                        <p className="card-summary">{parkEditorial.summary}</p>
+                      ) : null}
+                      <p className="card-key-stat">
+                        <span className="card-stat-label">{parkMetric.label}</span>
+                        <strong className="card-stat-value">{parkMetric.value}</strong>
+                      </p>
                     </button>
-                  ))
-                : featuredParks.map((park) => (
+                    );
+                  })
+                : featuredParks.map((park) => {
+                    const parkEditorial = localizedParkEditorialBySlug[park.slug];
+                    const parkMetric = getParkCardMetric(locale, copy, park);
+
+                    return (
                     <button
                       className="park-card park-card-button"
                       key={park.id}
@@ -4957,11 +4934,18 @@ function App() {
                         <div className="park-link">
                           <p className="park-name">{park.name}</p>
                         </div>
-                        <span className="catalog-chip">{park.status}</span>
                       </div>
                       <p className="park-location">{formatParkLocation(park)}</p>
+                      {parkEditorial ? (
+                        <p className="card-summary">{parkEditorial.summary}</p>
+                      ) : null}
+                      <p className="card-key-stat">
+                        <span className="card-stat-label">{parkMetric.label}</span>
+                        <strong className="card-stat-value">{parkMetric.value}</strong>
+                      </p>
                     </button>
-                  ))}
+                    );
+                  })}
             </div>
           </section>
 
@@ -5383,6 +5367,7 @@ function App() {
                         {parkRidesStatus.rides.map((ride) => {
                           const rideEditorial = localizedRideEditorialBySlug[ride.slug];
                           const rideLiveWait = liveWaitByRideId.get(ride.id);
+                          const rideMetric = getRideCardMetric(copy, ride);
 
                           return (
                             <button
@@ -5405,31 +5390,14 @@ function App() {
                                 <div className="ride-link">
                                   <p className="ride-name">{ride.name}</p>
                                 </div>
-                                <div className="ride-card-chips">
-                                  {riddenRideIds?.has(ride.id) ? (
-                                    <span className="catalog-chip catalog-chip-ridden">
-                                      {locale === "es" ? "Montada" : "Ridden"}
-                                    </span>
-                                  ) : null}
-                                  <span className="catalog-chip">
-                                    {formatStatusLabel(locale, ride.status)}
-                                  </span>
-                                </div>
                               </div>
                               {rideEditorial ? (
                                 <p className="card-summary">{rideEditorial.summary}</p>
                               ) : null}
-                              <div className="ride-facts-row">
-                                {rideEditorial?.cues.slice(0, 1).map((cue) => (
-                                  <span className="ride-fact-pill ride-fact-pill-accent" key={cue}>
-                                    {translateCue(locale, cue)}
-                                  </span>
-                                ))}
-                                <span className="ride-fact-pill">{ride.rideType}</span>
-                                {ride.manufacturer ? (
-                                  <span className="ride-fact-pill">{ride.manufacturer}</span>
-                                ) : null}
-                              </div>
+                              <p className="card-key-stat">
+                                <span className="card-stat-label">{rideMetric.label}</span>
+                                <strong className="card-stat-value">{rideMetric.value}</strong>
+                              </p>
                               {rideLiveWait ? (
                                 <div className="ride-live-row">
                                   <div className="ride-live-copy">
@@ -5460,6 +5428,10 @@ function App() {
                                     {formatWaitStateLabel(locale, rideLiveWait.isOpen)}
                                   </span>
                                 </div>
+                              ) : ride.status !== "operating" ? (
+                                <p className="card-support-line">
+                                  {formatStatusLabel(locale, ride.status)}
+                                </p>
                               ) : null}
                             </button>
                           );

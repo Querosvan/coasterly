@@ -1544,7 +1544,9 @@ img {
 .ride-card .catalog-chip,
 .ride-facts-row,
 .card-cues,
-.park-progress {
+.park-progress,
+.card-key-stat,
+.card-support-line {
   position: relative;
   z-index: 2;
 }
@@ -1559,7 +1561,7 @@ img {
 }
 
 .media-frame-park {
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
 }
 
 .media-frame-detail {
@@ -1637,8 +1639,9 @@ img {
 
 .park-location {
   margin: 0;
-  color: #20333d;
+  color: #425861;
   font-weight: 700;
+  font-size: 0.92rem;
 }
 
 .card-summary {
@@ -1649,13 +1652,51 @@ img {
 }
 
 .park-card .card-summary,
-.ride-card .card-summary,
+.ride-card .card-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
 .editorial-card p,
 .collection-card-copy p {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
   overflow: hidden;
+}
+
+.card-key-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin: 0;
+  padding-top: 0.2rem;
+  border-top: 1px solid rgba(19, 37, 59, 0.06);
+}
+
+.card-stat-label {
+  color: #6c7d85;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card-stat-value {
+  color: var(--brand-navy-strong);
+  font-size: 0.96rem;
+  font-weight: 850;
+  text-align: right;
+}
+
+.card-support-line {
+  margin: -0.1rem 0 0;
+  color: #5d7078;
+  font-size: 0.84rem;
+  line-height: 1.4;
 }
 
 .park-meta {
