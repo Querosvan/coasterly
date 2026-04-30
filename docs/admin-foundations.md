@@ -29,6 +29,7 @@ This keeps the current seeded user useful for development while leaving room for
 The current intended roles are:
 
 - `user`
+- `admin`
 - `moderator`
 - `regional_editor`
 - `global_editor`
@@ -48,10 +49,25 @@ The foundation now includes the first real server-side role enforcement for admi
 
 Allowed roles for the current admin review endpoints:
 
+- `admin`
 - `moderator`
 - `regional_editor`
 - `global_editor`
 - `super_admin`
+
+## Admin Bootstrap
+
+Trusted Google users can now be promoted automatically through configuration.
+
+- `COASTERLY_ADMIN_EMAILS=first@email.com,second@email.com`
+
+Behavior:
+
+- Google sign-in must provide a verified email
+- if that verified email matches `COASTERLY_ADMIN_EMAILS`, the API promotes the user to `admin`
+- this promotion happens server-side only
+- there is no client-side role change path
+- users not on the allowlist remain `user` unless they already have another assigned role
 
 Current protected endpoints:
 
