@@ -62,6 +62,12 @@ const demoUserSeed = {
 } as const;
 
 const seededFallbackEnabled = process.env.COASTERLY_ENABLE_SEEDED_FALLBACK === "true";
+const superAdminEmails = new Set(
+  (process.env.COASTERLY_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 const createSeedImageUrl = (kind: "park" | "ride", name: string) =>
   `https://placehold.co/${
@@ -571,7 +577,7 @@ export const initializeDatabase = async () => {
         id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         slug TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'regional_editor', 'global_editor', 'super_admin')),
+        role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'regional_editor', 'global_editor', 'admin', 'super_admin')),
         email TEXT,
         auth_provider TEXT,
         auth_subject TEXT,
@@ -600,7 +606,7 @@ export const initializeDatabase = async () => {
     await client.query(`
       ALTER TABLE users
       ADD CONSTRAINT users_role_check
-      CHECK (role IN ('user', 'moderator', 'regional_editor', 'global_editor', 'super_admin'))
+      CHECK (role IN ('user', 'moderator', 'regional_editor', 'global_editor', 'admin', 'super_admin'))
     `);
 
     await client.query(`
@@ -1241,6 +1247,31 @@ const getAvailableUserSlug = async (baseValue: string) => {
   throw new Error("Unable to allocate a unique user slug.");
 };
 
+const getBootstrapRoleForEmail = (email?: string): UserRole | undefined => {
+  const normalizedEmail = email?.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return undefined;
+  }
+
+  return superAdminEmails.has(normalizedEmail) ? "super_admin" : undefined;
+};
+
+const applyBootstrapRole = (
+  currentRole: UserRole,
+  bootstrapRole?: UserRole
+): UserRole => {
+  if (!bootstrapRole) {
+    return currentRole;
+  }
+
+  if (bootstrapRole === "super_admin" && currentRole !== "super_admin") {
+    return "super_admin";
+  }
+
+  return currentRole;
+};
+
 const updateStoredUserAuthIdentity = async (
   userId: number,
   options: {
@@ -1248,6 +1279,7 @@ const updateStoredUserAuthIdentity = async (
     authSubject: string;
     email?: string;
     name?: string;
+    role?: UserRole;
   }
 ) => {
   const result = await pool.query<StoredUserRecord>(
@@ -1258,6 +1290,7 @@ const updateStoredUserAuthIdentity = async (
         email = COALESCE($3, users.email),
         auth_provider = $4,
         auth_subject = $5,
+        role = COALESCE($6, users.role),
         updated_at = NOW()
       WHERE id = $1
       RETURNING id, slug, name, role, is_seeded, email, auth_provider, auth_subject
@@ -1267,7 +1300,8 @@ const updateStoredUserAuthIdentity = async (
       options.name?.trim() || null,
       options.email?.trim().toLowerCase() || null,
       options.authProvider.trim(),
-      options.authSubject.trim()
+      options.authSubject.trim(),
+      options.role ?? null
     ]
   );
 
@@ -1285,6 +1319,7 @@ const insertAuthLinkedUser = async (options: {
   authSubject: string;
   email?: string;
   name: string;
+  role?: UserRole;
 }) => {
   const slug = await getAvailableUserSlug(options.email ?? options.name);
   const normalizedName = options.name.trim() || "Coasterly Rider";
@@ -1301,12 +1336,13 @@ const insertAuthLinkedUser = async (options: {
         is_seeded,
         updated_at
       )
-      VALUES ($1, $2, 'user', $3, $4, $5, FALSE, NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, FALSE, NOW())
       RETURNING id, slug, name, role, is_seeded, email, auth_provider, auth_subject
     `,
     [
       slug,
       normalizedName,
+      options.role ?? "user",
       normalizedEmail,
       options.authProvider.trim(),
       options.authSubject.trim()
@@ -1335,6 +1371,7 @@ export const findOrCreateUserFromAuthIdentity = async (options: {
     options.name?.trim() ||
     normalizedEmail?.split("@")[0]?.replace(/[._-]+/g, " ") ||
     "Coasterly Rider";
+  const bootstrapRole = getBootstrapRoleForEmail(normalizedEmail);
 
   if (!normalizedAuthProvider || !normalizedAuthSubject) {
     throw new Error("Auth provider and subject are required.");
@@ -1351,12 +1388,18 @@ export const findOrCreateUserFromAuthIdentity = async (options: {
           authProvider: normalizedAuthProvider,
           authSubject: normalizedAuthSubject,
           ...(normalizedEmail ? { email: normalizedEmail } : {}),
-          ...(normalizedName ? { name: normalizedName } : {})
+          ...(normalizedName ? { name: normalizedName } : {}),
+          role: applyBootstrapRole(storedUser.role as UserRole, bootstrapRole)
         });
       }
     }
 
-    return existingUser;
+    return bootstrapRole && existingUser.role !== bootstrapRole
+      ? {
+          ...existingUser,
+          role: bootstrapRole
+        }
+      : existingUser;
   }
 
   if (normalizedEmail) {
@@ -1376,7 +1419,8 @@ export const findOrCreateUserFromAuthIdentity = async (options: {
         authProvider: normalizedAuthProvider,
         authSubject: normalizedAuthSubject,
         email: normalizedEmail,
-        name: normalizedName
+        name: normalizedName,
+        role: applyBootstrapRole(existingEmailUser.role as UserRole, bootstrapRole)
       });
 
       return mapStoredUserRecordToSummary(linkedUser);
@@ -1387,7 +1431,8 @@ export const findOrCreateUserFromAuthIdentity = async (options: {
     authProvider: normalizedAuthProvider,
     authSubject: normalizedAuthSubject,
     ...(normalizedEmail ? { email: normalizedEmail } : {}),
-    name: normalizedName
+    name: normalizedName,
+    ...(bootstrapRole ? { role: bootstrapRole } : {})
   });
 
   return mapStoredUserRecordToSummary(createdUser);

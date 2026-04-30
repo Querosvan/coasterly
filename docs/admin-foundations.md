@@ -31,6 +31,7 @@ The current intended roles are:
 - `user`
 - `moderator`
 - `regional_editor`
+- `admin`
 - `global_editor`
 - `super_admin`
 
@@ -42,6 +43,34 @@ This is intentional:
 - it avoids premature RBAC complexity
 - it gives future auth work a stable target for user claims and admin checks
 
+The intended role semantics are:
+
+- `super_admin`
+  - server-controlled root role
+  - reserved for trusted Google accounts listed in `COASTERLY_ADMIN_EMAILS`
+  - cannot be granted from the client
+  - intended to manage top-level admin access and role delegation policy
+- `admin`
+  - full app-level catalog/admin role
+  - intended to manage lower roles and edit everything once write tooling exists
+- `global_editor`
+  - edit catalog and editorial data across all regions
+- `regional_editor`
+  - edit catalog and editorial data for assigned regions only
+  - region scoping is future work; it is not enforced yet
+- `moderator`
+  - intended for comments, profiles, and user-submitted media moderation
+  - moderation tooling is still future work
+- `user`
+  - default product user role
+
+Current implementation note:
+
+- roles are persisted server-side only
+- no client-side role changes exist
+- `super_admin` bootstrap currently happens only from verified Google sign-in plus `COASTERLY_ADMIN_EMAILS`
+- finer-grained edit/moderation permissions are not implemented yet
+
 ## Current Admin Enforcement
 
 The foundation now includes the first real server-side role enforcement for admin-only API surfaces.
@@ -51,6 +80,7 @@ Allowed roles for the current admin review endpoints:
 - `moderator`
 - `regional_editor`
 - `global_editor`
+- `admin`
 - `super_admin`
 
 Current protected endpoints:
@@ -114,6 +144,8 @@ The next layer after this foundation should be scoped ownership rather than more
 
 Recommended future additions:
 
+- explicit role-management flows restricted to `super_admin`
+- writable catalog/editorial tools for `admin` and editors
 - scoped editorial assignments for `regional_editor`
 - content ownership records for curated discovery collections and summaries
 - moderation records for change review, hide/unhide actions, and audit visibility

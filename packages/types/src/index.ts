@@ -123,6 +123,7 @@ export type UserRole =
   | "user"
   | "moderator"
   | "regional_editor"
+  | "admin"
   | "global_editor"
   | "super_admin";
 
