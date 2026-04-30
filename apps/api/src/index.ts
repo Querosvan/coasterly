@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
 
 import {
+  getAdminCatalogSummary,
   addRideCreditForUser,
   claimDailyRewardForUser,
   claimDemoUserDailyReward,
@@ -52,6 +53,8 @@ import {
 } from "./integrations/queue-times.js";
 
 import type {
+  AdminCatalogFilter,
+  AdminSummaryResponse,
   AdminParksResponse,
   AdminRidesResponse,
   CommunityHighlightsResponse,
@@ -83,6 +86,7 @@ const isRideSort = (value: string | undefined): value is RideSort =>
   value === "name" || value === "opening_year" || value === "speed_kmh";
 
 const adminRoles = new Set<UserRole>([
+  "admin",
   "moderator",
   "regional_editor",
   "global_editor",
@@ -102,6 +106,20 @@ const parsePositiveInteger = (value: string | undefined) => {
   return Number.isFinite(parsedValue) && parsedValue >= 0
     ? Math.min(parsedValue, 5000)
     : undefined;
+};
+
+const parseAdminCatalogFilter = (
+  value: string | undefined
+): AdminCatalogFilter => {
+  if (
+    value === "missing_media" ||
+    value === "missing_queue_times" ||
+    value === "needs_cleanup"
+  ) {
+    return value;
+  }
+
+  return "all";
 };
 
 const requireAdminUser = async (
@@ -560,7 +578,23 @@ app.get("/me/profile", async (request, reply) => {
 });
 
 app.get<{
-  Querystring: { limit?: string; offset?: string };
+  Querystring: { filter?: string };
+}>("/admin/summary", async (request, reply) => {
+  const currentUser = await requireAdminUser(request, reply);
+
+  if (!currentUser) {
+    return;
+  }
+
+  const response: AdminSummaryResponse = {
+    summary: await getAdminCatalogSummary()
+  };
+
+  return response;
+});
+
+app.get<{
+  Querystring: { limit?: string; offset?: string; filter?: string };
 }>("/admin/parks", async (request, reply) => {
   const currentUser = await requireAdminUser(request, reply);
 
@@ -570,7 +604,9 @@ app.get<{
 
   const limit = parsePositiveInteger(request.query.limit);
   const offset = parsePositiveInteger(request.query.offset);
+  const filter = parseAdminCatalogFilter(request.query.filter);
   const result = await listAdminParks({
+    filter,
     ...(typeof limit === "number" ? { limit } : {}),
     ...(typeof offset === "number" ? { offset } : {})
   });
@@ -584,7 +620,7 @@ app.get<{
 });
 
 app.get<{
-  Querystring: { limit?: string; offset?: string };
+  Querystring: { limit?: string; offset?: string; filter?: string };
 }>("/admin/rides", async (request, reply) => {
   const currentUser = await requireAdminUser(request, reply);
 
@@ -594,7 +630,9 @@ app.get<{
 
   const limit = parsePositiveInteger(request.query.limit);
   const offset = parsePositiveInteger(request.query.offset);
+  const filter = parseAdminCatalogFilter(request.query.filter);
   const result = await listAdminRides({
+    filter,
     ...(typeof limit === "number" ? { limit } : {}),
     ...(typeof offset === "number" ? { offset } : {})
   });

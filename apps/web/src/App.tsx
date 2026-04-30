@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 
 import type {
+  AdminCatalogFilter,
   AdminParksResponse,
   AdminRidesResponse,
+  AdminSummaryResponse,
   CommunityHighlightsResponse,
   CurrentUserResponse,
   DailyChallengeAnswerRequest,
@@ -637,6 +639,12 @@ type AdminRidesStatus =
   | { state: "success"; rides: AdminRidesResponse["rides"]; pageInfo?: AdminRidesResponse["pageInfo"] }
   | { state: "error"; message: string };
 
+type AdminSummaryStatus =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "success"; summary: AdminSummaryResponse["summary"] }
+  | { state: "error"; message: string };
+
 type CurrentUserStatus =
   | { state: "loading" }
   | { state: "signed_out" }
@@ -694,7 +702,9 @@ const defaultParkRideSort: ParkRideSort = "name";
 const defaultRidesCatalogSort: RidesCatalogSort = "name";
 const defaultAdminCatalogPage = 1;
 const adminCatalogPageSize = 12;
+const defaultAdminFilter: AdminCatalogFilter = "all";
 const adminRoles = new Set<UserRole>([
+  "admin",
   "moderator",
   "regional_editor",
   "global_editor",
@@ -1805,8 +1815,12 @@ function App() {
   const [adminRidesStatus, setAdminRidesStatus] = useState<AdminRidesStatus>({
     state: "idle"
   });
+  const [adminSummaryStatus, setAdminSummaryStatus] = useState<AdminSummaryStatus>({
+    state: "idle"
+  });
   const [adminParksPage, setAdminParksPage] = useState(defaultAdminCatalogPage);
   const [adminRidesPage, setAdminRidesPage] = useState(defaultAdminCatalogPage);
+  const [adminFilter, setAdminFilter] = useState<AdminCatalogFilter>(defaultAdminFilter);
   const [rideCreditsStatus, setRideCreditsStatus] = useState<RideCreditsStatus>({
     state: "idle"
   });
@@ -1855,6 +1869,10 @@ function App() {
   const adminPageTitle = locale === "es" ? "Admin catalog" : "Admin catalog";
   const adminParksTitle = locale === "es" ? "Parques" : "Parks";
   const adminRidesTitle = locale === "es" ? "Atracciones" : "Rides";
+  const adminInternalNote =
+    locale === "es"
+      ? "Vista interna para revisar calidad y cobertura del catalogo."
+      : "Internal view for reviewing catalog quality and coverage.";
   const adminSignedOutTitle = locale === "es" ? "Inicia sesion para abrir admin." : "Sign in to open admin.";
   const adminSignedOutBody =
     locale === "es"
@@ -1873,6 +1891,14 @@ function App() {
   const adminQueueMapped = locale === "es" ? "Queue-Times conectado" : "Queue-Times mapped";
   const adminQueueMissing = locale === "es" ? "Sin mapping Queue-Times" : "No Queue-Times mapping";
   const adminSlugLabel = "Slug";
+  const adminNeedsCleanup = locale === "es" ? "Necesita limpieza" : "Needs cleanup";
+  const adminFilterLabels: Record<AdminCatalogFilter, string> = {
+    all: locale === "es" ? "Todo" : "All",
+    missing_media: locale === "es" ? "Sin media" : "Missing media",
+    missing_queue_times:
+      locale === "es" ? "Sin Queue-Times" : "Missing Queue-Times",
+    needs_cleanup: adminNeedsCleanup
+  };
   const localizedJournalTeasers = locale === "es" ? journalTeasersEs : journalTeasers;
   const landingJournalTeasers = localizedJournalTeasers.slice(0, 1);
   const localizedParkEditorialBySlug =
@@ -2121,7 +2147,7 @@ function App() {
     try {
       const response = await fetchWithSession(
         new URL(
-          `/admin/parks?limit=${adminCatalogPageSize}&offset=${(adminParksPage - 1) * adminCatalogPageSize}`,
+          `/admin/parks?limit=${adminCatalogPageSize}&offset=${(adminParksPage - 1) * adminCatalogPageSize}&filter=${adminFilter}`,
           apiBaseUrl
         ),
         {
@@ -2173,7 +2199,7 @@ function App() {
     try {
       const response = await fetchWithSession(
         new URL(
-          `/admin/rides?limit=${adminCatalogPageSize}&offset=${(adminRidesPage - 1) * adminCatalogPageSize}`,
+          `/admin/rides?limit=${adminCatalogPageSize}&offset=${(adminRidesPage - 1) * adminCatalogPageSize}&filter=${adminFilter}`,
           apiBaseUrl
         ),
         {
@@ -2206,6 +2232,51 @@ function App() {
         state: "error",
         message:
           error instanceof Error ? error.message : "The admin rides request failed."
+      });
+    }
+  };
+
+  const loadAdminSummary = async (signal?: AbortSignal) => {
+    if (!apiBaseUrl) {
+      setAdminSummaryStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    setAdminSummaryStatus({ state: "loading" });
+
+    try {
+      const response = await fetchWithSession(new URL("/admin/summary", apiBaseUrl), {
+        ...(signal ? { signal } : {})
+      });
+
+      if (!response.ok) {
+        setAdminSummaryStatus({
+          state: "error",
+          message: `Admin summary request failed with status ${response.status}.`
+        });
+
+        return;
+      }
+
+      const payload = (await response.json()) as AdminSummaryResponse;
+
+      setAdminSummaryStatus({
+        state: "success",
+        summary: payload.summary
+      });
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setAdminSummaryStatus({
+        state: "error",
+        message:
+          error instanceof Error ? error.message : "The admin summary request failed."
       });
     }
   };
@@ -2581,19 +2652,21 @@ function App() {
     if (route.view !== "admin" || !isAdminUser) {
       setAdminParksStatus({ state: "idle" });
       setAdminRidesStatus({ state: "idle" });
+      setAdminSummaryStatus({ state: "idle" });
 
       return;
     }
 
     const controller = new AbortController();
 
+    void loadAdminSummary(controller.signal);
     void loadAdminParks(controller.signal);
     void loadAdminRides(controller.signal);
 
     return () => {
       controller.abort();
     };
-  }, [route, isAdminUser, adminParksPage, adminRidesPage]);
+  }, [route, isAdminUser, adminFilter, adminParksPage, adminRidesPage]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -3598,6 +3671,7 @@ function App() {
   const navigateToAdmin = () => {
     setAdminParksPage(defaultAdminCatalogPage);
     setAdminRidesPage(defaultAdminCatalogPage);
+    setAdminFilter(defaultAdminFilter);
     navigateWithParams("/admin", new URLSearchParams());
   };
 
@@ -3655,6 +3729,12 @@ function App() {
     }
 
     setAdminRidesPage((currentPage) => currentPage + 1);
+  };
+
+  const applyAdminFilter = (nextFilter: AdminCatalogFilter) => {
+    setAdminFilter(nextFilter);
+    setAdminParksPage(defaultAdminCatalogPage);
+    setAdminRidesPage(defaultAdminCatalogPage);
   };
 
   const navigateToDiscover = () => {
@@ -5800,6 +5880,74 @@ function App() {
 
           {isAdminUser ? (
             <div className="admin-page-grid">
+              <section className="stats-panel admin-summary-panel" aria-label={adminPageTitle}>
+                <div className="catalog-copy">
+                  <p className="status-label">{adminNavLabel}</p>
+                  <h3 className="section-title">{adminPageTitle}</h3>
+                  <p className="section-copy">{adminInternalNote}</p>
+                </div>
+                <div className="admin-filter-row">
+                  {(Object.keys(adminFilterLabels) as AdminCatalogFilter[]).map((filterKey) => (
+                    <button
+                      key={filterKey}
+                      className={`ghost-button${adminFilter === filterKey ? " ghost-button-active" : ""}`}
+                      type="button"
+                      onClick={() => {
+                        applyAdminFilter(filterKey);
+                      }}
+                    >
+                      {adminFilterLabels[filterKey]}
+                    </button>
+                  ))}
+                </div>
+                {adminSummaryStatus.state === "loading" ? (
+                  <div className="state-message state-message-loading state-message-compact">
+                    <p>{adminLoadingLabel}</p>
+                  </div>
+                ) : null}
+                {adminSummaryStatus.state === "error" ? (
+                  <div className="state-message state-message-error state-message-compact">
+                    <p>{adminSummaryStatus.message}</p>
+                  </div>
+                ) : null}
+                {adminSummaryStatus.state === "success" ? (
+                  <div className="stats-grid admin-summary-grid">
+                    <article className="stats-card">
+                      <span className="stats-card-label">{adminParksTitle}</span>
+                      <strong className="stats-card-value">{adminSummaryStatus.summary.totalParks}</strong>
+                    </article>
+                    <article className="stats-card">
+                      <span className="stats-card-label">{adminMediaMissing}</span>
+                      <strong className="stats-card-value">{adminSummaryStatus.summary.parksMissingMedia}</strong>
+                    </article>
+                    <article className="stats-card">
+                      <span className="stats-card-label">{adminQueueMissing}</span>
+                      <strong className="stats-card-value">
+                        {adminSummaryStatus.summary.parksMissingQueueTimesMapping}
+                      </strong>
+                    </article>
+                    <article className="stats-card">
+                      <span className="stats-card-label">{adminRidesTitle}</span>
+                      <strong className="stats-card-value">{adminSummaryStatus.summary.totalRides}</strong>
+                    </article>
+                    <article className="stats-card">
+                      <span className="stats-card-label">{`${adminRidesTitle} / ${adminMediaMissing}`}</span>
+                      <strong className="stats-card-value">{adminSummaryStatus.summary.ridesMissingMedia}</strong>
+                    </article>
+                    <article className="stats-card">
+                      <span className="stats-card-label">{`${adminRidesTitle} / ${adminQueueMissing}`}</span>
+                      <strong className="stats-card-value">
+                        {adminSummaryStatus.summary.ridesMissingQueueTimesMapping}
+                      </strong>
+                    </article>
+                    <article className="stats-card">
+                      <span className="stats-card-label">{adminNeedsCleanup}</span>
+                      <strong className="stats-card-value">{adminSummaryStatus.summary.ridesNeedingCleanup}</strong>
+                    </article>
+                  </div>
+                ) : null}
+              </section>
+
               <section className="catalog-panel nested-panel">
                 <div className="catalog-header landing-header">
                   <div className="catalog-copy">
@@ -5851,6 +5999,9 @@ function App() {
                               <span className="catalog-chip route-chip">
                                 {park.hasQueueTimesMapping ? adminQueueMapped : adminQueueMissing}
                               </span>
+                              {adminFilter === "needs_cleanup" ? (
+                                <span className="catalog-chip route-chip">{adminNeedsCleanup}</span>
+                              ) : null}
                             </div>
                           </article>
                         ))}
@@ -5940,6 +6091,9 @@ function App() {
                               <span className="catalog-chip route-chip">
                                 {ride.hasQueueTimesMapping ? adminQueueMapped : adminQueueMissing}
                               </span>
+                              {ride.needsCleanup ? (
+                                <span className="catalog-chip route-chip">{adminNeedsCleanup}</span>
+                              ) : null}
                             </div>
                           </article>
                         ))}

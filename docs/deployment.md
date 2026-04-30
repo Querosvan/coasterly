@@ -175,6 +175,7 @@ Document these values in Railway instead of relying on local-only `.env` usage.
 12. After first deploy, verify `GET /parks` returns the seeded parks from PostgreSQL.
 13. Verify `GET /me` returns `401` when signed out in production and an authenticated user after Google sign-in.
 14. Verify `GET /parks/:slug/live-waits` returns a normalized Coasterly response and keep the required `Powered by Queue-Times.com` attribution visible in the web UI.
+15. Sign in with one trusted Google account from `COASTERLY_ADMIN_EMAILS` and verify `/admin` appears and loads the read-only catalog review dashboard.
 
 ### Railway PostgreSQL
 

@@ -593,6 +593,12 @@ img {
   box-shadow: var(--shadow-soft);
 }
 
+.ghost-button-active {
+  border-color: rgba(245, 130, 32, 0.22);
+  background: rgba(245, 130, 32, 0.12);
+  color: var(--brand-orange-strong);
+}
+
 .hero-stats {
   display: grid;
   gap: 0.8rem;
@@ -1283,6 +1289,24 @@ img {
 
 .admin-page-grid {
   gap: 1rem;
+}
+
+.admin-summary-panel {
+  background:
+    radial-gradient(circle at top right, rgba(19, 37, 59, 0.08), transparent 32%),
+    linear-gradient(180deg, rgba(237, 242, 248, 0.98), rgba(229, 237, 245, 0.98));
+}
+
+.admin-filter-row,
+.admin-summary-grid {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.admin-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
 .admin-review-grid {
