@@ -376,8 +376,10 @@ const rideTypeDisplayLabels: Record<Locale, Record<string, string>> = {
 
 const genericRideTypeValues = new Set(["", "ride", "attraction", "attractions"]);
 
+const getNormalizedOptionValue = (value?: string | null) => value?.trim() ?? "";
+
 const formatRideTypeDisplay = (locale: Locale, rideType?: string | null) => {
-  const normalizedRideType = rideType?.trim().toLowerCase() ?? "";
+  const normalizedRideType = getNormalizedOptionValue(rideType).toLowerCase();
 
   if (genericRideTypeValues.has(normalizedRideType)) {
     return null;
@@ -389,28 +391,83 @@ const formatRideTypeDisplay = (locale: Locale, rideType?: string | null) => {
   );
 };
 
+const getUniqueSortedFilterValues = (
+  values: Array<string | null | undefined>,
+  options?: { excludeGenericRideTypes?: boolean }
+) => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    const trimmedValue = getNormalizedOptionValue(value);
+
+    if (!trimmedValue) {
+      continue;
+    }
+
+    const normalizedValue = trimmedValue.toLowerCase();
+
+    if (options?.excludeGenericRideTypes && genericRideTypeValues.has(normalizedValue)) {
+      continue;
+    }
+
+    if (seen.has(normalizedValue)) {
+      continue;
+    }
+
+    seen.add(normalizedValue);
+    result.push(trimmedValue);
+  }
+
+  result.sort((left, right) => left.localeCompare(right));
+
+  return result;
+};
+
+const getDisplayRideTypeFilterOptions = (locale: Locale, rideTypes: string[]) => {
+  const seen = new Set<string>();
+  const result: Array<{ value: string; label: string }> = [];
+
+  for (const rideType of getUniqueSortedFilterValues(rideTypes, {
+    excludeGenericRideTypes: true
+  })) {
+    const label = formatRideTypeDisplay(locale, rideType);
+
+    if (!label) {
+      continue;
+    }
+
+    const normalizedLabel = label.toLowerCase();
+
+    if (seen.has(normalizedLabel)) {
+      continue;
+    }
+
+    seen.add(normalizedLabel);
+    result.push({ value: rideType, label });
+  }
+
+  result.sort((left, right) => left.label.localeCompare(right.label));
+
+  return result;
+};
+
 const getParkCardMetric = (
-  locale: Locale,
   copy: UiCopy,
-  park: Pick<Park, "status">,
-  parkProgress?: { riddenRides: number; completionPercentage: number }
+  parkProgress?: { riddenRides: number; totalRides: number }
 ) => {
   if (parkProgress && parkProgress.riddenRides > 0) {
     return {
       label: copy.home.progressLabel,
-      value: `${parkProgress.completionPercentage}%`
+      value: copy.park.riddenOutOf(parkProgress.riddenRides, parkProgress.totalRides)
     };
   }
 
-  return {
-    label: copy.park.status,
-    value: formatStatusLabel(locale, park.status)
-  };
+  return null;
 };
 
 const getRideCardMeta = (
   locale: Locale,
-  copy: UiCopy,
   ride: Pick<Ride, "rideType" | "manufacturer" | "openingYear" | "speedKmh">
 ) => {
   const rideTypeDisplay = formatRideTypeDisplay(locale, ride.rideType);
@@ -2493,8 +2550,10 @@ function App() {
 
         setRidesCatalogOptions({
           parks: payload.parks,
-          rideTypes: payload.rideTypes,
-          manufacturers: payload.manufacturers
+          rideTypes: getUniqueSortedFilterValues(payload.rideTypes, {
+            excludeGenericRideTypes: true
+          }),
+          manufacturers: getUniqueSortedFilterValues(payload.manufacturers)
         });
       } catch (error) {
         if (controller.signal.aborted) {
@@ -2800,19 +2859,16 @@ function App() {
         }
 
         const payload = (await response.json()) as RidesResponse;
-        const rideTypes = Array.from(
-          new Set(payload.rides.map((ride) => ride.rideType))
+        const rideTypes = getUniqueSortedFilterValues(
+          payload.rides.map((ride) => ride.rideType),
+          {
+            excludeGenericRideTypes: true
+          }
         );
-        rideTypes.sort((left, right) => left.localeCompare(right));
 
-        const manufacturers = Array.from(
-          new Set(
-            payload.rides
-              .map((ride) => ride.manufacturer)
-              .filter((manufacturer): manufacturer is string => Boolean(manufacturer))
-          )
+        const manufacturers = getUniqueSortedFilterValues(
+          payload.rides.map((ride) => ride.manufacturer)
         );
-        manufacturers.sort((left, right) => left.localeCompare(right));
 
         setParkRideOptions({
           rideTypes,
@@ -3191,8 +3247,11 @@ function App() {
     if (!options?.preserveSearch) {
       setSearchQuery("");
     }
-    const nextCollectionId =
-      options && "collectionId" in options ? options.collectionId ?? "" : parkCollectionId;
+    const nextCollectionId = options?.preserveSearch
+      ? options && "collectionId" in options
+        ? options.collectionId ?? ""
+        : parkCollectionId
+      : "";
     const shouldPreserveParksPage = Boolean(options?.preserveSearch) && !nextCollectionId;
     const nextParksPage = shouldPreserveParksPage ? parksPage : defaultCatalogPage;
 
@@ -3232,8 +3291,11 @@ function App() {
       setRideCatalogManufacturerFilter("");
       setRideCatalogSort(defaultRidesCatalogSort);
     }
-    const nextCollectionId =
-      options && "collectionId" in options ? options.collectionId ?? "" : rideCollectionId;
+    const nextCollectionId = options?.preserveFilters
+      ? options && "collectionId" in options
+        ? options.collectionId ?? ""
+        : rideCollectionId
+      : "";
     const shouldPreserveRidesPage = Boolean(options?.preserveFilters) && !nextCollectionId;
     const nextRidesCatalogPage = shouldPreserveRidesPage
       ? ridesCatalogPage
@@ -4247,7 +4309,8 @@ function App() {
                   <div className="spotlight-copy">
                     <div className="spotlight-row">
                       <span className="catalog-chip">
-                        {getParkCardMetric(locale, copy, spotlightPark, spotlightProgress).value}
+                        {(getParkCardMetric(copy, spotlightProgress)?.value ??
+                          formatParkLocation(spotlightPark))}
                       </span>
                     </div>
                     <p className="eyebrow">{copy.home.featuredPark}</p>
@@ -4320,7 +4383,7 @@ function App() {
                 {landingFeaturedParks.map((park) => {
                   const parkProgress = parkProgressBySlug?.get(park.slug);
                   const parkEditorial = localizedParkEditorialBySlug[park.slug];
-                  const parkMetric = getParkCardMetric(locale, copy, park, parkProgress);
+                  const parkMetric = getParkCardMetric(copy, parkProgress);
 
                   return (
                     <button
@@ -4348,10 +4411,12 @@ function App() {
                       {parkEditorial ? (
                         <p className="card-summary">{parkEditorial.summary}</p>
                       ) : null}
-                      <p className="card-key-stat">
-                        <span className="card-stat-label">{parkMetric.label}</span>
-                        <strong className="card-stat-value">{parkMetric.value}</strong>
-                      </p>
+                      {parkMetric ? (
+                        <p className="card-key-stat">
+                          <span className="card-stat-label">{parkMetric.label}</span>
+                          <strong className="card-stat-value">{parkMetric.value}</strong>
+                        </p>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -4660,7 +4725,7 @@ function App() {
                   {displayedParks.map((park) => {
                     const parkProgress = parkProgressBySlug?.get(park.slug);
                     const parkEditorial = localizedParkEditorialBySlug[park.slug];
-                    const parkMetric = getParkCardMetric(locale, copy, park, parkProgress);
+                    const parkMetric = getParkCardMetric(copy, parkProgress);
 
                     return (
                       <button
@@ -4688,10 +4753,12 @@ function App() {
                         {parkEditorial ? (
                           <p className="card-summary">{parkEditorial.summary}</p>
                         ) : null}
-                        <p className="card-key-stat">
-                          <span className="card-stat-label">{parkMetric.label}</span>
-                          <strong className="card-stat-value">{parkMetric.value}</strong>
-                        </p>
+                        {parkMetric ? (
+                          <p className="card-key-stat">
+                            <span className="card-stat-label">{parkMetric.label}</span>
+                            <strong className="card-stat-value">{parkMetric.value}</strong>
+                          </p>
+                        ) : null}
                       </button>
                     );
                   })}
@@ -4852,11 +4919,13 @@ function App() {
                   }}
                 >
                   <option value="">{copy.browse.allRideTypes}</option>
-                  {ridesCatalogOptions.rideTypes.map((rideType) => (
-                    <option key={rideType} value={rideType}>
-                      {rideType}
-                    </option>
-                  ))}
+                  {getDisplayRideTypeFilterOptions(locale, ridesCatalogOptions.rideTypes).map(
+                    ({ value, label }) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    )
+                  )}
                 </select>
               </div>
               <div className="toolbar-field">
@@ -4958,7 +5027,7 @@ function App() {
                   {displayedRideCatalogItems.map((entry) => {
                     const rideEditorial = localizedRideEditorialBySlug[entry.ride.slug];
                     const isRidden = riddenRideIds?.has(entry.ride.id) === true;
-                    const rideMeta = getRideCardMeta(locale, copy, entry.ride);
+                    const rideMeta = getRideCardMeta(locale, entry.ride);
 
                     return (
                       <button
@@ -5251,7 +5320,7 @@ function App() {
               {featuredProgressParks.length > 0
                 ? featuredProgressParks.map(({ park, progress }) => {
                     const parkEditorial = localizedParkEditorialBySlug[park.slug];
-                    const parkMetric = getParkCardMetric(locale, copy, park, progress);
+                    const parkMetric = getParkCardMetric(copy, progress);
 
                     return (
                     <button
@@ -5279,16 +5348,18 @@ function App() {
                       {parkEditorial ? (
                         <p className="card-summary">{parkEditorial.summary}</p>
                       ) : null}
-                      <p className="card-key-stat">
-                        <span className="card-stat-label">{parkMetric.label}</span>
-                        <strong className="card-stat-value">{parkMetric.value}</strong>
-                      </p>
+                      {parkMetric ? (
+                        <p className="card-key-stat">
+                          <span className="card-stat-label">{parkMetric.label}</span>
+                          <strong className="card-stat-value">{parkMetric.value}</strong>
+                        </p>
+                      ) : null}
                     </button>
                     );
                   })
                 : featuredParks.map((park) => {
                     const parkEditorial = localizedParkEditorialBySlug[park.slug];
-                    const parkMetric = getParkCardMetric(locale, copy, park);
+                    const parkMetric = getParkCardMetric(copy);
 
                     return (
                     <button
@@ -5316,10 +5387,12 @@ function App() {
                       {parkEditorial ? (
                         <p className="card-summary">{parkEditorial.summary}</p>
                       ) : null}
-                      <p className="card-key-stat">
-                        <span className="card-stat-label">{parkMetric.label}</span>
-                        <strong className="card-stat-value">{parkMetric.value}</strong>
-                      </p>
+                      {parkMetric ? (
+                        <p className="card-key-stat">
+                          <span className="card-stat-label">{parkMetric.label}</span>
+                          <strong className="card-stat-value">{parkMetric.value}</strong>
+                        </p>
+                      ) : null}
                     </button>
                     );
                   })}
@@ -5665,7 +5738,7 @@ function App() {
                     <div className="ride-toolbar" aria-label="Ride filters and sorting">
                       <div className="toolbar-field">
                         <label className="search-label" htmlFor="ride-type-filter">
-                          {copy.ride.rideType}
+                          {copy.browse.rideType}
                         </label>
                         <select
                           id="ride-type-filter"
@@ -5676,11 +5749,13 @@ function App() {
                           }}
                         >
                           <option value="">{copy.browse.allRideTypes}</option>
-                          {parkRideOptions.rideTypes.map((rideType) => (
-                            <option key={rideType} value={rideType}>
-                              {rideType}
-                            </option>
-                          ))}
+                          {getDisplayRideTypeFilterOptions(locale, parkRideOptions.rideTypes).map(
+                            ({ value, label }) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            )
+                          )}
                         </select>
                       </div>
                       <div className="toolbar-field">
@@ -5755,7 +5830,7 @@ function App() {
                         {parkRidesStatus.rides.map((ride) => {
                           const rideEditorial = localizedRideEditorialBySlug[ride.slug];
                           const rideLiveWait = liveWaitByRideId.get(ride.id);
-                          const rideMeta = getRideCardMeta(locale, copy, ride);
+                          const rideMeta = getRideCardMeta(locale, ride);
 
                           return (
                             <button
