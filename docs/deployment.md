@@ -109,6 +109,10 @@ Document these values in Railway instead of relying on local-only `.env` usage.
 - `GOOGLE_REDIRECT_URI`
   - OAuth callback URL registered with Google.
   - Example: `https://coasterly-api-production.up.railway.app/auth/google/callback`
+- `COASTERLY_ADMIN_EMAILS`
+  - Optional comma-separated list of trusted Google account emails.
+  - When a verified Google email matches this list during sign-in, the API promotes that user to the `admin` role server-side.
+  - Example: `ops@coasterly.app,founder@coasterly.app`
 - `COASTERLY_ENABLE_SEEDED_FALLBACK`
   - Optional seeded-user fallback toggle for local or non-auth environments.
   - Recommended production value: `false`
@@ -163,13 +167,14 @@ Document these values in Railway instead of relying on local-only `.env` usage.
 4. Build with `pnpm --filter @coasterly/api build`.
 5. Start with `node apps/api/dist/index.js`.
 6. Set the healthcheck path to `/health`.
-7. Add `DATABASE_URL`, `CORS_ORIGIN`, `HOST`, `PORT`, `NODE_ENV`, `WEB_BASE_URL`, `SESSION_COOKIE_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`.
+7. Add `DATABASE_URL`, `CORS_ORIGIN`, `HOST`, `PORT`, `NODE_ENV`, `WEB_BASE_URL`, `SESSION_COOKIE_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and any trusted `COASTERLY_ADMIN_EMAILS`.
 8. Keep `COASTERLY_ENABLE_SEEDED_FALLBACK=false` in production. Only enable it deliberately in local development or short-lived non-auth environments.
 9. If Queue-Times-backed live waits are enabled, keep `QUEUE_TIMES_BASE_URL` unset unless you need a non-default API host.
 10. Register the Railway API callback URL with the Google OAuth client and ensure the Railway web origin is allowed in `CORS_ORIGIN`.
 11. After first deploy, verify `GET /parks` returns the seeded parks from PostgreSQL.
 12. Verify `GET /me` returns `401` when signed out in production and an authenticated user after Google sign-in.
 13. Verify `GET /parks/:slug/live-waits` returns a normalized Coasterly response and keep the required `Powered by Queue-Times.com` attribution visible in the web UI.
+14. Sign in with one trusted Google account from `COASTERLY_ADMIN_EMAILS` and verify `/admin` appears and loads the read-only catalog review dashboard.
 
 ### Railway PostgreSQL
 

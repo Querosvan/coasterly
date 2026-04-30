@@ -1,6 +1,8 @@
 import { Pool } from "pg";
 
 import type {
+  AdminCatalogFilter,
+  AdminCatalogSummary,
   AdminParkCatalogItem,
   AdminRideCatalogItem,
   CommunityHighlightsResponse,
@@ -61,7 +63,22 @@ const demoUserSeed = {
   isSeeded: true
 } as const;
 
+const genericRideTypeValues = new Set([
+  "",
+  "attraction",
+  "ride",
+  "rides",
+  "unknown"
+]);
+
 const seededFallbackEnabled = process.env.COASTERLY_ENABLE_SEEDED_FALLBACK === "true";
+
+const adminBootstrapEmails = new Set(
+  (process.env.COASTERLY_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 const createSeedImageUrl = (kind: "park" | "ride", name: string) =>
   `https://placehold.co/${
@@ -571,7 +588,7 @@ export const initializeDatabase = async () => {
         id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         slug TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'regional_editor', 'global_editor', 'super_admin')),
+        role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'moderator', 'regional_editor', 'global_editor', 'super_admin')),
         email TEXT,
         auth_provider TEXT,
         auth_subject TEXT,
@@ -600,7 +617,7 @@ export const initializeDatabase = async () => {
     await client.query(`
       ALTER TABLE users
       ADD CONSTRAINT users_role_check
-      CHECK (role IN ('user', 'moderator', 'regional_editor', 'global_editor', 'super_admin'))
+      CHECK (role IN ('user', 'admin', 'moderator', 'regional_editor', 'global_editor', 'super_admin'))
     `);
 
     await client.query(`
@@ -1044,6 +1061,25 @@ export const initializeDatabase = async () => {
 
 const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, "\\$&");
 
+const rideNeedsCleanupCondition = `
+  LOWER(TRIM(COALESCE(rides.ride_type, ''))) IN ('', 'attraction', 'ride', 'rides', 'unknown')
+  OR (
+    rides.manufacturer IS NULL
+    AND rides.model IS NULL
+    AND rides.opening_year IS NULL
+    AND rides.speed_kmh IS NULL
+  )
+`;
+
+const parkNeedsCleanupCondition = `
+  parks.city IS NULL
+  OR TRIM(COALESCE(parks.city, '')) = ''
+  OR parks.continent IS NULL
+  OR TRIM(COALESCE(parks.continent, '')) = ''
+  OR parks.timezone IS NULL
+  OR TRIM(COALESCE(parks.timezone, '')) = ''
+`;
+
 const buildSearchPatterns = (value: string | undefined) => {
   if (!value?.trim()) {
     return [];
@@ -1176,6 +1212,19 @@ const getPrimarySeedUser = async (): Promise<UserSummary> => {
   return user;
 };
 
+const getBootstrapRoleForEmail = (email?: string) => {
+  const normalizedEmail = email?.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return undefined;
+  }
+
+  return adminBootstrapEmails.has(normalizedEmail) ? ("admin" as const) : undefined;
+};
+
+const applyBootstrapRole = (currentRole: UserRole, bootstrapRole?: UserRole): UserRole =>
+  bootstrapRole && currentRole === "user" ? bootstrapRole : currentRole;
+
 const getUserByAuthIdentity = async (
   authProvider: string,
   authSubject: string
@@ -1248,6 +1297,7 @@ const updateStoredUserAuthIdentity = async (
     authSubject: string;
     email?: string;
     name?: string;
+    role?: UserRole;
   }
 ) => {
   const result = await pool.query<StoredUserRecord>(
@@ -1258,6 +1308,10 @@ const updateStoredUserAuthIdentity = async (
         email = COALESCE($3, users.email),
         auth_provider = $4,
         auth_subject = $5,
+        role = CASE
+          WHEN $6 IS NOT NULL AND users.role = 'user' THEN $6
+          ELSE users.role
+        END,
         updated_at = NOW()
       WHERE id = $1
       RETURNING id, slug, name, role, is_seeded, email, auth_provider, auth_subject
@@ -1267,7 +1321,8 @@ const updateStoredUserAuthIdentity = async (
       options.name?.trim() || null,
       options.email?.trim().toLowerCase() || null,
       options.authProvider.trim(),
-      options.authSubject.trim()
+      options.authSubject.trim(),
+      options.role ?? null
     ]
   );
 
@@ -1285,6 +1340,7 @@ const insertAuthLinkedUser = async (options: {
   authSubject: string;
   email?: string;
   name: string;
+  role?: UserRole;
 }) => {
   const slug = await getAvailableUserSlug(options.email ?? options.name);
   const normalizedName = options.name.trim() || "Coasterly Rider";
@@ -1301,12 +1357,13 @@ const insertAuthLinkedUser = async (options: {
         is_seeded,
         updated_at
       )
-      VALUES ($1, $2, 'user', $3, $4, $5, FALSE, NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, FALSE, NOW())
       RETURNING id, slug, name, role, is_seeded, email, auth_provider, auth_subject
     `,
     [
       slug,
       normalizedName,
+      options.role ?? "user",
       normalizedEmail,
       options.authProvider.trim(),
       options.authSubject.trim()
@@ -1335,6 +1392,7 @@ export const findOrCreateUserFromAuthIdentity = async (options: {
     options.name?.trim() ||
     normalizedEmail?.split("@")[0]?.replace(/[._-]+/g, " ") ||
     "Coasterly Rider";
+  const bootstrapRole = getBootstrapRoleForEmail(normalizedEmail);
 
   if (!normalizedAuthProvider || !normalizedAuthSubject) {
     throw new Error("Auth provider and subject are required.");
@@ -1351,12 +1409,16 @@ export const findOrCreateUserFromAuthIdentity = async (options: {
           authProvider: normalizedAuthProvider,
           authSubject: normalizedAuthSubject,
           ...(normalizedEmail ? { email: normalizedEmail } : {}),
-          ...(normalizedName ? { name: normalizedName } : {})
+          ...(normalizedName ? { name: normalizedName } : {}),
+          ...(bootstrapRole ? { role: bootstrapRole } : {})
         });
       }
     }
 
-    return existingUser;
+    return {
+      ...existingUser,
+      role: applyBootstrapRole(existingUser.role, bootstrapRole)
+    };
   }
 
   if (normalizedEmail) {
@@ -1376,7 +1438,8 @@ export const findOrCreateUserFromAuthIdentity = async (options: {
         authProvider: normalizedAuthProvider,
         authSubject: normalizedAuthSubject,
         email: normalizedEmail,
-        name: normalizedName
+        name: normalizedName,
+        ...(bootstrapRole ? { role: bootstrapRole } : {})
       });
 
       return mapStoredUserRecordToSummary(linkedUser);
@@ -1387,7 +1450,8 @@ export const findOrCreateUserFromAuthIdentity = async (options: {
     authProvider: normalizedAuthProvider,
     authSubject: normalizedAuthSubject,
     ...(normalizedEmail ? { email: normalizedEmail } : {}),
-    name: normalizedName
+    name: normalizedName,
+    ...(bootstrapRole ? { role: bootstrapRole } : {})
   });
 
   return mapStoredUserRecordToSummary(createdUser);
@@ -1584,18 +1648,42 @@ export const listParks = async (
 };
 
 export const listAdminParks = async (
-  options: PaginationOptions = {}
+  options: PaginationOptions & {
+    filter?: AdminCatalogFilter;
+  } = {}
 ): Promise<{
   parks: AdminParkCatalogItem[];
   pageInfo: PageInfo;
 }> => {
   const limit = options.limit ?? 24;
   const offset = options.offset ?? 0;
+  const filter = options.filter ?? "all";
+  const filterCondition =
+    filter === "missing_media"
+      ? "parks.image_url IS NULL"
+      : filter === "missing_queue_times"
+        ? `
+            NOT EXISTS (
+              SELECT 1
+              FROM external_source_mappings
+              WHERE
+                source_name = $1
+                AND entity_type = 'park'
+                AND internal_entity_id = parks.id
+            )
+          `
+        : filter === "needs_cleanup"
+          ? parkNeedsCleanupCondition
+          : "TRUE";
+  const filterValues =
+    filter === "missing_queue_times" ? [QUEUE_TIMES_SOURCE_NAME] : [];
   const countResult = await pool.query<{ total_count: string }>(
     `
       SELECT COUNT(*)::text AS total_count
       FROM parks
-    `
+      WHERE ${filterCondition}
+    `,
+    filterValues
   );
   const totalCount = Number.parseInt(countResult.rows[0]?.total_count ?? "0", 10);
   const result = await pool.query<{
@@ -1621,16 +1709,17 @@ export const listAdminParks = async (
           SELECT 1
           FROM external_source_mappings
           WHERE
-            source_name = $3
+            source_name = $1
             AND entity_type = 'park'
             AND internal_entity_id = parks.id
         ) AS has_queue_times_mapping
       FROM parks
+      WHERE ${filterCondition}
       ORDER BY parks.name ASC
-      LIMIT $1
-      OFFSET $2
+      LIMIT $${filterValues.length + 1}
+      OFFSET $${filterValues.length + 2}
     `,
-    [limit, offset, QUEUE_TIMES_SOURCE_NAME]
+    [...filterValues, limit, offset]
   );
 
   return {
@@ -2237,18 +2326,42 @@ export const listRideCatalog = async (
 };
 
 export const listAdminRides = async (
-  options: PaginationOptions = {}
+  options: PaginationOptions & {
+    filter?: AdminCatalogFilter;
+  } = {}
 ): Promise<{
   rides: AdminRideCatalogItem[];
   pageInfo: PageInfo;
 }> => {
   const limit = options.limit ?? 24;
   const offset = options.offset ?? 0;
+  const filter = options.filter ?? "all";
+  const filterCondition =
+    filter === "missing_media"
+      ? "rides.image_url IS NULL"
+      : filter === "missing_queue_times"
+        ? `
+            NOT EXISTS (
+              SELECT 1
+              FROM external_source_mappings
+              WHERE
+                source_name = $1
+                AND entity_type = 'ride'
+                AND internal_entity_id = rides.id
+            )
+          `
+        : filter === "needs_cleanup"
+          ? rideNeedsCleanupCondition
+          : "TRUE";
+  const filterValues =
+    filter === "missing_queue_times" ? [QUEUE_TIMES_SOURCE_NAME] : [];
   const countResult = await pool.query<{ total_count: string }>(
     `
       SELECT COUNT(*)::text AS total_count
       FROM rides
-    `
+      WHERE ${filterCondition}
+    `,
+    filterValues
   );
   const totalCount = Number.parseInt(countResult.rows[0]?.total_count ?? "0", 10);
   const result = await pool.query<{
@@ -2260,6 +2373,7 @@ export const listAdminRides = async (
     park_name: string;
     park_slug: string;
     has_image: boolean;
+    needs_cleanup: boolean;
     has_queue_times_mapping: boolean;
   }>(
     `
@@ -2272,21 +2386,23 @@ export const listAdminRides = async (
         parks.name AS park_name,
         parks.slug AS park_slug,
         (rides.image_url IS NOT NULL) AS has_image,
+        (${rideNeedsCleanupCondition}) AS needs_cleanup,
         EXISTS (
           SELECT 1
           FROM external_source_mappings
           WHERE
-            source_name = $3
+            source_name = $1
             AND entity_type = 'ride'
             AND internal_entity_id = rides.id
         ) AS has_queue_times_mapping
       FROM rides
       INNER JOIN parks ON parks.id = rides.park_id
+      WHERE ${filterCondition}
       ORDER BY parks.name ASC, rides.name ASC
-      LIMIT $1
-      OFFSET $2
+      LIMIT $${filterValues.length + 1}
+      OFFSET $${filterValues.length + 2}
     `,
-    [limit, offset, QUEUE_TIMES_SOURCE_NAME]
+    [...filterValues, limit, offset]
   );
 
   return {
@@ -2299,7 +2415,8 @@ export const listAdminRides = async (
       parkSlug: ride.park_slug,
       rideType: ride.ride_type,
       hasImage: ride.has_image,
-      hasQueueTimesMapping: ride.has_queue_times_mapping
+      hasQueueTimesMapping: ride.has_queue_times_mapping,
+      ...(ride.needs_cleanup ? { needsCleanup: true } : {})
     })),
     pageInfo: {
       offset,
@@ -2307,6 +2424,78 @@ export const listAdminRides = async (
       totalCount,
       hasMore: offset + result.rows.length < totalCount
     }
+  };
+};
+
+export const getAdminCatalogSummary = async (): Promise<AdminCatalogSummary> => {
+  const [parksResult, ridesResult] = await Promise.all([
+    pool.query<{
+      total_parks: string;
+      parks_missing_media: string;
+      parks_missing_queue_times_mapping: string;
+    }>(
+      `
+        SELECT
+          COUNT(*)::text AS total_parks,
+          COUNT(*) FILTER (WHERE parks.image_url IS NULL)::text AS parks_missing_media,
+          COUNT(*) FILTER (
+            WHERE NOT EXISTS (
+              SELECT 1
+              FROM external_source_mappings
+              WHERE
+                source_name = $1
+                AND entity_type = 'park'
+                AND internal_entity_id = parks.id
+            )
+          )::text AS parks_missing_queue_times_mapping
+        FROM parks
+      `,
+      [QUEUE_TIMES_SOURCE_NAME]
+    ),
+    pool.query<{
+      total_rides: string;
+      rides_missing_media: string;
+      rides_missing_queue_times_mapping: string;
+      rides_needing_cleanup: string;
+    }>(
+      `
+        SELECT
+          COUNT(*)::text AS total_rides,
+          COUNT(*) FILTER (WHERE rides.image_url IS NULL)::text AS rides_missing_media,
+          COUNT(*) FILTER (
+            WHERE NOT EXISTS (
+              SELECT 1
+              FROM external_source_mappings
+              WHERE
+                source_name = $1
+                AND entity_type = 'ride'
+                AND internal_entity_id = rides.id
+            )
+          )::text AS rides_missing_queue_times_mapping,
+          COUNT(*) FILTER (WHERE ${rideNeedsCleanupCondition})::text AS rides_needing_cleanup
+        FROM rides
+      `,
+      [QUEUE_TIMES_SOURCE_NAME]
+    )
+  ]);
+
+  return {
+    totalParks: Number.parseInt(parksResult.rows[0]?.total_parks ?? "0", 10),
+    parksMissingMedia: Number.parseInt(parksResult.rows[0]?.parks_missing_media ?? "0", 10),
+    parksMissingQueueTimesMapping: Number.parseInt(
+      parksResult.rows[0]?.parks_missing_queue_times_mapping ?? "0",
+      10
+    ),
+    totalRides: Number.parseInt(ridesResult.rows[0]?.total_rides ?? "0", 10),
+    ridesMissingMedia: Number.parseInt(ridesResult.rows[0]?.rides_missing_media ?? "0", 10),
+    ridesMissingQueueTimesMapping: Number.parseInt(
+      ridesResult.rows[0]?.rides_missing_queue_times_mapping ?? "0",
+      10
+    ),
+    ridesNeedingCleanup: Number.parseInt(
+      ridesResult.rows[0]?.rides_needing_cleanup ?? "0",
+      10
+    )
   };
 };
 

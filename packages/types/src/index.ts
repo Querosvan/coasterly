@@ -102,6 +102,12 @@ export interface AdminParksResponse {
   pageInfo?: PageInfo;
 }
 
+export type AdminCatalogFilter =
+  | "all"
+  | "missing_media"
+  | "missing_queue_times"
+  | "needs_cleanup";
+
 export interface AdminRideCatalogItem {
   id: number;
   name: string;
@@ -112,6 +118,7 @@ export interface AdminRideCatalogItem {
   rideType: string;
   hasImage: boolean;
   hasQueueTimesMapping: boolean;
+  needsCleanup?: boolean;
 }
 
 export interface AdminRidesResponse {
@@ -119,8 +126,23 @@ export interface AdminRidesResponse {
   pageInfo?: PageInfo;
 }
 
+export interface AdminCatalogSummary {
+  totalParks: number;
+  parksMissingMedia: number;
+  parksMissingQueueTimesMapping: number;
+  totalRides: number;
+  ridesMissingMedia: number;
+  ridesMissingQueueTimesMapping: number;
+  ridesNeedingCleanup: number;
+}
+
+export interface AdminSummaryResponse {
+  summary: AdminCatalogSummary;
+}
+
 export type UserRole =
   | "user"
+  | "admin"
   | "moderator"
   | "regional_editor"
   | "global_editor"
