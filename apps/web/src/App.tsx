@@ -414,6 +414,7 @@ const getRideCardMeta = (
   ride: Pick<Ride, "rideType" | "manufacturer" | "openingYear" | "speedKmh">
 ) => {
   const rideTypeDisplay = formatRideTypeDisplay(locale, ride.rideType);
+  const openedLabel = locale === "es" ? "Abierta" : "Opened";
 
   if (rideTypeDisplay && ride.manufacturer) {
     return `${rideTypeDisplay} · ${ride.manufacturer}`;
@@ -423,8 +424,12 @@ const getRideCardMeta = (
     return rideTypeDisplay;
   }
 
+  if (ride.manufacturer && ride.speedKmh !== undefined) {
+    return `${ride.manufacturer} · ${formatDecimalValue(ride.speedKmh)} km/h`;
+  }
+
   if (ride.manufacturer && ride.openingYear !== undefined) {
-    return `${ride.manufacturer} · ${ride.openingYear}`;
+    return `${ride.manufacturer} · ${openedLabel} ${ride.openingYear}`;
   }
 
   if (ride.manufacturer) {
@@ -432,18 +437,18 @@ const getRideCardMeta = (
   }
 
   if (ride.openingYear !== undefined && ride.speedKmh !== undefined) {
-    return `${ride.openingYear} · ${formatDecimalValue(ride.speedKmh)} km/h`;
+    return `${formatDecimalValue(ride.speedKmh)} km/h · ${openedLabel} ${ride.openingYear}`;
   }
 
   if (ride.speedKmh !== undefined) {
-    return `${copy.browse.topSpeed} · ${formatDecimalValue(ride.speedKmh)} km/h`;
+    return `${formatDecimalValue(ride.speedKmh)} km/h`;
   }
 
   if (ride.openingYear !== undefined) {
-    return `${copy.ride.openingYear} · ${ride.openingYear}`;
+    return `${openedLabel} ${ride.openingYear}`;
   }
 
-  return formatRideTypeDisplay(locale, ride.rideType) ?? copy.ride.rideFacts;
+  return null;
 };
 
 type Route =
@@ -4985,7 +4990,7 @@ function App() {
                         {rideEditorial ? (
                           <p className="card-summary">{rideEditorial.summary}</p>
                         ) : null}
-                        <p className="card-meta-line">{rideMeta}</p>
+                        {rideMeta ? <p className="card-meta-line">{rideMeta}</p> : null}
                         {entry.ride.status !== "operating" ? (
                           <p className="card-support-line">
                             {formatStatusLabel(locale, entry.ride.status)}
@@ -5777,7 +5782,7 @@ function App() {
                               {rideEditorial ? (
                                 <p className="card-summary">{rideEditorial.summary}</p>
                               ) : null}
-                              <p className="card-meta-line">{rideMeta}</p>
+                              {rideMeta ? <p className="card-meta-line">{rideMeta}</p> : null}
                               {rideLiveWait ? (
                                 <div className="ride-live-row">
                                   <div className="ride-live-copy">

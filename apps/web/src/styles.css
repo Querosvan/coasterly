@@ -6,13 +6,13 @@
   --brand-navy-soft: rgba(19, 37, 59, 0.1);
   --brand-orange: #f58220;
   --brand-orange-strong: #d8680f;
-  --page-background: #e8eef5;
-  --page-background-end: #f3f6fa;
-  --page-overlay: rgba(255, 255, 255, 0.38);
-  --surface: rgba(247, 250, 253, 0.76);
-  --surface-strong: rgba(252, 253, 255, 0.94);
-  --surface-muted: rgba(239, 244, 249, 0.9);
-  --surface-contrast: rgba(232, 238, 245, 0.82);
+  --page-background: #d5e0ea;
+  --page-background-end: #e6edf4;
+  --page-overlay: rgba(255, 255, 255, 0.18);
+  --surface: rgba(243, 247, 251, 0.78);
+  --surface-strong: rgba(248, 250, 252, 0.93);
+  --surface-muted: rgba(234, 240, 246, 0.9);
+  --surface-contrast: rgba(224, 232, 240, 0.86);
   --text-strong: #102131;
   --text-base: #213848;
   --text-muted: #617381;
@@ -30,8 +30,9 @@
   --space-3: 1rem;
   --space-4: 1.25rem;
   background:
-    radial-gradient(circle at top left, rgba(19, 37, 59, 0.18) 0%, transparent 30%),
-    radial-gradient(circle at 84% 12%, rgba(245, 130, 32, 0.14) 0%, transparent 24%),
+    radial-gradient(circle at top left, rgba(19, 37, 59, 0.26) 0%, transparent 33%),
+    radial-gradient(circle at 84% 12%, rgba(245, 130, 32, 0.12) 0%, transparent 23%),
+    radial-gradient(circle at 50% 100%, rgba(64, 92, 126, 0.14) 0%, transparent 34%),
     linear-gradient(180deg, var(--page-background) 0%, var(--page-background-end) 100%);
   color: var(--text-base);
 }
@@ -48,8 +49,10 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.24), transparent 22rem),
+    linear-gradient(180deg, rgba(21, 42, 66, 0.04), transparent 24rem),
     linear-gradient(180deg, var(--page-overlay), transparent 18rem),
-    transparent;
+    linear-gradient(180deg, #dde6ee 0%, #ecf2f7 100%);
 }
 
 #root {
@@ -197,6 +200,13 @@ img {
 .mobile-route-label,
 .mobile-menu-button {
   display: none;
+}
+
+.mobile-menu-button {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  box-shadow: none;
 }
 
 .brand-link {
@@ -473,7 +483,6 @@ img {
 .catalog-inline-button,
 .lineup-nav-button,
 .credit-button,
-.mobile-menu-button,
 .back-link {
   display: inline-flex;
   align-items: center;
@@ -507,8 +516,7 @@ img {
 .secondary-button:hover:not(:disabled),
 .ghost-button:hover:not(:disabled),
 .credit-button:hover:not(:disabled),
-.back-link:hover,
-.mobile-menu-button:hover {
+.back-link:hover {
   transform: translateY(-1px);
 }
 
