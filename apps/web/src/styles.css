@@ -1272,6 +1272,53 @@ img {
   gap: 0.5rem;
 }
 
+.admin-page-grid,
+.admin-review-grid,
+.admin-review-card,
+.admin-review-copy,
+.admin-review-meta {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.admin-page-grid {
+  gap: 1rem;
+}
+
+.admin-review-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.admin-review-card {
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+  background:
+    radial-gradient(circle at top right, rgba(245, 130, 32, 0.06), transparent 28%),
+    rgba(251, 253, 255, 0.95);
+  box-shadow: var(--shadow-soft);
+}
+
+.admin-review-meta {
+  gap: 0.3rem;
+}
+
+.admin-pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.detail-item-code {
+  display: inline-block;
+  color: var(--brand-navy-strong);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
 .profile-hero {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;

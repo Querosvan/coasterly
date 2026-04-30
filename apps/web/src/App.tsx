@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 import type {
+  AdminParksResponse,
+  AdminRidesResponse,
   CommunityHighlightsResponse,
   CurrentUserResponse,
   DailyChallengeAnswerRequest,
@@ -20,6 +22,7 @@ import type {
   RideCreditsResponse,
   RideResponse,
   RidesResponse,
+  UserRole,
   UserProfileResponse,
   UserProgressionResponse
 } from "@coasterly/types";
@@ -513,6 +516,7 @@ type Route =
   | { view: "parks" }
   | { view: "rides" }
   | { view: "discover" }
+  | { view: "admin" }
   | { view: "profile" }
   | { view: "user-profile"; slug: string }
   | { view: "journal" }
@@ -621,6 +625,18 @@ type DailyChallengeStatus =
   | { state: "success"; response: DailyChallengeResponse }
   | { state: "error"; message: string };
 
+type AdminParksStatus =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "success"; parks: AdminParksResponse["parks"]; pageInfo?: AdminParksResponse["pageInfo"] }
+  | { state: "error"; message: string };
+
+type AdminRidesStatus =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "success"; rides: AdminRidesResponse["rides"]; pageInfo?: AdminRidesResponse["pageInfo"] }
+  | { state: "error"; message: string };
+
 type CurrentUserStatus =
   | { state: "loading" }
   | { state: "signed_out" }
@@ -676,6 +692,16 @@ type MediaAssetProps = {
 
 const defaultParkRideSort: ParkRideSort = "name";
 const defaultRidesCatalogSort: RidesCatalogSort = "name";
+const defaultAdminCatalogPage = 1;
+const adminCatalogPageSize = 12;
+const adminRoles = new Set<UserRole>([
+  "moderator",
+  "regional_editor",
+  "global_editor",
+  "super_admin"
+]);
+
+const isAdminRole = (role: UserRole) => adminRoles.has(role);
 
 const isParkRideSort = (value: string | null): value is ParkRideSort =>
   value === "name" || value === "opening_year" || value === "speed_kmh";
@@ -807,6 +833,10 @@ const getRoute = (pathname: string): Route => {
 
   if (pathname === "/discover" || pathname === "/discover/") {
     return { view: "discover" };
+  }
+
+  if (pathname === "/admin" || pathname === "/admin/") {
+    return { view: "admin" };
   }
 
   if (pathname === "/profile" || pathname === "/profile/") {
@@ -1768,6 +1798,14 @@ function App() {
   const [currentUserStatus, setCurrentUserStatus] = useState<CurrentUserStatus>({
     state: "loading"
   });
+  const [adminParksStatus, setAdminParksStatus] = useState<AdminParksStatus>({
+    state: "idle"
+  });
+  const [adminRidesStatus, setAdminRidesStatus] = useState<AdminRidesStatus>({
+    state: "idle"
+  });
+  const [adminParksPage, setAdminParksPage] = useState(defaultAdminCatalogPage);
+  const [adminRidesPage, setAdminRidesPage] = useState(defaultAdminCatalogPage);
   const [rideCreditsStatus, setRideCreditsStatus] = useState<RideCreditsStatus>({
     state: "idle"
   });
@@ -1811,6 +1849,29 @@ function App() {
     locale === "es"
       ? "Inicia sesi\u00f3n para guardar esta atracci\u00f3n."
       : "Sign in to track this ride.";
+  const adminNavLabel = "Admin";
+  const adminPageLabel = locale === "es" ? "Revision del catalogo" : "Catalog review";
+  const adminPageTitle = locale === "es" ? "Admin catalog" : "Admin catalog";
+  const adminParksTitle = locale === "es" ? "Parques" : "Parks";
+  const adminRidesTitle = locale === "es" ? "Atracciones" : "Rides";
+  const adminSignedOutTitle = locale === "es" ? "Inicia sesion para abrir admin." : "Sign in to open admin.";
+  const adminSignedOutBody =
+    locale === "es"
+      ? "Solo moderadores y administradores pueden revisar el catalogo."
+      : "Only moderators and admins can review the catalog.";
+  const adminForbiddenTitle = locale === "es" ? "No tienes acceso a admin." : "You do not have admin access.";
+  const adminForbiddenBody =
+    locale === "es"
+      ? "Esta vista solo esta disponible para moderadores y roles editoriales."
+      : "This view is only available to moderators and editorial roles.";
+  const adminLoadingLabel = locale === "es" ? "Cargando catalogo admin..." : "Loading admin catalog...";
+  const adminParkEmptyLabel = locale === "es" ? "No hay parques para revisar." : "No parks to review.";
+  const adminRideEmptyLabel = locale === "es" ? "No hay atracciones para revisar." : "No rides to review.";
+  const adminMediaAvailable = locale === "es" ? "Media disponible" : "Media available";
+  const adminMediaMissing = locale === "es" ? "Sin media" : "No media";
+  const adminQueueMapped = locale === "es" ? "Queue-Times conectado" : "Queue-Times mapped";
+  const adminQueueMissing = locale === "es" ? "Sin mapping Queue-Times" : "No Queue-Times mapping";
+  const adminSlugLabel = "Slug";
   const localizedJournalTeasers = locale === "es" ? journalTeasersEs : journalTeasers;
   const landingJournalTeasers = localizedJournalTeasers.slice(0, 1);
   const localizedParkEditorialBySlug =
@@ -1829,6 +1890,9 @@ function App() {
     localizedCollections.find((collection) => collection.id === "best-launches"),
     localizedCollections.find((collection) => collection.id === "parks-with-strong-lineups")
   ].filter((collection): collection is CuratedCollection => Boolean(collection));
+  const isAdminUser =
+    currentUserStatus.state === "signed_in" &&
+    isAdminRole(currentUserStatus.currentUser.user.role);
 
   const loadCurrentUser = async (signal?: AbortSignal) => {
     if (!apiBaseUrl) {
@@ -2037,6 +2101,110 @@ function App() {
         state: "error",
         message:
           error instanceof Error ? error.message : "The profile request failed."
+      });
+    }
+  };
+
+  const loadAdminParks = async (signal?: AbortSignal) => {
+    if (!apiBaseUrl) {
+      setAdminParksStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    setAdminParksStatus({ state: "loading" });
+
+    try {
+      const response = await fetchWithSession(
+        new URL(
+          `/admin/parks?limit=${adminCatalogPageSize}&offset=${(adminParksPage - 1) * adminCatalogPageSize}`,
+          apiBaseUrl
+        ),
+        {
+          ...(signal ? { signal } : {})
+        }
+      );
+
+      if (!response.ok) {
+        setAdminParksStatus({
+          state: "error",
+          message: `Admin parks request failed with status ${response.status}.`
+        });
+
+        return;
+      }
+
+      const payload = (await response.json()) as AdminParksResponse;
+
+      setAdminParksStatus({
+        state: "success",
+        parks: payload.parks,
+        pageInfo: payload.pageInfo
+      });
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setAdminParksStatus({
+        state: "error",
+        message:
+          error instanceof Error ? error.message : "The admin parks request failed."
+      });
+    }
+  };
+
+  const loadAdminRides = async (signal?: AbortSignal) => {
+    if (!apiBaseUrl) {
+      setAdminRidesStatus({
+        state: "error",
+        message: "VITE_API_BASE_URL is not configured."
+      });
+
+      return;
+    }
+
+    setAdminRidesStatus({ state: "loading" });
+
+    try {
+      const response = await fetchWithSession(
+        new URL(
+          `/admin/rides?limit=${adminCatalogPageSize}&offset=${(adminRidesPage - 1) * adminCatalogPageSize}`,
+          apiBaseUrl
+        ),
+        {
+          ...(signal ? { signal } : {})
+        }
+      );
+
+      if (!response.ok) {
+        setAdminRidesStatus({
+          state: "error",
+          message: `Admin rides request failed with status ${response.status}.`
+        });
+
+        return;
+      }
+
+      const payload = (await response.json()) as AdminRidesResponse;
+
+      setAdminRidesStatus({
+        state: "success",
+        rides: payload.rides,
+        pageInfo: payload.pageInfo
+      });
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setAdminRidesStatus({
+        state: "error",
+        message:
+          error instanceof Error ? error.message : "The admin rides request failed."
       });
     }
   };
@@ -2407,6 +2575,24 @@ function App() {
       controller.abort();
     };
   }, [route, currentUserStatus.state]);
+
+  useEffect(() => {
+    if (route.view !== "admin" || !isAdminUser) {
+      setAdminParksStatus({ state: "idle" });
+      setAdminRidesStatus({ state: "idle" });
+
+      return;
+    }
+
+    const controller = new AbortController();
+
+    void loadAdminParks(controller.signal);
+    void loadAdminRides(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
+  }, [route, isAdminUser, adminParksPage, adminRidesPage]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -3317,7 +3503,7 @@ function App() {
     setUserProfileStatus({ state: "idle" });
     setProfileShareMessage(null);
 
-    if (route.view === "profile") {
+    if (route.view === "profile" || route.view === "admin") {
       navigateHome();
     }
   };
@@ -3408,6 +3594,12 @@ function App() {
     );
   };
 
+  const navigateToAdmin = () => {
+    setAdminParksPage(defaultAdminCatalogPage);
+    setAdminRidesPage(defaultAdminCatalogPage);
+    navigateWithParams("/admin", new URLSearchParams());
+  };
+
   const goToPreviousParksPage = () => {
     setParksPage((currentPage) =>
       currentPage > defaultCatalogPage ? currentPage - 1 : currentPage
@@ -3434,6 +3626,34 @@ function App() {
     }
 
     setRidesCatalogPage((currentPage) => currentPage + 1);
+  };
+
+  const goToPreviousAdminParksPage = () => {
+    setAdminParksPage((currentPage) =>
+      currentPage > defaultAdminCatalogPage ? currentPage - 1 : currentPage
+    );
+  };
+
+  const goToNextAdminParksPage = () => {
+    if (adminParksStatus.state !== "success" || !adminParksStatus.pageInfo?.hasMore) {
+      return;
+    }
+
+    setAdminParksPage((currentPage) => currentPage + 1);
+  };
+
+  const goToPreviousAdminRidesPage = () => {
+    setAdminRidesPage((currentPage) =>
+      currentPage > defaultAdminCatalogPage ? currentPage - 1 : currentPage
+    );
+  };
+
+  const goToNextAdminRidesPage = () => {
+    if (adminRidesStatus.state !== "success" || !adminRidesStatus.pageInfo?.hasMore) {
+      return;
+    }
+
+    setAdminRidesPage((currentPage) => currentPage + 1);
   };
 
   const navigateToDiscover = () => {
@@ -3996,6 +4216,8 @@ function App() {
         ? ridesSearchLabel
       : route.view === "discover"
         ? copy.discover.label
+        : route.view === "admin"
+          ? adminPageTitle
         : route.view === "profile"
           ? copy.profile.title
         : route.view === "user-profile"
@@ -4020,6 +4242,8 @@ function App() {
         ? copy.route.ridesBrowse
       : route.view === "discover"
         ? copy.route.discovery
+        : route.view === "admin"
+          ? adminPageLabel
         : route.view === "profile"
           ? copy.route.profile
         : route.view === "user-profile"
@@ -4044,6 +4268,8 @@ function App() {
           ]
         : route.view === "discover"
         ? [{ label: copy.nav.discover }]
+        : route.view === "admin"
+          ? [{ label: adminNavLabel }]
         : route.view === "profile"
           ? [{ label: copy.nav.profile }]
         : route.view === "user-profile"
@@ -4146,6 +4372,8 @@ function App() {
           ].filter(Boolean)
       : route.view === "discover"
         ? [heroCountLabel, riddenRideCountLabel]
+      : route.view === "admin"
+        ? [adminParksTitle, adminRidesTitle]
       : route.view === "profile"
         ? userProfileStatus.state === "success"
           ? [
@@ -4211,6 +4439,16 @@ function App() {
       active: route.view === "discover",
       onClick: navigateToDiscover
     },
+    ...(isAdminUser
+      ? [
+          {
+            label: adminNavLabel,
+            href: "/admin",
+            active: route.view === "admin",
+            onClick: navigateToAdmin
+          }
+        ]
+      : []),
     ...(isAuthenticated
       ? [
           {
@@ -5520,6 +5758,228 @@ function App() {
               </div>
             ) : null}
           </section>
+        </section>
+      ) : null}
+
+      {route.view === "admin" ? (
+        <section className="catalog-panel browse-panel" aria-live="polite">
+          <div className="catalog-header">
+            <div className="catalog-copy">
+              <p className="status-label">{adminPageLabel}</p>
+              <h2 className="section-title">{adminPageTitle}</h2>
+            </div>
+          </div>
+
+          {currentUserStatus.state === "signed_out" ? (
+            <AuthPromptPanel
+              title={adminSignedOutTitle}
+              summary={adminSignedOutBody}
+              actionLabel={copy.nav.signIn}
+              onAction={() => {
+                beginGoogleSignIn("/admin");
+              }}
+            />
+          ) : null}
+
+          {currentUserStatus.state === "loading" ? (
+            <div className="state-message state-message-loading">
+              <p>{adminLoadingLabel}</p>
+            </div>
+          ) : null}
+
+          {currentUserStatus.state === "signed_in" && !isAdminUser ? (
+            <section className="stats-panel auth-prompt-panel" aria-label={adminForbiddenTitle}>
+              <div className="auth-prompt-copy">
+                <p className="status-label">{adminNavLabel}</p>
+                <h3 className="section-title auth-prompt-title">{adminForbiddenTitle}</h3>
+                <p className="section-copy">{adminForbiddenBody}</p>
+              </div>
+            </section>
+          ) : null}
+
+          {isAdminUser ? (
+            <div className="admin-page-grid">
+              <section className="catalog-panel nested-panel">
+                <div className="catalog-header landing-header">
+                  <div className="catalog-copy">
+                    <p className="status-label">{adminNavLabel}</p>
+                    <h2 className="section-title">{adminParksTitle}</h2>
+                  </div>
+                </div>
+                {adminParksStatus.state === "loading" ? (
+                  <div className="state-message state-message-loading state-message-compact">
+                    <p>{adminLoadingLabel}</p>
+                  </div>
+                ) : null}
+                {adminParksStatus.state === "error" ? (
+                  <div className="state-message state-message-error state-message-compact">
+                    <p>{adminParksStatus.message}</p>
+                  </div>
+                ) : null}
+                {adminParksStatus.state === "success" ? (
+                  adminParksStatus.parks.length > 0 ? (
+                    <>
+                      <div className="admin-review-grid">
+                        {adminParksStatus.parks.map((park) => (
+                          <article className="admin-review-card" key={`admin-park-${park.id}`}>
+                            <div className="admin-review-copy">
+                              <button
+                                className="community-profile-link"
+                                type="button"
+                                onClick={() => {
+                                  navigateToPark(park.slug);
+                                }}
+                              >
+                                {park.name}
+                              </button>
+                              <p className="card-summary">
+                                {park.city ? `${park.city}, ${park.country}` : park.country}
+                              </p>
+                            </div>
+                            <div className="admin-review-meta">
+                              <span className="detail-item-label">{adminSlugLabel}</span>
+                              <code className="detail-item-value detail-item-code">{park.slug}</code>
+                            </div>
+                            <div className="detail-chip-row">
+                              <span className="catalog-chip route-chip">
+                                {formatStatusLabel(locale, park.status)}
+                              </span>
+                              <span className="catalog-chip route-chip">
+                                {park.hasImage ? adminMediaAvailable : adminMediaMissing}
+                              </span>
+                              <span className="catalog-chip route-chip">
+                                {park.hasQueueTimesMapping ? adminQueueMapped : adminQueueMissing}
+                              </span>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                      <div className="admin-pagination-row">
+                        <span className="catalog-note">
+                          {`${(adminParksStatus.pageInfo?.offset ?? 0) + 1}-${Math.min(
+                            (adminParksStatus.pageInfo?.offset ?? 0) +
+                              adminParksStatus.parks.length,
+                            adminParksStatus.pageInfo?.totalCount ?? adminParksStatus.parks.length
+                          )} / ${adminParksStatus.pageInfo?.totalCount ?? adminParksStatus.parks.length}`}
+                        </span>
+                        <div className="detail-chip-row">
+                          <button
+                            className="ghost-button"
+                            type="button"
+                            onClick={goToPreviousAdminParksPage}
+                            disabled={adminParksPage <= defaultAdminCatalogPage}
+                          >
+                            {locale === "es" ? "Anterior" : "Previous"}
+                          </button>
+                          <button
+                            className="ghost-button"
+                            type="button"
+                            onClick={goToNextAdminParksPage}
+                            disabled={!adminParksStatus.pageInfo?.hasMore}
+                          >
+                            {locale === "es" ? "Siguiente" : "Next"}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="state-message state-message-empty state-message-compact">
+                      <p>{adminParkEmptyLabel}</p>
+                    </div>
+                  )
+                ) : null}
+              </section>
+
+              <section className="catalog-panel nested-panel">
+                <div className="catalog-header landing-header">
+                  <div className="catalog-copy">
+                    <p className="status-label">{adminNavLabel}</p>
+                    <h2 className="section-title">{adminRidesTitle}</h2>
+                  </div>
+                </div>
+                {adminRidesStatus.state === "loading" ? (
+                  <div className="state-message state-message-loading state-message-compact">
+                    <p>{adminLoadingLabel}</p>
+                  </div>
+                ) : null}
+                {adminRidesStatus.state === "error" ? (
+                  <div className="state-message state-message-error state-message-compact">
+                    <p>{adminRidesStatus.message}</p>
+                  </div>
+                ) : null}
+                {adminRidesStatus.state === "success" ? (
+                  adminRidesStatus.rides.length > 0 ? (
+                    <>
+                      <div className="admin-review-grid">
+                        {adminRidesStatus.rides.map((ride) => (
+                          <article className="admin-review-card" key={`admin-ride-${ride.id}`}>
+                            <div className="admin-review-copy">
+                              <button
+                                className="community-profile-link"
+                                type="button"
+                                onClick={() => {
+                                  navigateToRide(ride.parkSlug, ride.slug, { origin: "rides" });
+                                }}
+                              >
+                                {ride.name}
+                              </button>
+                              <p className="card-summary">{`${ride.rideType} / ${ride.parkName}`}</p>
+                            </div>
+                            <div className="admin-review-meta">
+                              <span className="detail-item-label">{adminSlugLabel}</span>
+                              <code className="detail-item-value detail-item-code">{ride.slug}</code>
+                            </div>
+                            <div className="detail-chip-row">
+                              <span className="catalog-chip route-chip">
+                                {formatStatusLabel(locale, ride.status)}
+                              </span>
+                              <span className="catalog-chip route-chip">
+                                {ride.hasImage ? adminMediaAvailable : adminMediaMissing}
+                              </span>
+                              <span className="catalog-chip route-chip">
+                                {ride.hasQueueTimesMapping ? adminQueueMapped : adminQueueMissing}
+                              </span>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                      <div className="admin-pagination-row">
+                        <span className="catalog-note">
+                          {`${(adminRidesStatus.pageInfo?.offset ?? 0) + 1}-${Math.min(
+                            (adminRidesStatus.pageInfo?.offset ?? 0) +
+                              adminRidesStatus.rides.length,
+                            adminRidesStatus.pageInfo?.totalCount ?? adminRidesStatus.rides.length
+                          )} / ${adminRidesStatus.pageInfo?.totalCount ?? adminRidesStatus.rides.length}`}
+                        </span>
+                        <div className="detail-chip-row">
+                          <button
+                            className="ghost-button"
+                            type="button"
+                            onClick={goToPreviousAdminRidesPage}
+                            disabled={adminRidesPage <= defaultAdminCatalogPage}
+                          >
+                            {locale === "es" ? "Anterior" : "Previous"}
+                          </button>
+                          <button
+                            className="ghost-button"
+                            type="button"
+                            onClick={goToNextAdminRidesPage}
+                            disabled={!adminRidesStatus.pageInfo?.hasMore}
+                          >
+                            {locale === "es" ? "Siguiente" : "Next"}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="state-message state-message-empty state-message-compact">
+                      <p>{adminRideEmptyLabel}</p>
+                    </div>
+                  )
+                ) : null}
+              </section>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
