@@ -90,6 +90,7 @@ const adminRoles = new Set<UserRole>([
   "moderator",
   "regional_editor",
   "global_editor",
+  "admin",
   "super_admin"
 ]);
 

@@ -72,8 +72,7 @@ const genericRideTypeValues = new Set([
 ]);
 
 const seededFallbackEnabled = process.env.COASTERLY_ENABLE_SEEDED_FALLBACK === "true";
-
-const adminBootstrapEmails = new Set(
+const superAdminEmails = new Set(
   (process.env.COASTERLY_ADMIN_EMAILS ?? "")
     .split(",")
     .map((value) => value.trim().toLowerCase())
@@ -1212,19 +1211,6 @@ const getPrimarySeedUser = async (): Promise<UserSummary> => {
   return user;
 };
 
-const getBootstrapRoleForEmail = (email?: string) => {
-  const normalizedEmail = email?.trim().toLowerCase();
-
-  if (!normalizedEmail) {
-    return undefined;
-  }
-
-  return adminBootstrapEmails.has(normalizedEmail) ? ("admin" as const) : undefined;
-};
-
-const applyBootstrapRole = (currentRole: UserRole, bootstrapRole?: UserRole): UserRole =>
-  bootstrapRole && currentRole === "user" ? bootstrapRole : currentRole;
-
 const getUserByAuthIdentity = async (
   authProvider: string,
   authSubject: string
@@ -1288,6 +1274,31 @@ const getAvailableUserSlug = async (baseValue: string) => {
   }
 
   throw new Error("Unable to allocate a unique user slug.");
+};
+
+const getBootstrapRoleForEmail = (email?: string): UserRole | undefined => {
+  const normalizedEmail = email?.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return undefined;
+  }
+
+  return superAdminEmails.has(normalizedEmail) ? "super_admin" : undefined;
+};
+
+const applyBootstrapRole = (
+  currentRole: UserRole,
+  bootstrapRole?: UserRole
+): UserRole => {
+  if (!bootstrapRole) {
+    return currentRole;
+  }
+
+  if (bootstrapRole === "super_admin" && currentRole !== "super_admin") {
+    return "super_admin";
+  }
+
+  return currentRole;
 };
 
 const updateStoredUserAuthIdentity = async (
@@ -1410,7 +1421,7 @@ export const findOrCreateUserFromAuthIdentity = async (options: {
           authSubject: normalizedAuthSubject,
           ...(normalizedEmail ? { email: normalizedEmail } : {}),
           ...(normalizedName ? { name: normalizedName } : {}),
-          ...(bootstrapRole ? { role: bootstrapRole } : {})
+          role: applyBootstrapRole(storedUser.role as UserRole, bootstrapRole)
         });
       }
     }
@@ -1439,7 +1450,7 @@ export const findOrCreateUserFromAuthIdentity = async (options: {
         authSubject: normalizedAuthSubject,
         email: normalizedEmail,
         name: normalizedName,
-        ...(bootstrapRole ? { role: bootstrapRole } : {})
+        role: applyBootstrapRole(existingEmailUser.role as UserRole, bootstrapRole)
       });
 
       return mapStoredUserRecordToSummary(linkedUser);

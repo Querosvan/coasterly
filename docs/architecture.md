@@ -140,10 +140,11 @@ The current role foundation is intentionally lightweight:
 - `user`
 - `moderator`
 - `regional_editor`
+- `admin`
 - `global_editor`
 - `super_admin`
 
-Roles are stored directly on the user record for now. That keeps the current foundation simple while giving future auth, admin, and editorial work a stable target.
+Roles are stored directly on the user record for now. That keeps the current foundation simple while giving future auth, admin, and editorial work a stable target. The root `super_admin` role is intended to remain server-controlled through trusted identity bootstrap, while `admin` is the highest app-managed role.
 
 The API now also has a minimal current-user resolution layer:
 

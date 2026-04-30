@@ -145,6 +145,7 @@ export type UserRole =
   | "admin"
   | "moderator"
   | "regional_editor"
+  | "admin"
   | "global_editor"
   | "super_admin";
 

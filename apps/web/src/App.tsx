@@ -708,6 +708,7 @@ const adminRoles = new Set<UserRole>([
   "moderator",
   "regional_editor",
   "global_editor",
+  "admin",
   "super_admin"
 ]);
 
@@ -1875,13 +1876,13 @@ function App() {
   const adminSignedOutTitle = locale === "es" ? "Inicia sesion para abrir admin." : "Sign in to open admin.";
   const adminSignedOutBody =
     locale === "es"
-      ? "Solo moderadores y administradores pueden revisar el catalogo."
-      : "Only moderators and admins can review the catalog.";
+      ? "Solo moderadores, editores y administradores pueden revisar el catalogo."
+      : "Only moderators, editors, and admins can review the catalog.";
   const adminForbiddenTitle = locale === "es" ? "No tienes acceso a admin." : "You do not have admin access.";
   const adminForbiddenBody =
     locale === "es"
-      ? "Esta vista solo esta disponible para moderadores y roles editoriales."
-      : "This view is only available to moderators and editorial roles.";
+      ? "Esta vista solo esta disponible para moderadores, roles editoriales y administradores."
+      : "This view is only available to moderators, editorial roles, and admins.";
   const adminLoadingLabel = locale === "es" ? "Cargando catalogo admin..." : "Loading admin catalog...";
   const adminParkEmptyLabel = locale === "es" ? "No hay parques para revisar." : "No parks to review.";
   const adminRideEmptyLabel = locale === "es" ? "No hay atracciones para revisar." : "No rides to review.";
