@@ -318,6 +318,69 @@ const curatedCollections: CuratedCollection[] = [
 const formatDecimalValue = (value: number) =>
   Number.isInteger(value) ? String(value) : value.toFixed(1);
 
+const titleCase = (value: string) =>
+  value.replace(/\b\w/g, (match) => match.toUpperCase());
+
+const rideTypeDisplayLabels: Record<Locale, Record<string, string>> = {
+  en: {
+    coaster: "Coaster",
+    "steel coaster": "Steel coaster",
+    "launch coaster": "Launch coaster",
+    "wood coaster": "Wooden coaster",
+    "wooden coaster": "Wooden coaster",
+    "dark ride": "Dark ride",
+    "water ride": "Water ride",
+    "family ride": "Family ride",
+    "thrill ride": "Thrill ride",
+    "flying coaster": "Flying coaster",
+    "inverted coaster": "Inverted coaster",
+    "mine train coaster": "Mine train coaster",
+    "indoor coaster": "Indoor coaster",
+    "dive coaster": "Dive coaster",
+    "hybrid coaster": "Hybrid coaster",
+    "mega coaster": "Mega coaster",
+    "hyper coaster": "Hyper coaster",
+    "sit-down coaster": "Sit-down coaster",
+    "wing coaster": "Wing coaster"
+  },
+  es: {
+    coaster: "Montaña rusa",
+    "steel coaster": "Montaña rusa de acero",
+    "launch coaster": "Montaña rusa lanzada",
+    "wood coaster": "Montaña rusa de madera",
+    "wooden coaster": "Montaña rusa de madera",
+    "dark ride": "Dark ride",
+    "water ride": "Atracción acuática",
+    "family ride": "Atracción familiar",
+    "thrill ride": "Atracción intensa",
+    "flying coaster": "Flying coaster",
+    "inverted coaster": "Montaña rusa invertida",
+    "mine train coaster": "Mine train",
+    "indoor coaster": "Montaña rusa indoor",
+    "dive coaster": "Dive coaster",
+    "hybrid coaster": "Montaña rusa híbrida",
+    "mega coaster": "Mega coaster",
+    "hyper coaster": "Hyper coaster",
+    "sit-down coaster": "Sit-down coaster",
+    "wing coaster": "Wing coaster"
+  }
+};
+
+const genericRideTypeValues = new Set(["", "ride", "attraction", "attractions"]);
+
+const formatRideTypeDisplay = (locale: Locale, rideType?: string | null) => {
+  const normalizedRideType = rideType?.trim().toLowerCase() ?? "";
+
+  if (genericRideTypeValues.has(normalizedRideType)) {
+    return null;
+  }
+
+  return (
+    rideTypeDisplayLabels[locale][normalizedRideType] ??
+    (rideType ? titleCase(rideType.trim()) : null)
+  );
+};
+
 const getParkCardMetric = (
   locale: Locale,
   copy: UiCopy,
@@ -337,35 +400,42 @@ const getParkCardMetric = (
   };
 };
 
-const getRideCardMetric = (
+const getRideCardMeta = (
+  locale: Locale,
   copy: UiCopy,
   ride: Pick<Ride, "rideType" | "manufacturer" | "openingYear" | "speedKmh">
 ) => {
-  if (ride.speedKmh !== undefined) {
-    return {
-      label: copy.browse.topSpeed,
-      value: `${formatDecimalValue(ride.speedKmh)} km/h`
-    };
+  const rideTypeDisplay = formatRideTypeDisplay(locale, ride.rideType);
+
+  if (rideTypeDisplay && ride.manufacturer) {
+    return `${rideTypeDisplay} · ${ride.manufacturer}`;
   }
 
-  if (ride.openingYear !== undefined) {
-    return {
-      label: copy.ride.openingYear,
-      value: String(ride.openingYear)
-    };
+  if (rideTypeDisplay) {
+    return rideTypeDisplay;
+  }
+
+  if (ride.manufacturer && ride.openingYear !== undefined) {
+    return `${ride.manufacturer} · ${ride.openingYear}`;
   }
 
   if (ride.manufacturer) {
-    return {
-      label: copy.ride.manufacturer,
-      value: ride.manufacturer
-    };
+    return ride.manufacturer;
   }
 
-  return {
-    label: copy.ride.rideType,
-    value: ride.rideType
-  };
+  if (ride.openingYear !== undefined && ride.speedKmh !== undefined) {
+    return `${ride.openingYear} · ${formatDecimalValue(ride.speedKmh)} km/h`;
+  }
+
+  if (ride.speedKmh !== undefined) {
+    return `${copy.browse.topSpeed} · ${formatDecimalValue(ride.speedKmh)} km/h`;
+  }
+
+  if (ride.openingYear !== undefined) {
+    return `${copy.ride.openingYear} · ${ride.openingYear}`;
+  }
+
+  return formatRideTypeDisplay(locale, ride.rideType) ?? copy.ride.rideFacts;
 };
 
 type Route =
@@ -3734,21 +3804,21 @@ function App() {
     },
     {
       label: copy.nav.parks,
-      href: buildPathWithQuery("/parks", getCatalogSearchParams()),
+      href: "/parks",
       active:
         route.view === "parks" ||
         route.view === "park" ||
         (route.view === "ride" && rideDetailOrigin !== "rides"),
       onClick: () => {
-        navigateToParks({ preserveSearch: true });
+        navigateToParks();
       }
     },
     {
       label: copy.nav.rides,
-      href: buildPathWithQuery("/rides", getRidesCatalogParams()),
+      href: "/rides",
       active: route.view === "rides" || (route.view === "ride" && rideDetailOrigin === "rides"),
       onClick: () => {
-        navigateToRides({ preserveFilters: true });
+        navigateToRides();
       }
     },
     {
@@ -4598,7 +4668,7 @@ function App() {
                   {displayedRideCatalogItems.map((entry) => {
                     const rideEditorial = localizedRideEditorialBySlug[entry.ride.slug];
                     const isRidden = riddenRideIds?.has(entry.ride.id) === true;
-                    const rideMetric = getRideCardMetric(copy, entry.ride);
+                    const rideMeta = getRideCardMeta(locale, copy, entry.ride);
 
                     return (
                       <button
@@ -4630,10 +4700,7 @@ function App() {
                         {rideEditorial ? (
                           <p className="card-summary">{rideEditorial.summary}</p>
                         ) : null}
-                        <p className="card-key-stat">
-                          <span className="card-stat-label">{rideMetric.label}</span>
-                          <strong className="card-stat-value">{rideMetric.value}</strong>
-                        </p>
+                        <p className="card-meta-line">{rideMeta}</p>
                         {entry.ride.status !== "operating" ? (
                           <p className="card-support-line">
                             {formatStatusLabel(locale, entry.ride.status)}
@@ -5367,7 +5434,7 @@ function App() {
                         {parkRidesStatus.rides.map((ride) => {
                           const rideEditorial = localizedRideEditorialBySlug[ride.slug];
                           const rideLiveWait = liveWaitByRideId.get(ride.id);
-                          const rideMetric = getRideCardMetric(copy, ride);
+                          const rideMeta = getRideCardMeta(locale, copy, ride);
 
                           return (
                             <button
@@ -5394,10 +5461,7 @@ function App() {
                               {rideEditorial ? (
                                 <p className="card-summary">{rideEditorial.summary}</p>
                               ) : null}
-                              <p className="card-key-stat">
-                                <span className="card-stat-label">{rideMetric.label}</span>
-                                <strong className="card-stat-value">{rideMetric.value}</strong>
-                              </p>
+                              <p className="card-meta-line">{rideMeta}</p>
                               {rideLiveWait ? (
                                 <div className="ride-live-row">
                                   <div className="ride-live-copy">
