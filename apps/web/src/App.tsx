@@ -15,16 +15,12 @@ import type {
   ParkLiveWaitsResponse,
   ParkResponse,
   ParksResponse,
-  RideCatalogItem,
   RideCatalogResponse,
   RideCatalogOptionsResponse,
-  RideSort,
-  Ride,
   RideCreditMutationResponse,
   RideCreditsResponse,
   RideResponse,
   RidesResponse,
-  UserRole,
   UserProfileResponse,
   UserProgressionResponse
 } from "@coasterly/types";
@@ -43,6 +39,72 @@ import {
   rideEditorialBySlugEs,
   type Locale
 } from "./i18n";
+import {
+  adminCatalogPageSize,
+  defaultAdminCatalogPage,
+  defaultAdminFilter,
+  isAdminRole
+} from "./lib/admin";
+import {
+  curatedCollections,
+  journalTeasers,
+  parkEditorialBySlug,
+  rideEditorialBySlug
+} from "./lib/catalogContent";
+import {
+  formatDecimalValue,
+  formatParkLocation,
+  getDisplayRideTypeFilterOptions,
+  getParkCardMetric,
+  getRideCardMeta,
+  getUniqueSortedFilterValues
+} from "./lib/catalogUtils";
+import {
+  browsePageSize,
+  buildPathWithQuery,
+  defaultCatalogPage,
+  defaultParkRideSort,
+  defaultRidesCatalogSort,
+  fullCatalogFetchLimit,
+  getCatalogPageFromUrl,
+  getCollectionIdFromUrl,
+  getRideBrowserStateFromUrl,
+  getRideDetailOriginFromUrl,
+  getRidesCatalogStateFromUrl,
+  getRoute,
+  getSearchQueryFromUrl
+} from "./lib/routes";
+import type {
+  AdminParksStatus,
+  AdminRidesStatus,
+  AdminSummaryStatus,
+  ApiStatus,
+  BreadcrumbItem,
+  CommunityHighlightsStatus,
+  CuratedCollection,
+  CurrentUserStatus,
+  DailyChallengeStatus,
+  DemoUserStatsStatus,
+  ExternalInsightLink,
+  ParkDetailStatus,
+  ParkLiveWaitsStatus,
+  ParkRideOptions,
+  ParkRideSort,
+  ParkRidesStatus,
+  ParksStatus,
+  RideCreditsStatus,
+  RideDetailOrigin,
+  RideDetailStatus,
+  RideLineupStatus,
+  RideSpecItem,
+  RidesCatalogOptions,
+  RidesCatalogSort,
+  RidesCatalogStatus,
+  Route,
+  UiCopy,
+  UserProfileStatus,
+  UserProgressionStatus
+} from "./lib/types";
 import { JournalPage } from "./pages/JournalPage";
 import { AdminPage } from "./pages/AdminPage";
 import { DiscoverPage } from "./pages/DiscoverPage";
@@ -63,709 +125,6 @@ const fetchWithSession = (input: URL | RequestInfo, init?: RequestInit) =>
     credentials: "include"
   });
 
-const journalTeasers = [
-  {
-    category: "Guide",
-    title: "Park-planning notes",
-    summary: "Trip planning, lineup context, and progress-ready park guides.",
-    status: "Planned"
-  },
-  {
-    category: "Ranking",
-    title: "Coaster lists worth revisiting",
-    summary: "Editorial rankings, route ideas, and park-by-park comparisons.",
-    status: "Planned"
-  },
-  {
-    category: "News",
-    title: "Launches, retracks, and major openings",
-    summary: "A future home for park news once editorial publishing is added.",
-    status: "Planned"
-  }
-] as const;
-
-type DiscoveryCue = "Featured" | "Headliner" | "Iconic" | "Standout";
-
-type EditorialNote = {
-  summary: string;
-  cues: DiscoveryCue[];
-};
-
-type CuratedCollection = {
-  id: string;
-  title: string;
-  summary: string;
-  kind: "park" | "ride";
-  badge: string;
-  itemSlugs: readonly string[];
-};
-
-type UiCopy = (typeof messages)[Locale];
-
-const parkEditorialBySlug: Record<string, EditorialNote> = {
-  "europa-park": {
-    summary:
-      "A resort-scale park with polished themed lands and one of Europe's deepest all-day coaster lineups.",
-    cues: ["Featured", "Standout"]
-  },
-  phantasialand: {
-    summary:
-      "Dense theming and terrain-driven coasters make this one of the sharpest park days in Europe.",
-    cues: ["Headliner", "Standout"]
-  },
-  "alton-towers": {
-    summary:
-      "A British classic where major coasters thread through gardens, ruins, and a distinctly atmospheric setting.",
-    cues: ["Iconic"]
-  },
-  "disneyland-park": {
-    summary:
-      "A castle park built on polished storytelling, broad appeal, and a few instantly recognizable coaster anchors.",
-    cues: ["Featured", "Iconic"]
-  },
-  "parc-asterix": {
-    summary:
-      "A French thrill-forward park with a fast-rising coaster lineup and a strong steel headline identity.",
-    cues: ["Standout"]
-  },
-  efteling: {
-    summary:
-      "Fantasy atmosphere, dark rides, and a selective coaster lineup give this catalog stop a very different pace.",
-    cues: ["Iconic"]
-  },
-  "walibi-holland": {
-    summary:
-      "Compact and ride-led, with a modern thrill lineup that overdelivers for coaster-focused trips.",
-    cues: ["Standout"]
-  },
-  "portaventura-park": {
-    summary:
-      "A large destination park known for skyline coasters, strong throughput, and broad resort appeal.",
-    cues: ["Headliner"]
-  },
-  gardaland: {
-    summary:
-      "Italy's best-known park, mixing family pull with a small set of reliable headline coasters.",
-    cues: ["Featured"]
-  },
-  energylandia: {
-    summary:
-      "A rapidly expanding ride-heavy park packed with major coasters and strong credit-count appeal.",
-    cues: ["Headliner", "Standout"]
-  },
-  liseberg: {
-    summary:
-      "A city park with compact energy, strong atmosphere, and a surprisingly high-quality coaster mix.",
-    cues: ["Iconic", "Standout"]
-  }
-};
-
-const rideEditorialBySlug: Record<string, EditorialNote> = {
-  "silver-star": {
-    summary:
-      "An open, high-speed hyper with sustained airtime and one of the biggest first drops in Europe.",
-    cues: ["Headliner", "Iconic"]
-  },
-  "voltron-nevera": {
-    summary:
-      "A dense modern launch coaster built around rapid pacing, inversions, and forceful transitions.",
-    cues: ["Featured", "Standout"]
-  },
-  taron: {
-    summary:
-      "Terrain-hugging launches and relentless direction changes make it a modern European benchmark.",
-    cues: ["Iconic", "Standout"]
-  },
-  fly: {
-    summary:
-      "A flying coaster wrapped in heavy theming, designed to feel immersive rather than exposed.",
-    cues: ["Featured"]
-  },
-  "nemesis-reborn": {
-    summary:
-      "An iconic inverted layout rebuilt around one of the most recognizable coaster names in Europe.",
-    cues: ["Iconic"]
-  },
-  "wicker-man": {
-    summary:
-      "A character-led wooden coaster with approachable intensity and a memorable visual identity.",
-    cues: ["Standout"]
-  },
-  "big-thunder-mountain": {
-    summary:
-      "A classic mine train built around scenery, pacing, and broad repeatability rather than raw stats.",
-    cues: ["Iconic"]
-  },
-  "star-wars-hyperspace-mountain": {
-    summary:
-      "A compact indoor thrill ride that layers Disney spectacle onto a classic high-intensity layout.",
-    cues: ["Featured"]
-  },
-  toutatis: {
-    summary:
-      "A recent Intamin built to deliver speed, hangtime, and sustained momentum from the first launch.",
-    cues: ["Headliner"]
-  },
-  oziris: {
-    summary:
-      "A sweeping B&M invert with strong interaction, confident pacing, and broad re-ride appeal.",
-    cues: ["Standout"]
-  },
-  "baron-1898": {
-    summary:
-      "A compact dive coaster with one dominant drop and a strong Efteling story wrapper.",
-    cues: ["Featured"]
-  },
-  "joris-en-de-draak": {
-    summary:
-      "A twin-track wooden coaster that adds race energy to one of Efteling's most kinetic areas.",
-    cues: ["Iconic"]
-  },
-  untamed: {
-    summary:
-      "An RMC hybrid known for quick-fire airtime moments and an aggressively modern pacing profile.",
-    cues: ["Headliner"]
-  },
-  goliath: {
-    summary:
-      "A classic Intamin mega built around sustained speed and broad, open-air airtime.",
-    cues: ["Iconic"]
-  },
-  shambhala: {
-    summary:
-      "A towering hyper coaster with huge scale, floating airtime, and one of Europe's signature skylines.",
-    cues: ["Headliner", "Iconic"]
-  },
-  "dragon-khan": {
-    summary:
-      "A classic inversion machine that still defines PortAventura's skyline and thrill identity.",
-    cues: ["Iconic"]
-  },
-  raptor: {
-    summary:
-      "A compact wing coaster that stays forceful by keeping the pacing tight and the interactions close.",
-    cues: ["Standout"]
-  },
-  "oblivion-the-black-hole": {
-    summary:
-      "A dive machine built around one dramatic pause-and-drop sequence rather than a long layout.",
-    cues: ["Featured"]
-  },
-  hyperion: {
-    summary:
-      "A giant hyper coaster known for scale, pace, and one of the fastest top speeds in the region.",
-    cues: ["Headliner"]
-  },
-  zadra: {
-    summary:
-      "A large hybrid that combines towering scale with the quick-fire intensity RMC is known for.",
-    cues: ["Headliner", "Standout"]
-  },
-  helix: {
-    summary:
-      "A launch coaster built for variety, blending launches, inversions, and hillside terrain.",
-    cues: ["Standout"]
-  },
-  balder: {
-    summary:
-      "A wood coaster that stays relevant through clean pacing, strong airtime, and easy repeat rides.",
-    cues: ["Iconic"]
-  }
-};
-
-const formatParkLocation = (park: Pick<Park, "country" | "city">) =>
-  park.city ? `${park.city}, ${park.country}` : park.country;
-
-const browsePageSize = 24;
-const fullCatalogFetchLimit = 5000;
-const defaultCatalogPage = 1;
-
-const curatedCollections: CuratedCollection[] = [
-  {
-    id: "first-time-europe-parks",
-    title: "First-time Europe parks",
-    summary:
-      "Balanced first picks with recognizable coasters, strong atmosphere, and a full-day park rhythm.",
-    kind: "park",
-    badge: "Parks",
-    itemSlugs: ["europa-park", "phantasialand", "portaventura-park", "efteling"]
-  },
-  {
-    id: "parks-with-strong-lineups",
-    title: "Parks with strong lineups",
-    summary:
-      "Dense coaster depth for days where the lineup matters more than a single headline ride.",
-    kind: "park",
-    badge: "Parks",
-    itemSlugs: ["europa-park", "energylandia", "walibi-holland", "phantasialand"]
-  },
-  {
-    id: "best-launches",
-    title: "Best launches",
-    summary:
-      "Fast acceleration, terrain interaction, and momentum-heavy layouts for riders who chase pacing.",
-    kind: "ride",
-    badge: "Rides",
-    itemSlugs: ["taron", "voltron-nevera", "toutatis", "helix"]
-  },
-  {
-    id: "iconic-hypers",
-    title: "Iconic hypers",
-    summary:
-      "Big-airtime headliners that define skylines and still anchor European coaster trip planning.",
-    kind: "ride",
-    badge: "Rides",
-    itemSlugs: ["silver-star", "shambhala", "hyperion"]
-  },
-  {
-    id: "standout-inverts-and-flyers",
-    title: "Standout inverts and flyers",
-    summary:
-      "Suspended or floorless-feeling layouts where interaction and presentation matter as much as stats.",
-    kind: "ride",
-    badge: "Rides",
-    itemSlugs: ["fly", "nemesis-reborn", "oziris", "raptor"]
-  }
-] as const;
-
-const formatDecimalValue = (value: number) =>
-  Number.isInteger(value) ? String(value) : value.toFixed(1);
-
-const titleCase = (value: string) =>
-  value.replace(/\b\w/g, (match) => match.toUpperCase());
-
-const rideTypeDisplayLabels: Record<Locale, Record<string, string>> = {
-  en: {
-    coaster: "Coaster",
-    "steel coaster": "Steel coaster",
-    "launch coaster": "Launch coaster",
-    "wood coaster": "Wooden coaster",
-    "wooden coaster": "Wooden coaster",
-    "dark ride": "Dark ride",
-    "water ride": "Water ride",
-    "family ride": "Family ride",
-    "thrill ride": "Thrill ride",
-    "flying coaster": "Flying coaster",
-    "inverted coaster": "Inverted coaster",
-    "mine train coaster": "Mine train coaster",
-    "indoor coaster": "Indoor coaster",
-    "dive coaster": "Dive coaster",
-    "hybrid coaster": "Hybrid coaster",
-    "mega coaster": "Mega coaster",
-    "hyper coaster": "Hyper coaster",
-    "sit-down coaster": "Sit-down coaster",
-    "wing coaster": "Wing coaster"
-  },
-  es: {
-    coaster: "Montaña rusa",
-    "steel coaster": "Montaña rusa de acero",
-    "launch coaster": "Montaña rusa lanzada",
-    "wood coaster": "Montaña rusa de madera",
-    "wooden coaster": "Montaña rusa de madera",
-    "dark ride": "Dark ride",
-    "water ride": "Atracción acuática",
-    "family ride": "Atracción familiar",
-    "thrill ride": "Atracción intensa",
-    "flying coaster": "Flying coaster",
-    "inverted coaster": "Montaña rusa invertida",
-    "mine train coaster": "Mine train",
-    "indoor coaster": "Montaña rusa indoor",
-    "dive coaster": "Dive coaster",
-    "hybrid coaster": "Montaña rusa híbrida",
-    "mega coaster": "Mega coaster",
-    "hyper coaster": "Hyper coaster",
-    "sit-down coaster": "Sit-down coaster",
-    "wing coaster": "Wing coaster"
-  }
-};
-
-const genericRideTypeValues = new Set(["", "ride", "attraction", "attractions"]);
-
-const getNormalizedOptionValue = (value?: string | null) => value?.trim() ?? "";
-
-const formatRideTypeDisplay = (locale: Locale, rideType?: string | null) => {
-  const normalizedRideType = getNormalizedOptionValue(rideType).toLowerCase();
-
-  if (genericRideTypeValues.has(normalizedRideType)) {
-    return null;
-  }
-
-  return (
-    rideTypeDisplayLabels[locale][normalizedRideType] ??
-    (rideType ? titleCase(rideType.trim()) : null)
-  );
-};
-
-const getUniqueSortedFilterValues = (
-  values: Array<string | null | undefined>,
-  options?: { excludeGenericRideTypes?: boolean }
-) => {
-  const seen = new Set<string>();
-  const result: string[] = [];
-
-  for (const value of values) {
-    const trimmedValue = getNormalizedOptionValue(value);
-
-    if (!trimmedValue) {
-      continue;
-    }
-
-    const normalizedValue = trimmedValue.toLowerCase();
-
-    if (options?.excludeGenericRideTypes && genericRideTypeValues.has(normalizedValue)) {
-      continue;
-    }
-
-    if (seen.has(normalizedValue)) {
-      continue;
-    }
-
-    seen.add(normalizedValue);
-    result.push(trimmedValue);
-  }
-
-  result.sort((left, right) => left.localeCompare(right));
-
-  return result;
-};
-
-const getDisplayRideTypeFilterOptions = (locale: Locale, rideTypes: string[]) => {
-  const seen = new Set<string>();
-  const result: Array<{ value: string; label: string }> = [];
-
-  for (const rideType of getUniqueSortedFilterValues(rideTypes, {
-    excludeGenericRideTypes: true
-  })) {
-    const label = formatRideTypeDisplay(locale, rideType);
-
-    if (!label) {
-      continue;
-    }
-
-    const normalizedLabel = label.toLowerCase();
-
-    if (seen.has(normalizedLabel)) {
-      continue;
-    }
-
-    seen.add(normalizedLabel);
-    result.push({ value: rideType, label });
-  }
-
-  result.sort((left, right) => left.label.localeCompare(right.label));
-
-  return result;
-};
-
-const getParkCardMetric = (
-  copy: UiCopy,
-  parkProgress?: { riddenRides: number; totalRides: number }
-) => {
-  if (parkProgress && parkProgress.riddenRides > 0) {
-    return {
-      label: copy.home.progressLabel,
-      value: copy.park.riddenOutOf(parkProgress.riddenRides, parkProgress.totalRides)
-    };
-  }
-
-  return null;
-};
-
-const getRideCardMeta = (
-  locale: Locale,
-  ride: Pick<Ride, "rideType" | "manufacturer" | "openingYear" | "speedKmh">
-) => {
-  const rideTypeDisplay = formatRideTypeDisplay(locale, ride.rideType);
-  const openedLabel = locale === "es" ? "Abierta" : "Opened";
-
-  if (rideTypeDisplay && ride.manufacturer) {
-    return `${rideTypeDisplay} · ${ride.manufacturer}`;
-  }
-
-  if (rideTypeDisplay) {
-    return rideTypeDisplay;
-  }
-
-  if (ride.manufacturer && ride.speedKmh !== undefined) {
-    return `${ride.manufacturer} · ${formatDecimalValue(ride.speedKmh)} km/h`;
-  }
-
-  if (ride.manufacturer && ride.openingYear !== undefined) {
-    return `${ride.manufacturer} · ${openedLabel} ${ride.openingYear}`;
-  }
-
-  if (ride.manufacturer) {
-    return ride.manufacturer;
-  }
-
-  if (ride.openingYear !== undefined && ride.speedKmh !== undefined) {
-    return `${formatDecimalValue(ride.speedKmh)} km/h · ${openedLabel} ${ride.openingYear}`;
-  }
-
-  if (ride.speedKmh !== undefined) {
-    return `${formatDecimalValue(ride.speedKmh)} km/h`;
-  }
-
-  if (ride.openingYear !== undefined) {
-    return `${openedLabel} ${ride.openingYear}`;
-  }
-
-  return null;
-};
-
-type Route =
-  | { view: "home" }
-  | { view: "parks" }
-  | { view: "rides" }
-  | { view: "discover" }
-  | { view: "admin" }
-  | { view: "profile" }
-  | { view: "user-profile"; slug: string }
-  | { view: "journal" }
-  | { view: "park"; slug: string }
-  | { view: "ride"; parkSlug: string; rideSlug: string };
-
-type ApiStatus =
-  | { state: "loading" }
-  | { state: "success"; response: HealthResponse }
-  | { state: "error"; message: string };
-
-type ParksStatus =
-  | { state: "loading" }
-  | { state: "success"; parks: Park[]; pageInfo?: ParksResponse["pageInfo"] }
-  | { state: "error"; message: string };
-
-type ParkDetailStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | { state: "success"; park: Park; queueTimes?: ParkResponse["queueTimes"] }
-  | { state: "error"; message: string };
-
-type ParkRidesStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | { state: "success"; rides: Ride[] }
-  | { state: "error"; message: string };
-
-type RidesCatalogStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | {
-      state: "success";
-      rides: RideCatalogItem[];
-      pageInfo?: RideCatalogResponse["pageInfo"];
-    }
-  | { state: "error"; message: string };
-
-type ParkLiveWaitsStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | {
-      state: "success";
-      source: ParkLiveWaitsResponse["source"];
-      rides: ParkLiveWaitsResponse["rides"];
-    }
-  | { state: "error"; message: string };
-
-type ParkRideSort = RideSort;
-type RidesCatalogSort = RideSort;
-
-type ParkRideOptions = {
-  rideTypes: string[];
-  manufacturers: string[];
-};
-
-type RidesCatalogOptions = ParkRideOptions & {
-  parks: Park[];
-};
-
-type RideDetailOrigin = "park" | "rides";
-
-type RideCreditsStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | { state: "success"; rideIds: number[]; userName: string }
-  | { state: "error"; message: string };
-
-type DemoUserStatsStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | {
-      state: "success";
-      userName: string;
-      totalRiddenRides: number;
-      totalParksWithRiddenRides: number;
-      parks: DemoUserStatsResponse["parks"];
-    }
-  | { state: "error"; message: string };
-
-type UserProgressionStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | {
-      state: "success";
-      userName: string;
-      badges: UserProgressionResponse["badges"];
-      activeMissions: UserProgressionResponse["activeMissions"];
-    }
-  | { state: "error"; message: string };
-
-type UserProfileStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | { state: "success"; profile: UserProfileResponse }
-  | { state: "error"; message: string };
-
-type CommunityHighlightsStatus =
-  | { state: "loading" }
-  | { state: "success"; profiles: CommunityHighlightsResponse["profiles"] }
-  | { state: "error"; message: string };
-
-type DailyChallengeStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | { state: "success"; response: DailyChallengeResponse }
-  | { state: "error"; message: string };
-
-type AdminParksStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | { state: "success"; parks: AdminParksResponse["parks"]; pageInfo?: AdminParksResponse["pageInfo"] }
-  | { state: "error"; message: string };
-
-type AdminRidesStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | { state: "success"; rides: AdminRidesResponse["rides"]; pageInfo?: AdminRidesResponse["pageInfo"] }
-  | { state: "error"; message: string };
-
-type AdminSummaryStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | { state: "success"; summary: AdminSummaryResponse["summary"] }
-  | { state: "error"; message: string };
-
-type CurrentUserStatus =
-  | { state: "loading" }
-  | { state: "signed_out" }
-  | { state: "signed_in"; currentUser: CurrentUserResponse }
-  | { state: "error"; message: string };
-
-type RideDetailStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | {
-      state: "success";
-      park: Park;
-      ride: Ride;
-      parkQueueTimes?: RideResponse["parkQueueTimes"];
-      rideQueueTimes?: RideResponse["rideQueueTimes"];
-    }
-  | { state: "error"; message: string };
-
-type RideLineupStatus =
-  | { state: "idle" }
-  | { state: "loading" }
-  | { state: "success"; rides: Ride[] }
-  | { state: "error"; message: string };
-
-type RideSpecItem = {
-  label: string;
-  value: string;
-  wide?: true;
-  code?: true;
-};
-
-type BreadcrumbItem = {
-  label: string;
-  href?: string;
-  onClick?: () => void;
-};
-
-type ExternalInsightLink = {
-  label: string;
-  href: string;
-};
-
-const defaultParkRideSort: ParkRideSort = "name";
-const defaultRidesCatalogSort: RidesCatalogSort = "name";
-const defaultAdminCatalogPage = 1;
-const adminCatalogPageSize = 12;
-const defaultAdminFilter: AdminCatalogFilter = "all";
-const adminRoles = new Set<UserRole>([
-  "admin",
-  "moderator",
-  "regional_editor",
-  "global_editor",
-  "admin",
-  "super_admin"
-]);
-
-const isAdminRole = (role: UserRole) => adminRoles.has(role);
-
-const isParkRideSort = (value: string | null): value is ParkRideSort =>
-  value === "name" || value === "opening_year" || value === "speed_kmh";
-
-const isRidesCatalogSort = (value: string | null): value is RidesCatalogSort =>
-  value === "name" || value === "opening_year" || value === "speed_kmh";
-
-const getSearchQueryFromUrl = (search: string) => {
-  const value = new URLSearchParams(search).get("search")?.trim();
-
-  return value ?? "";
-};
-
-const getCatalogPageFromUrl = (search: string) => {
-  const rawValue = new URLSearchParams(search).get("page");
-  const parsedValue = rawValue ? Number.parseInt(rawValue, 10) : Number.NaN;
-
-  return Number.isFinite(parsedValue) && parsedValue >= 1
-    ? parsedValue
-    : defaultCatalogPage;
-};
-
-const getRideBrowserStateFromUrl = (search: string) => {
-  const params = new URLSearchParams(search);
-  const rideType = params.get("rideType")?.trim() ?? "";
-  const manufacturer = params.get("manufacturer")?.trim() ?? "";
-  const sort = params.get("sort");
-
-  return {
-    rideType,
-    manufacturer,
-    sort: isParkRideSort(sort) ? sort : defaultParkRideSort
-  };
-};
-
-const getRidesCatalogStateFromUrl = (search: string) => {
-  const params = new URLSearchParams(search);
-  const searchQuery = params.get("search")?.trim() ?? "";
-  const park = params.get("park")?.trim() ?? "";
-  const rideType = params.get("rideType")?.trim() ?? "";
-  const manufacturer = params.get("manufacturer")?.trim() ?? "";
-  const sort = params.get("sort");
-
-  return {
-    searchQuery,
-    park,
-    rideType,
-    manufacturer,
-    sort: isRidesCatalogSort(sort) ? sort : defaultRidesCatalogSort
-  };
-};
-
-const getCollectionIdFromUrl = (search: string) =>
-  new URLSearchParams(search).get("collection")?.trim() ?? "";
-
-const getRideDetailOriginFromUrl = (search: string): RideDetailOrigin =>
-  new URLSearchParams(search).get("origin") === "rides" ? "rides" : "park";
-
-const buildPathWithQuery = (pathname: string, params: URLSearchParams) => {
-  const query = params.toString();
-
-  return query ? `${pathname}?${query}` : pathname;
-};
-
 const dedupeExternalLinks = (links: ExternalInsightLink[]) => {
   const seen = new Set<string>();
 
@@ -780,62 +139,6 @@ const dedupeExternalLinks = (links: ExternalInsightLink[]) => {
 
     return true;
   });
-};
-
-const getRoute = (pathname: string): Route => {
-  const rideMatch = pathname.match(/^\/parks\/([^/]+)\/rides\/([^/]+)\/?$/);
-
-  if (rideMatch?.[1] && rideMatch[2]) {
-    return {
-      view: "ride",
-      parkSlug: decodeURIComponent(rideMatch[1]),
-      rideSlug: decodeURIComponent(rideMatch[2])
-    };
-  }
-
-  if (pathname === "/parks" || pathname === "/parks/") {
-    return { view: "parks" };
-  }
-
-  if (pathname === "/rides" || pathname === "/rides/") {
-    return { view: "rides" };
-  }
-
-  const parkMatch = pathname.match(/^\/parks\/([^/]+)\/?$/);
-
-  if (parkMatch?.[1]) {
-    return {
-      view: "park",
-      slug: decodeURIComponent(parkMatch[1])
-    };
-  }
-
-  if (pathname === "/discover" || pathname === "/discover/") {
-    return { view: "discover" };
-  }
-
-  if (pathname === "/admin" || pathname === "/admin/") {
-    return { view: "admin" };
-  }
-
-  if (pathname === "/profile" || pathname === "/profile/") {
-    return { view: "profile" };
-  }
-
-  const userProfileMatch = pathname.match(/^\/users\/([^/]+)\/?$/);
-
-  if (userProfileMatch?.[1]) {
-    return {
-      view: "user-profile",
-      slug: decodeURIComponent(userProfileMatch[1])
-    };
-  }
-
-  if (pathname === "/journal" || pathname === "/journal/") {
-    return { view: "journal" };
-  }
-
-  return { view: "home" };
 };
 
 function App() {
