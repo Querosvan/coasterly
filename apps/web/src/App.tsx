@@ -262,12 +262,12 @@ function App() {
   const copy = messages[locale];
   const signInPromptTitle =
     locale === "es"
-      ? "Inicia sesi\u00f3n para guardar tu progreso."
-      : "Sign in to save your progress.";
+      ? "Guarda tus cr\u00e9ditos y construye tu perfil coaster."
+      : "Save your credits and build your coaster profile.";
   const signInPromptBody =
     locale === "es"
-      ? "Usa Google para guardar cr\u00e9ditos, misiones y progreso del perfil."
-      : "Use Google to save credits, missions, and profile progress.";
+      ? "Usa Google para guardar monta\u00f1as rusas montadas, avance por parque, retos diarios y un perfil p\u00fablico para compartir."
+      : "Use Google to save ridden coasters, park progress, daily challenges, and a public profile you can share.";
   const rideSignInPrompt =
     locale === "es"
       ? "Inicia sesi\u00f3n para guardar esta atracci\u00f3n."
@@ -3146,8 +3146,6 @@ function App() {
           navigateToRides={navigateToRides}
           rankedProgressParks={rankedProgressParks}
           recentlyActiveProfiles={recentlyActiveProfiles}
-          signInPromptBody={signInPromptBody}
-          signInPromptTitle={signInPromptTitle}
           submitDailyChallengeAnswer={submitDailyChallengeAnswer}
           userProgressionStatus={userProgressionStatus}
         />

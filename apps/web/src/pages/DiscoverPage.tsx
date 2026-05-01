@@ -45,8 +45,6 @@ interface DiscoverPageProps {
   longestStreakProfiles: CommunityHighlightsResponse["profiles"];
   rankedProgressParks: ParkProgress[];
   recentlyActiveProfiles: CommunityHighlightsResponse["profiles"];
-  signInPromptTitle: string;
-  signInPromptBody: string;
   userProgressionStatus: UserProgressionStatus;
   beginGoogleSignIn: (returnTo?: string) => void;
   claimDailyReward: () => void;
@@ -90,11 +88,10 @@ export function DiscoverPage({
   navigateToRides,
   rankedProgressParks,
   recentlyActiveProfiles,
-  signInPromptBody,
-  signInPromptTitle,
   submitDailyChallengeAnswer,
   userProgressionStatus
 }: DiscoverPageProps) {
+  const hasProgress = demoUserStatsStatus.state === "success";
 
   return (
         <section className="catalog-panel browse-panel" aria-live="polite">
@@ -102,14 +99,35 @@ export function DiscoverPage({
             <div className="catalog-copy">
               <p className="status-label">{copy.discover.label}</p>
               <h2 className="section-title">{copy.discover.title}</h2>
+              <p className="section-copy">{copy.discover.intro}</p>
+            </div>
+            <div className="landing-actions">
+              <button
+                className="catalog-inline-button"
+                type="button"
+                onClick={() => {
+                  navigateToParks({ preserveSearch: true });
+                }}
+              >
+                {copy.discover.browseParks}
+              </button>
+              <button
+                className="catalog-inline-button"
+                type="button"
+                onClick={() => {
+                  navigateToRides({ preserveFilters: true });
+                }}
+              >
+                {copy.discover.browseRides}
+              </button>
             </div>
           </div>
 
           {currentUserStatus.state === "signed_out" ? (
             <AuthPromptPanel
-              title={signInPromptTitle}
-              summary={signInPromptBody}
-              actionLabel={copy.nav.signIn}
+              title={copy.discover.signedOutTitle}
+              summary={copy.discover.signedOutBody}
+              actionLabel={copy.home.startTracking}
               onAction={() => {
                 beginGoogleSignIn();
               }}
@@ -129,11 +147,12 @@ export function DiscoverPage({
             />
           )}
 
-          {demoUserStatsStatus.state === "success" ? (
+          {hasProgress ? (
             <section className="stats-panel" aria-label={copy.discover.rideProgress}>
               <div className="section-row">
                 <div>
                   <p className="status-label">{copy.discover.rideProgress}</p>
+                  <h2 className="section-title auth-prompt-title">{copy.home.progressTitle}</h2>
                 </div>
                 <button className="catalog-inline-button" type="button" onClick={() => {
                   navigateToParks({ preserveSearch: true });
@@ -187,14 +206,7 @@ export function DiscoverPage({
               />
             </section>
           ) : currentUserStatus.state === "signed_out" ? (
-            <AuthPromptPanel
-              title={signInPromptTitle}
-              summary={signInPromptBody}
-              actionLabel={copy.nav.signIn}
-              onAction={() => {
-                beginGoogleSignIn();
-              }}
-            />
+            null
           ) : null}
 
           <section className="catalog-panel nested-panel">
@@ -202,6 +214,7 @@ export function DiscoverPage({
               <div className="catalog-copy">
                 <p className="status-label">{copy.discover.collectionsLabel}</p>
                 <h2 className="section-title">{copy.discover.collectionsTitle}</h2>
+                <p className="section-copy">{copy.discover.collectionsSummary}</p>
               </div>
             </div>
             <div className="collection-grid">
@@ -227,8 +240,8 @@ export function DiscoverPage({
           <section className="catalog-panel nested-panel">
             <div className="catalog-header landing-header">
               <div className="catalog-copy">
-                <p className="status-label">Ranked now</p>
-                <h2 className="section-title">A quicker read on active riders.</h2>
+                <p className="status-label">{copy.discover.rankedLabel}</p>
+                <h2 className="section-title">{copy.discover.rankedTitle}</h2>
               </div>
             </div>
             {communityHighlightsStatus.state === "loading" ? (
@@ -286,6 +299,7 @@ export function DiscoverPage({
               <div className="catalog-copy">
                 <p className="status-label">{copy.discover.featuredLabel}</p>
                 <h2 className="section-title">{copy.discover.featuredTitle}</h2>
+                <p className="section-copy">{copy.discover.featuredSummary}</p>
               </div>
             </div>
             <div className="parks-list parks-list-featured">
@@ -402,7 +416,7 @@ export function DiscoverPage({
                 </div>
               ) : (
                 <div className="state-message state-message-empty state-message-compact">
-                  <p>No recent ride activity yet.</p>
+                  <p>{copy.discover.communityEmpty}</p>
                 </div>
               )
             ) : null}
