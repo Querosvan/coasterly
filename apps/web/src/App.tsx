@@ -3,9 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import type {
   AdminCatalogFilter,
-  AdminParksResponse,
-  AdminRidesResponse,
-  AdminSummaryResponse,
   CommunityHighlightsResponse,
   DemoUserStatsResponse,
   HealthResponse,
@@ -28,6 +25,7 @@ import {
   rideEditorialBySlugEs,
   type Locale
 } from "./i18n";
+import { useAdminData } from "./hooks/useAdminData";
 import { useCatalogQueryState } from "./hooks/useCatalogQueryState";
 import { useCurrentUser } from "./hooks/useCurrentUser";
 import { useDailyChallenge } from "./hooks/useDailyChallenge";
@@ -47,9 +45,7 @@ import {
   missingApiBaseUrlMessage
 } from "./hooks/userDataApi";
 import {
-  adminCatalogPageSize,
   defaultAdminCatalogPage,
-  defaultAdminFilter,
   isAdminRole
 } from "./lib/admin";
 import {
@@ -74,9 +70,6 @@ import {
   getRoute
 } from "./lib/routes";
 import type {
-  AdminParksStatus,
-  AdminRidesStatus,
-  AdminSummaryStatus,
   ApiStatus,
   BreadcrumbItem,
   CommunityHighlightsStatus,
@@ -179,18 +172,6 @@ function App() {
     parkRideSort
   });
   const { currentUserStatus, markSignedOut } = useCurrentUser();
-  const [adminParksStatus, setAdminParksStatus] = useState<AdminParksStatus>({
-    state: "idle"
-  });
-  const [adminRidesStatus, setAdminRidesStatus] = useState<AdminRidesStatus>({
-    state: "idle"
-  });
-  const [adminSummaryStatus, setAdminSummaryStatus] = useState<AdminSummaryStatus>({
-    state: "idle"
-  });
-  const [adminParksPage, setAdminParksPage] = useState(defaultAdminCatalogPage);
-  const [adminRidesPage, setAdminRidesPage] = useState(defaultAdminCatalogPage);
-  const [adminFilter, setAdminFilter] = useState<AdminCatalogFilter>(defaultAdminFilter);
   const {
     rideCreditsStatus,
     resetRideCredits,
@@ -312,155 +293,20 @@ function App() {
   const isAdminUser =
     currentUserStatus.state === "signed_in" &&
     isAdminRole(currentUserStatus.currentUser.user.role);
-
-  const loadAdminParks = async (signal?: AbortSignal) => {
-    if (!apiBaseUrl) {
-      setAdminParksStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    setAdminParksStatus({ state: "loading" });
-
-    try {
-      const response = await fetchWithSession(
-        new URL(
-          `/admin/parks?limit=${adminCatalogPageSize}&offset=${(adminParksPage - 1) * adminCatalogPageSize}&filter=${adminFilter}`,
-          apiBaseUrl
-        ),
-        {
-          ...(signal ? { signal } : {})
-        }
-      );
-
-      if (!response.ok) {
-        setAdminParksStatus({
-          state: "error",
-          message: `Admin parks request failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as AdminParksResponse;
-
-      setAdminParksStatus({
-        state: "success",
-        parks: payload.parks,
-        pageInfo: payload.pageInfo
-      });
-    } catch (error) {
-      if (signal?.aborted) {
-        return;
-      }
-
-      setAdminParksStatus({
-        state: "error",
-        message:
-          error instanceof Error ? error.message : "The admin parks request failed."
-      });
-    }
-  };
-
-  const loadAdminRides = async (signal?: AbortSignal) => {
-    if (!apiBaseUrl) {
-      setAdminRidesStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    setAdminRidesStatus({ state: "loading" });
-
-    try {
-      const response = await fetchWithSession(
-        new URL(
-          `/admin/rides?limit=${adminCatalogPageSize}&offset=${(adminRidesPage - 1) * adminCatalogPageSize}&filter=${adminFilter}`,
-          apiBaseUrl
-        ),
-        {
-          ...(signal ? { signal } : {})
-        }
-      );
-
-      if (!response.ok) {
-        setAdminRidesStatus({
-          state: "error",
-          message: `Admin rides request failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as AdminRidesResponse;
-
-      setAdminRidesStatus({
-        state: "success",
-        rides: payload.rides,
-        pageInfo: payload.pageInfo
-      });
-    } catch (error) {
-      if (signal?.aborted) {
-        return;
-      }
-
-      setAdminRidesStatus({
-        state: "error",
-        message:
-          error instanceof Error ? error.message : "The admin rides request failed."
-      });
-    }
-  };
-
-  const loadAdminSummary = async (signal?: AbortSignal) => {
-    if (!apiBaseUrl) {
-      setAdminSummaryStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    setAdminSummaryStatus({ state: "loading" });
-
-    try {
-      const response = await fetchWithSession(new URL("/admin/summary", apiBaseUrl), {
-        ...(signal ? { signal } : {})
-      });
-
-      if (!response.ok) {
-        setAdminSummaryStatus({
-          state: "error",
-          message: `Admin summary request failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as AdminSummaryResponse;
-
-      setAdminSummaryStatus({
-        state: "success",
-        summary: payload.summary
-      });
-    } catch (error) {
-      if (signal?.aborted) {
-        return;
-      }
-
-      setAdminSummaryStatus({
-        state: "error",
-        message:
-          error instanceof Error ? error.message : "The admin summary request failed."
-      });
-    }
-  };
+  const {
+    adminParksStatus,
+    adminRidesStatus,
+    adminSummaryStatus,
+    adminParksPage,
+    adminRidesPage,
+    adminFilter,
+    applyAdminFilter,
+    resetAdminCatalog,
+    goToPreviousAdminParksPage,
+    goToNextAdminParksPage,
+    goToPreviousAdminRidesPage,
+    goToNextAdminRidesPage
+  } = useAdminData({ route, isAdminUser });
 
   useEffect(() => {
     window.localStorage.setItem(localeStorageKey, locale);
@@ -628,26 +474,6 @@ function App() {
     loadUserProfile,
     resetUserProfile
   ]);
-
-  useEffect(() => {
-    if (route.view !== "admin" || !isAdminUser) {
-      setAdminParksStatus({ state: "idle" });
-      setAdminRidesStatus({ state: "idle" });
-      setAdminSummaryStatus({ state: "idle" });
-
-      return;
-    }
-
-    const controller = new AbortController();
-
-    void loadAdminSummary(controller.signal);
-    void loadAdminParks(controller.signal);
-    void loadAdminRides(controller.signal);
-
-    return () => {
-      controller.abort();
-    };
-  }, [route, isAdminUser, adminFilter, adminParksPage, adminRidesPage]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -956,9 +782,7 @@ function App() {
   };
 
   const navigateToAdmin = () => {
-    setAdminParksPage(defaultAdminCatalogPage);
-    setAdminRidesPage(defaultAdminCatalogPage);
-    setAdminFilter(defaultAdminFilter);
+    resetAdminCatalog();
     navigateWithParams("/admin", new URLSearchParams());
   };
 
@@ -988,40 +812,6 @@ function App() {
     }
 
     setRidesCatalogPage((currentPage) => currentPage + 1);
-  };
-
-  const goToPreviousAdminParksPage = () => {
-    setAdminParksPage((currentPage) =>
-      currentPage > defaultAdminCatalogPage ? currentPage - 1 : currentPage
-    );
-  };
-
-  const goToNextAdminParksPage = () => {
-    if (adminParksStatus.state !== "success" || !adminParksStatus.pageInfo?.hasMore) {
-      return;
-    }
-
-    setAdminParksPage((currentPage) => currentPage + 1);
-  };
-
-  const goToPreviousAdminRidesPage = () => {
-    setAdminRidesPage((currentPage) =>
-      currentPage > defaultAdminCatalogPage ? currentPage - 1 : currentPage
-    );
-  };
-
-  const goToNextAdminRidesPage = () => {
-    if (adminRidesStatus.state !== "success" || !adminRidesStatus.pageInfo?.hasMore) {
-      return;
-    }
-
-    setAdminRidesPage((currentPage) => currentPage + 1);
-  };
-
-  const applyAdminFilter = (nextFilter: AdminCatalogFilter) => {
-    setAdminFilter(nextFilter);
-    setAdminParksPage(defaultAdminCatalogPage);
-    setAdminRidesPage(defaultAdminCatalogPage);
   };
 
   const navigateToDiscover = () => {
