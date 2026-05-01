@@ -98,6 +98,50 @@ export function AdminPage({
   navigateToPark,
   navigateToRide
 }: AdminPageProps) {
+  const isSpanish = locale === "es";
+  const currentFilterLabel = adminFilterLabels[adminFilter];
+  const dashboardLead = isSpanish
+    ? "Prioriza la cobertura editorial del catálogo: media, mappings de Queue-Times y datos que necesitan revisión."
+    : "Prioritize editorial catalog coverage: media, Queue-Times mappings, and records that need cleanup.";
+  const filterHelp = isSpanish
+    ? "Cambia el foco de revisión sin salir de la cola actual."
+    : "Switch the review focus without leaving the current queue.";
+  const parksSectionTitle = isSpanish ? "Cola de revisión de parques" : "Park review queue";
+  const ridesSectionTitle = isSpanish ? "Cola de revisión de atracciones" : "Ride review queue";
+  const parksSectionHelp = isSpanish
+    ? "Revisa parques sin imagen o sin mapping de Queue-Times antes de publicarlos como completos."
+    : "Review parks missing images or Queue-Times mappings before treating them as complete.";
+  const ridesSectionHelp = isSpanish
+    ? "Escanea atracciones por media, mapping de Queue-Times y señales de limpieza editorial."
+    : "Scan rides for media coverage, Queue-Times mapping, and editorial cleanup signals.";
+  const activeFilterLabel = isSpanish ? "Filtro activo" : "Active filter";
+  const attentionLabel = isSpanish ? "Atención" : "Needs attention";
+  const completeLabel = isSpanish ? "Completo" : "Complete";
+  const coverageLabel = isSpanish ? "Cobertura" : "Coverage";
+  const locationLabel = isSpanish ? "Ubicación" : "Location";
+  const parkLabel = isSpanish ? "Parque" : "Park";
+  const statusLabel = isSpanish ? "Estado" : "Status";
+  const typeLabel = isSpanish ? "Tipo" : "Type";
+  const reviewNowLabel = isSpanish ? "Revisar ahora" : "Review now";
+  const noIssuesLabel = isSpanish ? "Sin incidencias visibles" : "No visible issues";
+  const noParksForFilter = isSpanish
+    ? `No hay parques en la cola "${currentFilterLabel}".`
+    : `No parks are in the "${currentFilterLabel}" queue.`;
+  const noRidesForFilter = isSpanish
+    ? `No hay atracciones en la cola "${currentFilterLabel}".`
+    : `No rides are in the "${currentFilterLabel}" queue.`;
+  const pageRangeLabel = (
+    pageInfo: { offset: number; totalCount: number } | undefined,
+    visibleCount: number
+  ) =>
+    `${(pageInfo?.offset ?? 0) + 1}-${Math.min(
+      (pageInfo?.offset ?? 0) + visibleCount,
+      pageInfo?.totalCount ?? visibleCount
+    )} / ${pageInfo?.totalCount ?? visibleCount}`;
+  const issueCountLabel = (count: number) =>
+    isSpanish
+      ? `${count} ${count === 1 ? "incidencia" : "incidencias"}`
+      : `${count} ${count === 1 ? "issue" : "issues"}`;
 
   return (
         <section className="catalog-panel browse-panel" aria-live="polite">
@@ -138,24 +182,37 @@ export function AdminPage({
           {isAdminUser ? (
             <div className="admin-page-grid">
               <section className="stats-panel admin-summary-panel" aria-label={adminPageTitle}>
-                <div className="catalog-copy">
-                  <p className="status-label">{adminNavLabel}</p>
-                  <h3 className="section-title">{adminPageTitle}</h3>
-                  <p className="section-copy">{adminInternalNote}</p>
+                <div className="admin-dashboard-header">
+                  <div className="catalog-copy">
+                    <p className="status-label">{adminNavLabel}</p>
+                    <h3 className="section-title">{adminPageTitle}</h3>
+                    <p className="section-copy">{adminInternalNote}</p>
+                    <p className="section-copy">{dashboardLead}</p>
+                  </div>
+                  <div className="admin-active-filter" aria-label={activeFilterLabel}>
+                    <span className="detail-item-label">{activeFilterLabel}</span>
+                    <strong>{currentFilterLabel}</strong>
+                  </div>
                 </div>
-                <div className="admin-filter-row">
-                  {(Object.keys(adminFilterLabels) as AdminCatalogFilter[]).map((filterKey) => (
-                    <button
-                      key={filterKey}
-                      className={`ghost-button${adminFilter === filterKey ? " ghost-button-active" : ""}`}
-                      type="button"
-                      onClick={() => {
-                        applyAdminFilter(filterKey);
-                      }}
-                    >
-                      {adminFilterLabels[filterKey]}
-                    </button>
-                  ))}
+                <div className="admin-filter-panel">
+                  <div className="admin-filter-copy">
+                    <span className="detail-item-label">{coverageLabel}</span>
+                    <p className="catalog-note">{filterHelp}</p>
+                  </div>
+                  <div className="admin-filter-row">
+                    {(Object.keys(adminFilterLabels) as AdminCatalogFilter[]).map((filterKey) => (
+                      <button
+                        key={filterKey}
+                        className={`ghost-button${adminFilter === filterKey ? " ghost-button-active" : ""}`}
+                        type="button"
+                        onClick={() => {
+                          applyAdminFilter(filterKey);
+                        }}
+                      >
+                        {adminFilterLabels[filterKey]}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {adminSummaryStatus.state === "loading" ? (
                   <div className="state-message state-message-loading state-message-compact">
@@ -169,37 +226,58 @@ export function AdminPage({
                 ) : null}
                 {adminSummaryStatus.state === "success" ? (
                   <div className="stats-grid admin-summary-grid">
-                    <article className="stats-card">
+                    <article className="stats-card admin-summary-card admin-summary-card-total">
                       <span className="stats-card-label">{adminParksTitle}</span>
                       <strong className="stats-card-value">{adminSummaryStatus.summary.totalParks}</strong>
+                      <span className="catalog-note">
+                        {isSpanish ? "Parques en catálogo" : "Catalog parks"}
+                      </span>
                     </article>
-                    <article className="stats-card">
+                    <article className="stats-card admin-summary-card admin-summary-card-attention">
                       <span className="stats-card-label">{adminMediaMissing}</span>
                       <strong className="stats-card-value">{adminSummaryStatus.summary.parksMissingMedia}</strong>
+                      <span className="catalog-note">
+                        {isSpanish ? "Parques sin imagen principal" : "Parks missing primary media"}
+                      </span>
                     </article>
-                    <article className="stats-card">
+                    <article className="stats-card admin-summary-card admin-summary-card-attention">
                       <span className="stats-card-label">{adminQueueMissing}</span>
                       <strong className="stats-card-value">
                         {adminSummaryStatus.summary.parksMissingQueueTimesMapping}
                       </strong>
+                      <span className="catalog-note">
+                        {isSpanish ? "Parques sin mapping de esperas" : "Parks missing wait-time mapping"}
+                      </span>
                     </article>
-                    <article className="stats-card">
+                    <article className="stats-card admin-summary-card admin-summary-card-total">
                       <span className="stats-card-label">{adminRidesTitle}</span>
                       <strong className="stats-card-value">{adminSummaryStatus.summary.totalRides}</strong>
+                      <span className="catalog-note">
+                        {isSpanish ? "Atracciones en catálogo" : "Catalog rides"}
+                      </span>
                     </article>
-                    <article className="stats-card">
+                    <article className="stats-card admin-summary-card admin-summary-card-attention">
                       <span className="stats-card-label">{`${adminRidesTitle} / ${adminMediaMissing}`}</span>
                       <strong className="stats-card-value">{adminSummaryStatus.summary.ridesMissingMedia}</strong>
+                      <span className="catalog-note">
+                        {isSpanish ? "Atracciones sin imagen principal" : "Rides missing primary media"}
+                      </span>
                     </article>
-                    <article className="stats-card">
+                    <article className="stats-card admin-summary-card admin-summary-card-attention">
                       <span className="stats-card-label">{`${adminRidesTitle} / ${adminQueueMissing}`}</span>
                       <strong className="stats-card-value">
                         {adminSummaryStatus.summary.ridesMissingQueueTimesMapping}
                       </strong>
+                      <span className="catalog-note">
+                        {isSpanish ? "Atracciones sin mapping de esperas" : "Rides missing wait-time mapping"}
+                      </span>
                     </article>
-                    <article className="stats-card">
+                    <article className="stats-card admin-summary-card admin-summary-card-cleanup">
                       <span className="stats-card-label">{adminNeedsCleanup}</span>
                       <strong className="stats-card-value">{adminSummaryStatus.summary.ridesNeedingCleanup}</strong>
+                      <span className="catalog-note">
+                        {isSpanish ? "Atracciones con datos a revisar" : "Rides with data to review"}
+                      </span>
                     </article>
                   </div>
                 ) : null}
@@ -208,8 +286,9 @@ export function AdminPage({
               <section className="catalog-panel nested-panel">
                 <div className="catalog-header landing-header">
                   <div className="catalog-copy">
-                    <p className="status-label">{adminNavLabel}</p>
-                    <h2 className="section-title">{adminParksTitle}</h2>
+                    <p className="status-label">{adminParksTitle}</p>
+                    <h2 className="section-title">{parksSectionTitle}</h2>
+                    <p className="section-copy">{parksSectionHelp}</p>
                   </div>
                 </div>
                 {adminParksStatus.state === "loading" ? (
@@ -226,50 +305,83 @@ export function AdminPage({
                   adminParksStatus.parks.length > 0 ? (
                     <>
                       <div className="admin-review-grid">
-                        {adminParksStatus.parks.map((park) => (
-                          <article className="admin-review-card" key={`admin-park-${park.id}`}>
-                            <div className="admin-review-copy">
-                              <button
-                                className="community-profile-link"
-                                type="button"
-                                onClick={() => {
-                                  navigateToPark(park.slug);
-                                }}
-                              >
-                                {park.name}
-                              </button>
-                              <p className="card-summary">
-                                {park.city ? `${park.city}, ${park.country}` : park.country}
-                              </p>
-                            </div>
-                            <div className="admin-review-meta">
-                              <span className="detail-item-label">{adminSlugLabel}</span>
-                              <code className="detail-item-value detail-item-code">{park.slug}</code>
-                            </div>
-                            <div className="detail-chip-row">
-                              <span className="catalog-chip route-chip">
-                                {formatStatusLabel(locale, park.status)}
-                              </span>
-                              <span className="catalog-chip route-chip">
-                                {park.hasImage ? adminMediaAvailable : adminMediaMissing}
-                              </span>
-                              <span className="catalog-chip route-chip">
-                                {park.hasQueueTimesMapping ? adminQueueMapped : adminQueueMissing}
-                              </span>
-                              {adminFilter === "needs_cleanup" ? (
-                                <span className="catalog-chip route-chip">{adminNeedsCleanup}</span>
-                              ) : null}
-                            </div>
-                          </article>
-                        ))}
+                        {adminParksStatus.parks.map((park) => {
+                          const issueCount =
+                            (park.hasImage ? 0 : 1) + (park.hasQueueTimesMapping ? 0 : 1);
+
+                          return (
+                            <article
+                              className={`admin-review-card${
+                                issueCount > 0 ? " admin-review-card-attention" : ""
+                              }`}
+                              key={`admin-park-${park.id}`}
+                            >
+                              <div className="admin-review-card-header">
+                                <div className="admin-review-copy">
+                                  <button
+                                    className="community-profile-link"
+                                    type="button"
+                                    onClick={() => {
+                                      navigateToPark(park.slug);
+                                    }}
+                                  >
+                                    {park.name}
+                                  </button>
+                                  <p className="card-summary">
+                                    {issueCount > 0 ? issueCountLabel(issueCount) : noIssuesLabel}
+                                  </p>
+                                </div>
+                                <span
+                                  className={`catalog-chip route-chip ${
+                                    issueCount > 0 ? "admin-chip-attention" : "admin-chip-good"
+                                  }`}
+                                >
+                                  {issueCount > 0 ? attentionLabel : completeLabel}
+                                </span>
+                              </div>
+                              <div className="admin-review-meta-grid">
+                                <div className="admin-review-meta">
+                                  <span className="detail-item-label">{locationLabel}</span>
+                                  <span className="detail-item-value">
+                                    {park.city ? `${park.city}, ${park.country}` : park.country}
+                                  </span>
+                                </div>
+                                <div className="admin-review-meta">
+                                  <span className="detail-item-label">{statusLabel}</span>
+                                  <span className="detail-item-value">
+                                    {formatStatusLabel(locale, park.status)}
+                                  </span>
+                                </div>
+                                <div className="admin-review-meta admin-review-meta-wide">
+                                  <span className="detail-item-label">{adminSlugLabel}</span>
+                                  <code className="detail-item-value detail-item-code">{park.slug}</code>
+                                </div>
+                              </div>
+                              <div className="detail-chip-row">
+                                <span
+                                  className={`catalog-chip route-chip ${
+                                    park.hasImage ? "admin-chip-good" : "admin-chip-attention"
+                                  }`}
+                                >
+                                  {park.hasImage ? adminMediaAvailable : adminMediaMissing}
+                                </span>
+                                <span
+                                  className={`catalog-chip route-chip ${
+                                    park.hasQueueTimesMapping
+                                      ? "admin-chip-good"
+                                      : "admin-chip-attention"
+                                  }`}
+                                >
+                                  {park.hasQueueTimesMapping ? adminQueueMapped : adminQueueMissing}
+                                </span>
+                              </div>
+                            </article>
+                          );
+                        })}
                       </div>
                       <div className="admin-pagination-row">
                         <span className="catalog-note">
-                          {`${(adminParksStatus.pageInfo?.offset ?? 0) + 1}-${Math.min(
-                            (adminParksStatus.pageInfo?.offset ?? 0) +
-                              adminParksStatus.parks.length,
-                            adminParksStatus.pageInfo?.totalCount ?? adminParksStatus.parks.length
-                          )} / ${adminParksStatus.pageInfo?.totalCount ?? adminParksStatus.parks.length}`}
+                          {pageRangeLabel(adminParksStatus.pageInfo, adminParksStatus.parks.length)}
                         </span>
                         <div className="detail-chip-row">
                           <button
@@ -293,7 +405,7 @@ export function AdminPage({
                     </>
                   ) : (
                     <div className="state-message state-message-empty state-message-compact">
-                      <p>{adminParkEmptyLabel}</p>
+                      <p>{adminFilter === "all" ? adminParkEmptyLabel : noParksForFilter}</p>
                     </div>
                   )
                 ) : null}
@@ -302,8 +414,9 @@ export function AdminPage({
               <section className="catalog-panel nested-panel">
                 <div className="catalog-header landing-header">
                   <div className="catalog-copy">
-                    <p className="status-label">{adminNavLabel}</p>
-                    <h2 className="section-title">{adminRidesTitle}</h2>
+                    <p className="status-label">{adminRidesTitle}</p>
+                    <h2 className="section-title">{ridesSectionTitle}</h2>
+                    <p className="section-copy">{ridesSectionHelp}</p>
                   </div>
                 </div>
                 {adminRidesStatus.state === "loading" ? (
@@ -320,48 +433,92 @@ export function AdminPage({
                   adminRidesStatus.rides.length > 0 ? (
                     <>
                       <div className="admin-review-grid">
-                        {adminRidesStatus.rides.map((ride) => (
-                          <article className="admin-review-card" key={`admin-ride-${ride.id}`}>
-                            <div className="admin-review-copy">
-                              <button
-                                className="community-profile-link"
-                                type="button"
-                                onClick={() => {
-                                  navigateToRide(ride.parkSlug, ride.slug, { origin: "rides" });
-                                }}
-                              >
-                                {ride.name}
-                              </button>
-                              <p className="card-summary">{`${ride.rideType} / ${ride.parkName}`}</p>
-                            </div>
-                            <div className="admin-review-meta">
-                              <span className="detail-item-label">{adminSlugLabel}</span>
-                              <code className="detail-item-value detail-item-code">{ride.slug}</code>
-                            </div>
-                            <div className="detail-chip-row">
-                              <span className="catalog-chip route-chip">
-                                {formatStatusLabel(locale, ride.status)}
-                              </span>
-                              <span className="catalog-chip route-chip">
-                                {ride.hasImage ? adminMediaAvailable : adminMediaMissing}
-                              </span>
-                              <span className="catalog-chip route-chip">
-                                {ride.hasQueueTimesMapping ? adminQueueMapped : adminQueueMissing}
-                              </span>
-                              {ride.needsCleanup ? (
-                                <span className="catalog-chip route-chip">{adminNeedsCleanup}</span>
-                              ) : null}
-                            </div>
-                          </article>
-                        ))}
+                        {adminRidesStatus.rides.map((ride) => {
+                          const issueCount =
+                            (ride.hasImage ? 0 : 1) +
+                            (ride.hasQueueTimesMapping ? 0 : 1) +
+                            (ride.needsCleanup ? 1 : 0);
+
+                          return (
+                            <article
+                              className={`admin-review-card${
+                                issueCount > 0 ? " admin-review-card-attention" : ""
+                              }`}
+                              key={`admin-ride-${ride.id}`}
+                            >
+                              <div className="admin-review-card-header">
+                                <div className="admin-review-copy">
+                                  <button
+                                    className="community-profile-link"
+                                    type="button"
+                                    onClick={() => {
+                                      navigateToRide(ride.parkSlug, ride.slug, { origin: "rides" });
+                                    }}
+                                  >
+                                    {ride.name}
+                                  </button>
+                                  <p className="card-summary">
+                                    {issueCount > 0 ? issueCountLabel(issueCount) : noIssuesLabel}
+                                  </p>
+                                </div>
+                                <span
+                                  className={`catalog-chip route-chip ${
+                                    issueCount > 0 ? "admin-chip-attention" : "admin-chip-good"
+                                  }`}
+                                >
+                                  {issueCount > 0 ? reviewNowLabel : completeLabel}
+                                </span>
+                              </div>
+                              <div className="admin-review-meta-grid">
+                                <div className="admin-review-meta">
+                                  <span className="detail-item-label">{parkLabel}</span>
+                                  <span className="detail-item-value">{ride.parkName}</span>
+                                </div>
+                                <div className="admin-review-meta">
+                                  <span className="detail-item-label">{typeLabel}</span>
+                                  <span className="detail-item-value">{ride.rideType}</span>
+                                </div>
+                                <div className="admin-review-meta">
+                                  <span className="detail-item-label">{statusLabel}</span>
+                                  <span className="detail-item-value">
+                                    {formatStatusLabel(locale, ride.status)}
+                                  </span>
+                                </div>
+                                <div className="admin-review-meta admin-review-meta-wide">
+                                  <span className="detail-item-label">{adminSlugLabel}</span>
+                                  <code className="detail-item-value detail-item-code">{ride.slug}</code>
+                                </div>
+                              </div>
+                              <div className="detail-chip-row">
+                                <span
+                                  className={`catalog-chip route-chip ${
+                                    ride.hasImage ? "admin-chip-good" : "admin-chip-attention"
+                                  }`}
+                                >
+                                  {ride.hasImage ? adminMediaAvailable : adminMediaMissing}
+                                </span>
+                                <span
+                                  className={`catalog-chip route-chip ${
+                                    ride.hasQueueTimesMapping
+                                      ? "admin-chip-good"
+                                      : "admin-chip-attention"
+                                  }`}
+                                >
+                                  {ride.hasQueueTimesMapping ? adminQueueMapped : adminQueueMissing}
+                                </span>
+                                {ride.needsCleanup ? (
+                                  <span className="catalog-chip route-chip admin-chip-cleanup">
+                                    {adminNeedsCleanup}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </article>
+                          );
+                        })}
                       </div>
                       <div className="admin-pagination-row">
                         <span className="catalog-note">
-                          {`${(adminRidesStatus.pageInfo?.offset ?? 0) + 1}-${Math.min(
-                            (adminRidesStatus.pageInfo?.offset ?? 0) +
-                              adminRidesStatus.rides.length,
-                            adminRidesStatus.pageInfo?.totalCount ?? adminRidesStatus.rides.length
-                          )} / ${adminRidesStatus.pageInfo?.totalCount ?? adminRidesStatus.rides.length}`}
+                          {pageRangeLabel(adminRidesStatus.pageInfo, adminRidesStatus.rides.length)}
                         </span>
                         <div className="detail-chip-row">
                           <button
@@ -385,7 +542,7 @@ export function AdminPage({
                     </>
                   ) : (
                     <div className="state-message state-message-empty state-message-compact">
-                      <p>{adminRideEmptyLabel}</p>
+                      <p>{adminFilter === "all" ? adminRideEmptyLabel : noRidesForFilter}</p>
                     </div>
                   )
                 ) : null}
