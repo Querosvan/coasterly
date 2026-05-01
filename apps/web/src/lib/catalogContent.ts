@@ -3,21 +3,21 @@ import type { CuratedCollection, EditorialNote } from "./types";
 export const journalTeasers = [
   {
     category: "Guide",
-    title: "Park-planning notes",
-    summary: "Trip planning, lineup context, and progress-ready park guides.",
-    status: "Planned"
+    title: "Park planning notes",
+    summary: "Trip planning context, lineup highlights, and progress-ready park guides.",
+    status: "Guide"
   },
   {
     category: "Ranking",
     title: "Coaster lists worth revisiting",
     summary: "Editorial rankings, route ideas, and park-by-park comparisons.",
-    status: "Planned"
+    status: "Ranking"
   },
   {
     category: "News",
     title: "Launches, retracks, and major openings",
-    summary: "A future home for park news once editorial publishing is added.",
-    status: "Planned"
+    summary: "Notable park updates, major ride openings, and lineup changes worth tracking.",
+    status: "News"
   }
 ] as const;
 

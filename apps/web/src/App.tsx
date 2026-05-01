@@ -429,7 +429,7 @@ function App() {
         message:
           error instanceof Error
             ? error.message
-            : "The demo user stats request failed."
+            : "The user stats request failed."
       });
     }
   };

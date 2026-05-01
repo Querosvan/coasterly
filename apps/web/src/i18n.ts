@@ -97,12 +97,12 @@ export const formatStatusLabel = (locale: Locale, status: ParkStatus | RideStatu
     en: {
       operating: "Operating",
       closed: "Closed",
-      planned: "Planned"
+      planned: "Announced"
     },
     es: {
       operating: "Operativo",
       closed: "Cerrado",
-      planned: "Planificado"
+      planned: "Anunciado"
     }
   };
 
@@ -351,12 +351,12 @@ export const messages = {
       allParks: "All parks",
       allRides: "All rides",
       browse: "Browse",
-      comingSoon: "Coming soon",
+      comingSoon: "Editorial",
       parkResults: "Catalog",
       statsUnavailable: "Stats unavailable"
     },
     journal: {
-      title: "Rankings, guides, and park news will live here.",
+      title: "Rankings, guides, and park news",
       browseParks: "Browse parks"
     },
     park: {
@@ -381,7 +381,7 @@ export const messages = {
       noRidesForFilters: "No rides match the current filters.",
       noRidesAvailable: "No rides available yet.",
       clearOneFilter: "Try clearing one filter or switching the sort order.",
-      noSeededRides: "This park has no seeded rides in the current catalog.",
+      noSeededRides: "No rides are available for this park yet.",
       loadingRides: "Loading rides...",
       unableLoadRides: "Unable to load rides.",
       unableLoadPark: "Unable to load this park."
@@ -609,12 +609,12 @@ export const messages = {
       allParks: "Todos los parques",
       allRides: "Todas las atracciones",
       browse: "Explorar",
-      comingSoon: "Próximamente",
+      comingSoon: "Editorial",
       parkResults: "Catálogo",
       statsUnavailable: "Estadísticas no disponibles"
     },
     journal: {
-      title: "Aquí vivirán rankings, guías y noticias de parques.",
+      title: "Rankings, guías y noticias de parques",
       browseParks: "Ver parques"
     },
     park: {
@@ -639,7 +639,7 @@ export const messages = {
       noRidesForFilters: "Ninguna atracción coincide con los filtros actuales.",
       noRidesAvailable: "Todavía no hay atracciones disponibles.",
       clearOneFilter: "Prueba a quitar un filtro o cambiar el orden.",
-      noSeededRides: "Este parque no tiene atracciones sembradas en el catálogo actual.",
+      noSeededRides: "Todavía no hay atracciones disponibles para este parque.",
       loadingRides: "Cargando atracciones...",
       unableLoadRides: "No se pueden cargar las atracciones.",
       unableLoadPark: "No se puede cargar este parque."
@@ -698,20 +698,20 @@ export const journalTeasersEs = [
   {
     category: "Guía",
     title: "Notas para planificar parques",
-    summary: "Planificación de viajes, contexto del lineup y guías listas para seguir tu progreso.",
-    status: "Planificado"
+    summary: "Contexto para planificar viajes, puntos clave del lineup y guías listas para seguir tu progreso.",
+    status: "Guía"
   },
   {
     category: "Ranking",
     title: "Listas de coasters para revisitar",
     summary: "Rankings editoriales, ideas de ruta y comparativas parque por parque.",
-    status: "Planificado"
+    status: "Ranking"
   },
   {
     category: "Noticias",
     title: "Lanzamientos, retracks y grandes aperturas",
-    summary: "Un futuro hogar para noticias de parques cuando exista la capa editorial.",
-    status: "Planificado"
+    summary: "Actualizaciones de parques, aperturas importantes y cambios de lineup que merece la pena seguir.",
+    status: "Noticias"
   }
 ] as const;
 
