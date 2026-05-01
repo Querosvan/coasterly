@@ -1,179 +1,83 @@
+import type { DemoUserStatsResponse, Park } from "@coasterly/types";
+import type { Dispatch, SetStateAction } from "react";
+
 import { CatalogSkeletonGrid } from "../components/shared/CatalogSkeletonGrid";
 import { CuratedCollectionCard } from "../components/shared/CuratedCollectionCard";
 import { MediaAsset } from "../components/shared/MediaAsset";
+import type { Locale } from "../i18n";
+import type {
+  CuratedCollection,
+  EditorialNote,
+  ParksStatus,
+  UiCopy
+} from "../lib/types";
 
-type ParksPageProps = Record<string, any>;
+type ParkProgress = DemoUserStatsResponse["parks"][number];
 
-export function ParksPage(props: ParksPageProps) {
-  const {
-    activeParkEditorial,
-    activeParkProgress,
-    activeRideEditorial,
-    adminFilter,
-    adminFilterLabels,
-    adminForbiddenBody,
-    adminForbiddenTitle,
-    adminInternalNote,
-    adminLoadingLabel,
-    adminMediaAvailable,
-    adminMediaMissing,
-    adminNavLabel,
-    adminNeedsCleanup,
-    adminPageLabel,
-    adminPageTitle,
-    adminParkEmptyLabel,
-    adminParksPage,
-    adminParksStatus,
-    adminParksTitle,
-    adminQueueMapped,
-    adminQueueMissing,
-    adminRideEmptyLabel,
-    adminRidesPage,
-    adminRidesStatus,
-    adminRidesTitle,
-    adminSignedOutBody,
-    adminSignedOutTitle,
-    adminSlugLabel,
-    adminSummaryStatus,
-    applyAdminFilter,
-    beginGoogleSignIn,
-    claimDailyReward,
-    communityHighlights,
-    communityHighlightsStatus,
-    copy,
-    currentRideLiveWait,
-    currentUserStatus,
-    dailyChallengeStatus,
-    defaultAdminCatalogPage,
-    defaultCatalogPage,
-    defaultParkRideSort,
-    defaultRidesCatalogSort,
-    demoUserStatsStatus,
-    displayedParks,
-    displayedRideCatalogItems,
-    featuredParks,
-    featuredProgressParks,
-    formatParkLocation,
-    getDisplayRideTypeFilterOptions,
-    getParkCardMetric,
-    getRideCardMeta,
-    goToNextAdminParksPage,
-    goToNextAdminRidesPage,
-    goToNextParksPage,
-    goToNextRidesCatalogPage,
-    goToPreviousAdminParksPage,
-    goToPreviousAdminRidesPage,
-    goToPreviousParksPage,
-    goToPreviousRidesCatalogPage,
-    hasActiveCatalogSearch,
-    hasActiveParkCollection,
-    hasActiveRideCollection,
-    highestLevelProfiles,
-    heroCountLabel,
-    isAdminUser,
-    isAuthenticated,
-    isClaimingDailyReward,
-    isCurrentRideRidden,
-    isRideFiltersOpen,
-    isSubmittingDailyChallenge,
-    isUpdatingRideCredit,
-    landingCollections,
-    landingCommunityHighlights,
-    landingFeaturedParks,
-    landingJournalTeasers,
-    liveWaitByRideId,
-    liveWaitRides,
-    liveWaitSource,
-    locale,
-    localizedCollections,
-    localizedParkEditorialBySlug,
-    localizedRideEditorialBySlug,
-    longestStreakProfiles,
-    manufacturerFilter,
-    navigateBackFromRide,
-    navigateToDiscover,
-    navigateToJournal,
-    navigateToPark,
-    navigateToParks,
-    navigateToProfile,
-    navigateToPublicProfile,
-    navigateToRide,
-    navigateToRides,
-    nextRide,
-    normalizedSearchQuery,
-    parkCollectionId,
-    parkCollections,
-    parkDetailStatus,
-    parkLiveWaitsStatus,
-    parkQueueTimesLinks,
-    parkResultRangeLabel,
-    parkRideOptions,
-    parkRideSort,
-    parkRidesStatus,
-    parkProgressBySlug,
-    parksPage,
-    parksPageInfo,
-    parksStatus,
-    parksTotalPages,
-    previousRide,
-    rankedProgressParks,
-    recentlyActiveProfiles,
-    rideCatalogManufacturerFilter,
-    rideCatalogParkFilter,
-    rideCatalogRideTypeFilter,
-    rideCatalogSearchQuery,
-    rideCatalogSort,
-    rideCollectionId,
-    rideCollections,
-    rideCreditMessage,
-    rideCreditsStatus,
-    rideDetailOrigin,
-    rideDetailStatus,
-    rideLineupPositionLabel,
-    rideLineupStatus,
-    rideQueueTimesLinks,
-    rideResultRangeLabel,
-    rideSignInPrompt,
-    rideSpecItems,
-    rideTypeFilter,
-    riddenRideCountLabel,
-    riddenRideIds,
-    ridesCatalogOptions,
-    ridesCatalogPage,
-    ridesCatalogPageInfo,
-    ridesCatalogStatus,
-    ridesCatalogTotalPages,
-    route,
-    searchQuery,
-    secondaryFeaturedParks,
-    selectedParkCollection,
-    selectedRideCollection,
-    setIsRideFiltersOpen,
-    setManufacturerFilter,
-    setParkCollectionId,
-    setParkRideSort,
-    setParksPage,
-    setRideCatalogManufacturerFilter,
-    setRideCatalogParkFilter,
-    setRideCatalogRideTypeFilter,
-    setRideCatalogSearchQuery,
-    setRideCatalogSort,
-    setRideCollectionId,
-    setRideTypeFilter,
-    setRidesCatalogPage,
-    setSearchQuery,
-    showParkQueueTimesSupport,
-    signInPromptBody,
-    signInPromptTitle,
-    spotlightPark,
-    spotlightParkEditorial,
-    spotlightProgress,
-    submitDailyChallengeAnswer,
-    toggleRideCredit,
-    userProgressionStatus,
-    visibleParkCount,
-    visibleRideCatalogCount
-  } = props;
+interface ParksPageProps {
+  copy: UiCopy;
+  locale: Locale;
+  defaultCatalogPage: number;
+  displayedParks: Park[];
+  hasActiveCatalogSearch: boolean;
+  hasActiveParkCollection: boolean;
+  localizedParkEditorialBySlug: Record<string, EditorialNote>;
+  normalizedSearchQuery: string;
+  parkCollectionId: string;
+  parkCollections: readonly CuratedCollection[];
+  parkProgressBySlug: Map<string, ParkProgress> | null;
+  parkResultRangeLabel: string | null;
+  parksPage: number;
+  parksPageInfo: Extract<ParksStatus, { state: "success" }>["pageInfo"] | undefined;
+  parksStatus: ParksStatus;
+  parksTotalPages: number;
+  searchQuery: string;
+  selectedParkCollection: CuratedCollection | undefined;
+  visibleParkCount: number;
+  formatParkLocation: (park: Pick<Park, "country" | "city">) => string;
+  getParkCardMetric: (
+    copy: UiCopy,
+    parkProgress?: Pick<ParkProgress, "riddenRides" | "totalRides">
+  ) => { label: string; value: string } | null;
+  goToNextParksPage: () => void;
+  goToPreviousParksPage: () => void;
+  navigateToPark: (slug: string) => void;
+  navigateToParks: (options?: { preserveSearch?: boolean; collectionId?: string }) => void;
+  setParkCollectionId: Dispatch<SetStateAction<string>>;
+  setParksPage: Dispatch<SetStateAction<number>>;
+  setSearchQuery: Dispatch<SetStateAction<string>>;
+}
+
+export function ParksPage({
+  copy,
+  defaultCatalogPage,
+  displayedParks,
+  formatParkLocation,
+  getParkCardMetric,
+  goToNextParksPage,
+  goToPreviousParksPage,
+  hasActiveCatalogSearch,
+  hasActiveParkCollection,
+  locale,
+  localizedParkEditorialBySlug,
+  navigateToPark,
+  navigateToParks,
+  normalizedSearchQuery,
+  parkCollectionId,
+  parkCollections,
+  parkProgressBySlug,
+  parkResultRangeLabel,
+  parksPage,
+  parksPageInfo,
+  parksStatus,
+  parksTotalPages,
+  searchQuery,
+  selectedParkCollection,
+  setParkCollectionId,
+  setParksPage,
+  setSearchQuery,
+  visibleParkCount
+}: ParksPageProps) {
 
   return (
         <section className="catalog-panel browse-panel" aria-live="polite">
@@ -185,7 +89,7 @@ export function ParksPage(props: ParksPageProps) {
           </div>
 
           <div className="collection-strip" aria-label={copy.home.collectionsTitle}>
-            {parkCollections.map((collection: any) => (
+            {parkCollections.map((collection) => (
               <CuratedCollectionCard
                 collection={collection}
                 isActive={collection.id === parkCollectionId}
@@ -268,7 +172,7 @@ export function ParksPage(props: ParksPageProps) {
             displayedParks.length > 0 ? (
               <>
                 <div className="parks-list">
-                  {displayedParks.map((park: any) => {
+                  {displayedParks.map((park) => {
                     const parkProgress = parkProgressBySlug?.get(park.slug);
                     const parkEditorial = localizedParkEditorialBySlug[park.slug];
                     const parkMetric = getParkCardMetric(copy, parkProgress);

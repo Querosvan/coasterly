@@ -3655,176 +3655,6 @@ function App() {
   const activeNavigationLabel =
     topNavigation.find((item) => item.active)?.label ?? routeBarTitle;
 
-  const pageProps = {
-    activeParkEditorial,
-    activeParkProgress,
-    activeRideEditorial,
-    adminFilter,
-    adminFilterLabels,
-    adminForbiddenBody,
-    adminForbiddenTitle,
-    adminInternalNote,
-    adminLoadingLabel,
-    adminMediaAvailable,
-    adminMediaMissing,
-    adminNavLabel,
-    adminNeedsCleanup,
-    adminPageLabel,
-    adminPageTitle,
-    adminParkEmptyLabel,
-    adminParksPage,
-    adminParksStatus,
-    adminParksTitle,
-    adminQueueMapped,
-    adminQueueMissing,
-    adminRideEmptyLabel,
-    adminRidesPage,
-    adminRidesStatus,
-    adminRidesTitle,
-    adminSignedOutBody,
-    adminSignedOutTitle,
-    adminSlugLabel,
-    adminSummaryStatus,
-    applyAdminFilter,
-    beginGoogleSignIn,
-    claimDailyReward,
-    communityHighlights,
-    communityHighlightsStatus,
-    copy,
-    currentRideLiveWait,
-    currentUserStatus,
-    dailyChallengeStatus,
-    defaultAdminCatalogPage,
-    defaultCatalogPage,
-    defaultParkRideSort,
-    defaultRidesCatalogSort,
-    demoUserStatsStatus,
-    displayedParks,
-    displayedRideCatalogItems,
-    featuredParks,
-    featuredProgressParks,
-    formatParkLocation,
-    getDisplayRideTypeFilterOptions,
-    getParkCardMetric,
-    getRideCardMeta,
-    goToNextAdminParksPage,
-    goToNextAdminRidesPage,
-    goToNextParksPage,
-    goToNextRidesCatalogPage,
-    goToPreviousAdminParksPage,
-    goToPreviousAdminRidesPage,
-    goToPreviousParksPage,
-    goToPreviousRidesCatalogPage,
-    hasActiveCatalogSearch,
-    hasActiveParkCollection,
-    hasActiveRideCollection,
-    highestLevelProfiles,
-    heroCountLabel,
-    isAdminUser,
-    isAuthenticated,
-    isClaimingDailyReward,
-    isCurrentRideRidden,
-    isRideFiltersOpen,
-    isSubmittingDailyChallenge,
-    isUpdatingRideCredit,
-    landingCollections,
-    landingCommunityHighlights,
-    landingFeaturedParks,
-    landingJournalTeasers,
-    liveWaitByRideId,
-    liveWaitRides,
-    liveWaitSource,
-    locale,
-    localizedCollections,
-    localizedParkEditorialBySlug,
-    localizedRideEditorialBySlug,
-    longestStreakProfiles,
-    manufacturerFilter,
-    navigateBackFromRide,
-    navigateToDiscover,
-    navigateToJournal,
-    navigateToPark,
-    navigateToParks,
-    navigateToProfile,
-    navigateToPublicProfile,
-    navigateToRide,
-    navigateToRides,
-    nextRide,
-    normalizedSearchQuery,
-    parkCollectionId,
-    parkCollections,
-    parkDetailStatus,
-    parkLiveWaitsStatus,
-    parkQueueTimesLinks,
-    parkResultRangeLabel,
-    parkRideOptions,
-    parkRideSort,
-    parkRidesStatus,
-    parkProgressBySlug,
-    parksPage,
-    parksPageInfo,
-    parksStatus,
-    parksTotalPages,
-    previousRide,
-    rankedProgressParks,
-    recentlyActiveProfiles,
-    rideCatalogManufacturerFilter,
-    rideCatalogParkFilter,
-    rideCatalogRideTypeFilter,
-    rideCatalogSearchQuery,
-    rideCatalogSort,
-    rideCollectionId,
-    rideCollections,
-    rideCreditMessage,
-    rideCreditsStatus,
-    rideDetailOrigin,
-    rideDetailStatus,
-    rideLineupPositionLabel,
-    rideLineupStatus,
-    rideQueueTimesLinks,
-    rideResultRangeLabel,
-    rideSignInPrompt,
-    rideSpecItems,
-    rideTypeFilter,
-    riddenRideCountLabel,
-    riddenRideIds,
-    ridesCatalogOptions,
-    ridesCatalogPage,
-    ridesCatalogPageInfo,
-    ridesCatalogStatus,
-    ridesCatalogTotalPages,
-    route,
-    searchQuery,
-    secondaryFeaturedParks,
-    selectedParkCollection,
-    selectedRideCollection,
-    setIsRideFiltersOpen,
-    setManufacturerFilter,
-    setParkCollectionId,
-    setParkRideSort,
-    setParksPage,
-    setRideCatalogManufacturerFilter,
-    setRideCatalogParkFilter,
-    setRideCatalogRideTypeFilter,
-    setRideCatalogSearchQuery,
-    setRideCatalogSort,
-    setRideCollectionId,
-    setRideTypeFilter,
-    setRidesCatalogPage,
-    setSearchQuery,
-    showParkQueueTimesSupport,
-    signInPromptBody,
-    signInPromptTitle,
-    spotlightPark,
-    spotlightParkEditorial,
-    spotlightProgress,
-    submitDailyChallengeAnswer,
-    toggleRideCredit,
-    userProgressionStatus,
-    visibleParkCount,
-    visibleRideCatalogCount
-  };
-
   return (
     <main className="app-shell">
       <AppHeader
@@ -3860,15 +3690,203 @@ function App() {
         />
       ) : null}
 
-      {route.view === "home" ? <HomePage {...pageProps} /> : null}
+      {route.view === "home" ? (
+        <HomePage
+          beginGoogleSignIn={beginGoogleSignIn}
+          claimDailyReward={claimDailyReward}
+          communityHighlightsStatus={communityHighlightsStatus}
+          copy={copy}
+          currentUserStatus={currentUserStatus}
+          dailyChallengeStatus={dailyChallengeStatus}
+          demoUserStatsStatus={demoUserStatsStatus}
+          formatParkLocation={formatParkLocation}
+          getParkCardMetric={getParkCardMetric}
+          heroCountLabel={heroCountLabel}
+          isAuthenticated={isAuthenticated}
+          isClaimingDailyReward={isClaimingDailyReward}
+          isSubmittingDailyChallenge={isSubmittingDailyChallenge}
+          landingCollections={landingCollections}
+          landingCommunityHighlights={landingCommunityHighlights}
+          landingFeaturedParks={landingFeaturedParks}
+          landingJournalTeasers={landingJournalTeasers}
+          locale={locale}
+          localizedParkEditorialBySlug={localizedParkEditorialBySlug}
+          navigateToDiscover={navigateToDiscover}
+          navigateToJournal={navigateToJournal}
+          navigateToPark={navigateToPark}
+          navigateToParks={navigateToParks}
+          navigateToProfile={navigateToProfile}
+          navigateToPublicProfile={navigateToPublicProfile}
+          navigateToRide={navigateToRide}
+          navigateToRides={navigateToRides}
+          parkProgressBySlug={parkProgressBySlug}
+          rankedProgressParks={rankedProgressParks}
+          riddenRideCountLabel={riddenRideCountLabel}
+          secondaryFeaturedParks={secondaryFeaturedParks}
+          signInPromptBody={signInPromptBody}
+          signInPromptTitle={signInPromptTitle}
+          spotlightPark={spotlightPark}
+          spotlightParkEditorial={spotlightParkEditorial}
+          spotlightProgress={spotlightProgress}
+          submitDailyChallengeAnswer={submitDailyChallengeAnswer}
+          userProgressionStatus={userProgressionStatus}
+        />
+      ) : null}
 
-      {route.view === "parks" ? <ParksPage {...pageProps} /> : null}
+      {route.view === "parks" ? (
+        <ParksPage
+          copy={copy}
+          defaultCatalogPage={defaultCatalogPage}
+          displayedParks={displayedParks}
+          formatParkLocation={formatParkLocation}
+          getParkCardMetric={getParkCardMetric}
+          goToNextParksPage={goToNextParksPage}
+          goToPreviousParksPage={goToPreviousParksPage}
+          hasActiveCatalogSearch={hasActiveCatalogSearch}
+          hasActiveParkCollection={hasActiveParkCollection}
+          locale={locale}
+          localizedParkEditorialBySlug={localizedParkEditorialBySlug}
+          navigateToPark={navigateToPark}
+          navigateToParks={navigateToParks}
+          normalizedSearchQuery={normalizedSearchQuery}
+          parkCollectionId={parkCollectionId}
+          parkCollections={parkCollections}
+          parkProgressBySlug={parkProgressBySlug}
+          parkResultRangeLabel={parkResultRangeLabel}
+          parksPage={parksPage}
+          parksPageInfo={parksPageInfo}
+          parksStatus={parksStatus}
+          parksTotalPages={parksTotalPages}
+          searchQuery={searchQuery}
+          selectedParkCollection={selectedParkCollection}
+          setParkCollectionId={setParkCollectionId}
+          setParksPage={setParksPage}
+          setSearchQuery={setSearchQuery}
+          visibleParkCount={visibleParkCount}
+        />
+      ) : null}
 
-      {route.view === "rides" ? <RidesPage {...pageProps} /> : null}
+      {route.view === "rides" ? (
+        <RidesPage
+          copy={copy}
+          defaultCatalogPage={defaultCatalogPage}
+          defaultRidesCatalogSort={defaultRidesCatalogSort}
+          displayedRideCatalogItems={displayedRideCatalogItems}
+          getDisplayRideTypeFilterOptions={getDisplayRideTypeFilterOptions}
+          getRideCardMeta={getRideCardMeta}
+          goToNextRidesCatalogPage={goToNextRidesCatalogPage}
+          goToPreviousRidesCatalogPage={goToPreviousRidesCatalogPage}
+          hasActiveRideCollection={hasActiveRideCollection}
+          isRideFiltersOpen={isRideFiltersOpen}
+          locale={locale}
+          localizedRideEditorialBySlug={localizedRideEditorialBySlug}
+          navigateToRide={navigateToRide}
+          navigateToRides={navigateToRides}
+          rideCatalogManufacturerFilter={rideCatalogManufacturerFilter}
+          rideCatalogParkFilter={rideCatalogParkFilter}
+          rideCatalogRideTypeFilter={rideCatalogRideTypeFilter}
+          rideCatalogSearchQuery={rideCatalogSearchQuery}
+          rideCatalogSort={rideCatalogSort}
+          rideCollectionId={rideCollectionId}
+          rideCollections={rideCollections}
+          rideResultRangeLabel={rideResultRangeLabel}
+          riddenRideIds={riddenRideIds}
+          ridesCatalogOptions={ridesCatalogOptions}
+          ridesCatalogPage={ridesCatalogPage}
+          ridesCatalogPageInfo={ridesCatalogPageInfo}
+          ridesCatalogStatus={ridesCatalogStatus}
+          ridesCatalogTotalPages={ridesCatalogTotalPages}
+          selectedRideCollection={selectedRideCollection}
+          setIsRideFiltersOpen={setIsRideFiltersOpen}
+          setRideCatalogManufacturerFilter={setRideCatalogManufacturerFilter}
+          setRideCatalogParkFilter={setRideCatalogParkFilter}
+          setRideCatalogRideTypeFilter={setRideCatalogRideTypeFilter}
+          setRideCatalogSearchQuery={setRideCatalogSearchQuery}
+          setRideCatalogSort={setRideCatalogSort}
+          setRideCollectionId={setRideCollectionId}
+          setRidesCatalogPage={setRidesCatalogPage}
+          visibleRideCatalogCount={visibleRideCatalogCount}
+        />
+      ) : null}
 
-      {route.view === "discover" ? <DiscoverPage {...pageProps} /> : null}
+      {route.view === "discover" ? (
+        <DiscoverPage
+          beginGoogleSignIn={beginGoogleSignIn}
+          claimDailyReward={claimDailyReward}
+          communityHighlights={communityHighlights}
+          communityHighlightsStatus={communityHighlightsStatus}
+          copy={copy}
+          currentUserStatus={currentUserStatus}
+          dailyChallengeStatus={dailyChallengeStatus}
+          demoUserStatsStatus={demoUserStatsStatus}
+          featuredParks={featuredParks}
+          featuredProgressParks={featuredProgressParks}
+          formatParkLocation={formatParkLocation}
+          getParkCardMetric={getParkCardMetric}
+          highestLevelProfiles={highestLevelProfiles}
+          isClaimingDailyReward={isClaimingDailyReward}
+          isSubmittingDailyChallenge={isSubmittingDailyChallenge}
+          locale={locale}
+          localizedCollections={localizedCollections}
+          localizedParkEditorialBySlug={localizedParkEditorialBySlug}
+          longestStreakProfiles={longestStreakProfiles}
+          navigateToPark={navigateToPark}
+          navigateToParks={navigateToParks}
+          navigateToPublicProfile={navigateToPublicProfile}
+          navigateToRide={navigateToRide}
+          navigateToRides={navigateToRides}
+          rankedProgressParks={rankedProgressParks}
+          recentlyActiveProfiles={recentlyActiveProfiles}
+          signInPromptBody={signInPromptBody}
+          signInPromptTitle={signInPromptTitle}
+          submitDailyChallengeAnswer={submitDailyChallengeAnswer}
+          userProgressionStatus={userProgressionStatus}
+        />
+      ) : null}
 
-      {route.view === "admin" ? <AdminPage {...pageProps} /> : null}
+      {route.view === "admin" ? (
+        <AdminPage
+          adminFilter={adminFilter}
+          adminFilterLabels={adminFilterLabels}
+          adminForbiddenBody={adminForbiddenBody}
+          adminForbiddenTitle={adminForbiddenTitle}
+          adminInternalNote={adminInternalNote}
+          adminLoadingLabel={adminLoadingLabel}
+          adminMediaAvailable={adminMediaAvailable}
+          adminMediaMissing={adminMediaMissing}
+          adminNavLabel={adminNavLabel}
+          adminNeedsCleanup={adminNeedsCleanup}
+          adminPageLabel={adminPageLabel}
+          adminPageTitle={adminPageTitle}
+          adminParkEmptyLabel={adminParkEmptyLabel}
+          adminParksPage={adminParksPage}
+          adminParksStatus={adminParksStatus}
+          adminParksTitle={adminParksTitle}
+          adminQueueMapped={adminQueueMapped}
+          adminQueueMissing={adminQueueMissing}
+          adminRideEmptyLabel={adminRideEmptyLabel}
+          adminRidesPage={adminRidesPage}
+          adminRidesStatus={adminRidesStatus}
+          adminRidesTitle={adminRidesTitle}
+          adminSignedOutBody={adminSignedOutBody}
+          adminSignedOutTitle={adminSignedOutTitle}
+          adminSlugLabel={adminSlugLabel}
+          adminSummaryStatus={adminSummaryStatus}
+          applyAdminFilter={applyAdminFilter}
+          beginGoogleSignIn={beginGoogleSignIn}
+          copy={copy}
+          currentUserStatus={currentUserStatus}
+          defaultAdminCatalogPage={defaultAdminCatalogPage}
+          goToNextAdminParksPage={goToNextAdminParksPage}
+          goToNextAdminRidesPage={goToNextAdminRidesPage}
+          goToPreviousAdminParksPage={goToPreviousAdminParksPage}
+          goToPreviousAdminRidesPage={goToPreviousAdminRidesPage}
+          isAdminUser={isAdminUser}
+          locale={locale}
+          navigateToPark={navigateToPark}
+          navigateToRide={navigateToRide}
+        />
+      ) : null}
 
       {route.view === "profile" ? (
         <ProfilePage
@@ -3926,9 +3944,68 @@ function App() {
         />
       ) : null}
 
-      {route.view === "park" ? <ParkDetailPage {...pageProps} /> : null}
+      {route.view === "park" ? (
+        <ParkDetailPage
+          activeParkEditorial={activeParkEditorial}
+          activeParkProgress={activeParkProgress}
+          copy={copy}
+          defaultParkRideSort={defaultParkRideSort}
+          formatParkLocation={formatParkLocation}
+          getDisplayRideTypeFilterOptions={getDisplayRideTypeFilterOptions}
+          getRideCardMeta={getRideCardMeta}
+          liveWaitByRideId={liveWaitByRideId}
+          liveWaitRides={liveWaitRides}
+          liveWaitSource={liveWaitSource}
+          locale={locale}
+          localizedRideEditorialBySlug={localizedRideEditorialBySlug}
+          manufacturerFilter={manufacturerFilter}
+          navigateToParks={navigateToParks}
+          navigateToRide={navigateToRide}
+          parkDetailStatus={parkDetailStatus}
+          parkLiveWaitsStatus={parkLiveWaitsStatus}
+          parkQueueTimesLinks={parkQueueTimesLinks}
+          parkRideOptions={parkRideOptions}
+          parkRideSort={parkRideSort}
+          parkRidesStatus={parkRidesStatus}
+          parkSlug={route.slug}
+          rideTypeFilter={rideTypeFilter}
+          riddenRideIds={riddenRideIds}
+          setManufacturerFilter={setManufacturerFilter}
+          setParkRideSort={setParkRideSort}
+          setRideTypeFilter={setRideTypeFilter}
+          showParkQueueTimesSupport={showParkQueueTimesSupport}
+        />
+      ) : null}
 
-      {route.view === "ride" ? <RideDetailPage {...pageProps} /> : null}
+      {route.view === "ride" ? (
+        <RideDetailPage
+          activeRideEditorial={activeRideEditorial}
+          beginGoogleSignIn={beginGoogleSignIn}
+          copy={copy}
+          currentRideLiveWait={currentRideLiveWait}
+          currentUserStatus={currentUserStatus}
+          formatParkLocation={formatParkLocation}
+          isCurrentRideRidden={isCurrentRideRidden}
+          isUpdatingRideCredit={isUpdatingRideCredit}
+          locale={locale}
+          navigateBackFromRide={navigateBackFromRide}
+          navigateToRide={navigateToRide}
+          nextRide={nextRide}
+          parkLiveWaitsStatus={parkLiveWaitsStatus}
+          parkSlug={route.parkSlug}
+          previousRide={previousRide}
+          rideCreditMessage={rideCreditMessage}
+          rideCreditsStatus={rideCreditsStatus}
+          rideDetailOrigin={rideDetailOrigin}
+          rideDetailStatus={rideDetailStatus}
+          rideLineupPositionLabel={rideLineupPositionLabel}
+          rideLineupStatus={rideLineupStatus}
+          rideQueueTimesLinks={rideQueueTimesLinks}
+          rideSignInPrompt={rideSignInPrompt}
+          rideSpecItems={rideSpecItems}
+          toggleRideCredit={toggleRideCredit}
+        />
+      ) : null}
 
     </main>
   );

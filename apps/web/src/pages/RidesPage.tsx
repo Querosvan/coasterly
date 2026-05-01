@@ -1,182 +1,113 @@
+import type { Park, Ride, RideCatalogItem } from "@coasterly/types";
+import type { Dispatch, SetStateAction } from "react";
+
 import { CatalogSkeletonGrid } from "../components/shared/CatalogSkeletonGrid";
 import { CuratedCollectionCard } from "../components/shared/CuratedCollectionCard";
 import { MediaAsset } from "../components/shared/MediaAsset";
-import { formatStatusLabel } from "../i18n";
-import type { RidesCatalogSort } from "../lib/types";
+import { formatStatusLabel, type Locale } from "../i18n";
+import type {
+  CuratedCollection,
+  EditorialNote,
+  RideDetailOrigin,
+  RidesCatalogOptions,
+  RidesCatalogSort,
+  RidesCatalogStatus,
+  UiCopy
+} from "../lib/types";
 
-type RidesPageProps = Record<string, any>;
+interface RidesPageProps {
+  copy: UiCopy;
+  locale: Locale;
+  defaultCatalogPage: number;
+  defaultRidesCatalogSort: RidesCatalogSort;
+  displayedRideCatalogItems: RideCatalogItem[];
+  hasActiveRideCollection: boolean;
+  isRideFiltersOpen: boolean;
+  localizedRideEditorialBySlug: Record<string, EditorialNote>;
+  rideCatalogManufacturerFilter: string;
+  rideCatalogParkFilter: string;
+  rideCatalogRideTypeFilter: string;
+  rideCatalogSearchQuery: string;
+  rideCatalogSort: RidesCatalogSort;
+  rideCollectionId: string;
+  rideCollections: readonly CuratedCollection[];
+  rideResultRangeLabel: string | null;
+  riddenRideIds: Set<number> | null;
+  ridesCatalogOptions: RidesCatalogOptions;
+  ridesCatalogPage: number;
+  ridesCatalogPageInfo:
+    | Extract<RidesCatalogStatus, { state: "success" }>["pageInfo"]
+    | undefined;
+  ridesCatalogStatus: RidesCatalogStatus;
+  ridesCatalogTotalPages: number;
+  selectedRideCollection: CuratedCollection | undefined;
+  visibleRideCatalogCount: number;
+  getDisplayRideTypeFilterOptions: (
+    locale: Locale,
+    rideTypes: string[]
+  ) => Array<{ value: string; label: string }>;
+  getRideCardMeta: (
+    locale: Locale,
+    ride: Pick<Ride, "rideType" | "manufacturer" | "openingYear" | "speedKmh">
+  ) => string | null;
+  goToNextRidesCatalogPage: () => void;
+  goToPreviousRidesCatalogPage: () => void;
+  navigateToRide: (
+    parkSlug: string,
+    rideSlug: string,
+    options?: { origin?: RideDetailOrigin }
+  ) => void;
+  navigateToRides: (options?: { preserveFilters?: boolean; collectionId?: string }) => void;
+  setIsRideFiltersOpen: Dispatch<SetStateAction<boolean>>;
+  setRideCatalogManufacturerFilter: Dispatch<SetStateAction<string>>;
+  setRideCatalogParkFilter: Dispatch<SetStateAction<string>>;
+  setRideCatalogRideTypeFilter: Dispatch<SetStateAction<string>>;
+  setRideCatalogSearchQuery: Dispatch<SetStateAction<string>>;
+  setRideCatalogSort: Dispatch<SetStateAction<RidesCatalogSort>>;
+  setRideCollectionId: Dispatch<SetStateAction<string>>;
+  setRidesCatalogPage: Dispatch<SetStateAction<number>>;
+}
 
-export function RidesPage(props: RidesPageProps) {
-  const {
-    activeParkEditorial,
-    activeParkProgress,
-    activeRideEditorial,
-    adminFilter,
-    adminFilterLabels,
-    adminForbiddenBody,
-    adminForbiddenTitle,
-    adminInternalNote,
-    adminLoadingLabel,
-    adminMediaAvailable,
-    adminMediaMissing,
-    adminNavLabel,
-    adminNeedsCleanup,
-    adminPageLabel,
-    adminPageTitle,
-    adminParkEmptyLabel,
-    adminParksPage,
-    adminParksStatus,
-    adminParksTitle,
-    adminQueueMapped,
-    adminQueueMissing,
-    adminRideEmptyLabel,
-    adminRidesPage,
-    adminRidesStatus,
-    adminRidesTitle,
-    adminSignedOutBody,
-    adminSignedOutTitle,
-    adminSlugLabel,
-    adminSummaryStatus,
-    applyAdminFilter,
-    beginGoogleSignIn,
-    claimDailyReward,
-    communityHighlights,
-    communityHighlightsStatus,
-    copy,
-    currentRideLiveWait,
-    currentUserStatus,
-    dailyChallengeStatus,
-    defaultAdminCatalogPage,
-    defaultCatalogPage,
-    defaultParkRideSort,
-    defaultRidesCatalogSort,
-    demoUserStatsStatus,
-    displayedParks,
-    displayedRideCatalogItems,
-    featuredParks,
-    featuredProgressParks,
-    formatParkLocation,
-    getDisplayRideTypeFilterOptions,
-    getParkCardMetric,
-    getRideCardMeta,
-    goToNextAdminParksPage,
-    goToNextAdminRidesPage,
-    goToNextParksPage,
-    goToNextRidesCatalogPage,
-    goToPreviousAdminParksPage,
-    goToPreviousAdminRidesPage,
-    goToPreviousParksPage,
-    goToPreviousRidesCatalogPage,
-    hasActiveCatalogSearch,
-    hasActiveParkCollection,
-    hasActiveRideCollection,
-    highestLevelProfiles,
-    heroCountLabel,
-    isAdminUser,
-    isAuthenticated,
-    isClaimingDailyReward,
-    isCurrentRideRidden,
-    isRideFiltersOpen,
-    isSubmittingDailyChallenge,
-    isUpdatingRideCredit,
-    landingCollections,
-    landingCommunityHighlights,
-    landingFeaturedParks,
-    landingJournalTeasers,
-    liveWaitByRideId,
-    liveWaitRides,
-    liveWaitSource,
-    locale,
-    localizedCollections,
-    localizedParkEditorialBySlug,
-    localizedRideEditorialBySlug,
-    longestStreakProfiles,
-    manufacturerFilter,
-    navigateBackFromRide,
-    navigateToDiscover,
-    navigateToJournal,
-    navigateToPark,
-    navigateToParks,
-    navigateToProfile,
-    navigateToPublicProfile,
-    navigateToRide,
-    navigateToRides,
-    nextRide,
-    normalizedSearchQuery,
-    parkCollectionId,
-    parkCollections,
-    parkDetailStatus,
-    parkLiveWaitsStatus,
-    parkQueueTimesLinks,
-    parkResultRangeLabel,
-    parkRideOptions,
-    parkRideSort,
-    parkRidesStatus,
-    parkProgressBySlug,
-    parksPage,
-    parksPageInfo,
-    parksStatus,
-    parksTotalPages,
-    previousRide,
-    rankedProgressParks,
-    recentlyActiveProfiles,
-    rideCatalogManufacturerFilter,
-    rideCatalogParkFilter,
-    rideCatalogRideTypeFilter,
-    rideCatalogSearchQuery,
-    rideCatalogSort,
-    rideCollectionId,
-    rideCollections,
-    rideCreditMessage,
-    rideCreditsStatus,
-    rideDetailOrigin,
-    rideDetailStatus,
-    rideLineupPositionLabel,
-    rideLineupStatus,
-    rideQueueTimesLinks,
-    rideResultRangeLabel,
-    rideSignInPrompt,
-    rideSpecItems,
-    rideTypeFilter,
-    riddenRideCountLabel,
-    riddenRideIds,
-    ridesCatalogOptions,
-    ridesCatalogPage,
-    ridesCatalogPageInfo,
-    ridesCatalogStatus,
-    ridesCatalogTotalPages,
-    route,
-    searchQuery,
-    secondaryFeaturedParks,
-    selectedParkCollection,
-    selectedRideCollection,
-    setIsRideFiltersOpen,
-    setManufacturerFilter,
-    setParkCollectionId,
-    setParkRideSort,
-    setParksPage,
-    setRideCatalogManufacturerFilter,
-    setRideCatalogParkFilter,
-    setRideCatalogRideTypeFilter,
-    setRideCatalogSearchQuery,
-    setRideCatalogSort,
-    setRideCollectionId,
-    setRideTypeFilter,
-    setRidesCatalogPage,
-    setSearchQuery,
-    showParkQueueTimesSupport,
-    signInPromptBody,
-    signInPromptTitle,
-    spotlightPark,
-    spotlightParkEditorial,
-    spotlightProgress,
-    submitDailyChallengeAnswer,
-    toggleRideCredit,
-    userProgressionStatus,
-    visibleParkCount,
-    visibleRideCatalogCount
-  } = props;
-
+export function RidesPage({
+  copy,
+  defaultCatalogPage,
+  defaultRidesCatalogSort,
+  displayedRideCatalogItems,
+  getDisplayRideTypeFilterOptions,
+  getRideCardMeta,
+  goToNextRidesCatalogPage,
+  goToPreviousRidesCatalogPage,
+  hasActiveRideCollection,
+  isRideFiltersOpen,
+  locale,
+  localizedRideEditorialBySlug,
+  navigateToRide,
+  navigateToRides,
+  rideCatalogManufacturerFilter,
+  rideCatalogParkFilter,
+  rideCatalogRideTypeFilter,
+  rideCatalogSearchQuery,
+  rideCatalogSort,
+  rideCollectionId,
+  rideCollections,
+  rideResultRangeLabel,
+  riddenRideIds,
+  ridesCatalogOptions,
+  ridesCatalogPage,
+  ridesCatalogPageInfo,
+  ridesCatalogStatus,
+  ridesCatalogTotalPages,
+  selectedRideCollection,
+  setIsRideFiltersOpen,
+  setRideCatalogManufacturerFilter,
+  setRideCatalogParkFilter,
+  setRideCatalogRideTypeFilter,
+  setRideCatalogSearchQuery,
+  setRideCatalogSort,
+  setRideCollectionId,
+  setRidesCatalogPage,
+  visibleRideCatalogCount
+}: RidesPageProps) {
   return (
         <section className="catalog-panel browse-panel" aria-live="polite">
           <div className="catalog-header">
@@ -187,7 +118,7 @@ export function RidesPage(props: RidesPageProps) {
           </div>
 
           <div className="collection-strip" aria-label={copy.home.collectionsTitle}>
-            {rideCollections.map((collection: any) => (
+            {rideCollections.map((collection) => (
               <CuratedCollectionCard
                 collection={collection}
                 isActive={collection.id === rideCollectionId}
@@ -260,7 +191,7 @@ export function RidesPage(props: RidesPageProps) {
                   }}
                 >
                   <option value="">{copy.browse.allParks}</option>
-                  {ridesCatalogOptions.parks.map((park: any) => (
+                  {ridesCatalogOptions.parks.map((park: Park) => (
                     <option key={park.slug} value={park.slug}>
                       {park.name}
                     </option>
@@ -282,7 +213,7 @@ export function RidesPage(props: RidesPageProps) {
                 >
                   <option value="">{copy.browse.allRideTypes}</option>
                   {getDisplayRideTypeFilterOptions(locale, ridesCatalogOptions.rideTypes).map(
-                    ({ value, label }: { value: any; label: any }) => (
+                    ({ value, label }) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
@@ -304,7 +235,7 @@ export function RidesPage(props: RidesPageProps) {
                   }}
                 >
                   <option value="">{copy.browse.allManufacturers}</option>
-                  {ridesCatalogOptions.manufacturers.map((manufacturer: any) => (
+                  {ridesCatalogOptions.manufacturers.map((manufacturer) => (
                     <option key={manufacturer} value={manufacturer}>
                       {manufacturer}
                     </option>
@@ -386,7 +317,7 @@ export function RidesPage(props: RidesPageProps) {
             displayedRideCatalogItems.length > 0 ? (
               <>
                 <div className="rides-list rides-list-catalog">
-                  {displayedRideCatalogItems.map((entry: any) => {
+                  {displayedRideCatalogItems.map((entry) => {
                     const rideEditorial = localizedRideEditorialBySlug[entry.ride.slug];
                     const isRidden = riddenRideIds?.has(entry.ride.id) === true;
                     const rideMeta = getRideCardMeta(locale, entry.ride);

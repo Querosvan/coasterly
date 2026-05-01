@@ -1,3 +1,6 @@
+import type { DemoUserStatsResponse, Park, Ride } from "@coasterly/types";
+import type { Dispatch, SetStateAction } from "react";
+
 import { MediaAsset } from "../components/shared/MediaAsset";
 import {
   QueueTimesAttribution,
@@ -11,180 +14,93 @@ import {
   formatWaitStateLabel,
   translateCue
 } from "../i18n";
-import type { ParkRideSort } from "../lib/types";
+import type {
+  EditorialNote,
+  ExternalInsightLink,
+  ParkDetailStatus,
+  ParkLiveWaitsStatus,
+  ParkRideOptions,
+  ParkRideSort,
+  ParkRidesStatus,
+  RideDetailOrigin,
+  UiCopy
+} from "../lib/types";
+import type { Locale } from "../i18n";
 
-type ParkDetailPageProps = Record<string, any>;
+type ParkProgress = DemoUserStatsResponse["parks"][number];
+type ParkLiveWait = Extract<ParkLiveWaitsStatus, { state: "success" }>["rides"][number];
 
-export function ParkDetailPage(props: ParkDetailPageProps) {
-  const {
-    activeParkEditorial,
-    activeParkProgress,
-    activeRideEditorial,
-    adminFilter,
-    adminFilterLabels,
-    adminForbiddenBody,
-    adminForbiddenTitle,
-    adminInternalNote,
-    adminLoadingLabel,
-    adminMediaAvailable,
-    adminMediaMissing,
-    adminNavLabel,
-    adminNeedsCleanup,
-    adminPageLabel,
-    adminPageTitle,
-    adminParkEmptyLabel,
-    adminParksPage,
-    adminParksStatus,
-    adminParksTitle,
-    adminQueueMapped,
-    adminQueueMissing,
-    adminRideEmptyLabel,
-    adminRidesPage,
-    adminRidesStatus,
-    adminRidesTitle,
-    adminSignedOutBody,
-    adminSignedOutTitle,
-    adminSlugLabel,
-    adminSummaryStatus,
-    applyAdminFilter,
-    beginGoogleSignIn,
-    claimDailyReward,
-    communityHighlights,
-    communityHighlightsStatus,
-    copy,
-    currentRideLiveWait,
-    currentUserStatus,
-    dailyChallengeStatus,
-    defaultAdminCatalogPage,
-    defaultCatalogPage,
-    defaultParkRideSort,
-    defaultRidesCatalogSort,
-    demoUserStatsStatus,
-    displayedParks,
-    displayedRideCatalogItems,
-    featuredParks,
-    featuredProgressParks,
-    formatParkLocation,
-    getDisplayRideTypeFilterOptions,
-    getParkCardMetric,
-    getRideCardMeta,
-    goToNextAdminParksPage,
-    goToNextAdminRidesPage,
-    goToNextParksPage,
-    goToNextRidesCatalogPage,
-    goToPreviousAdminParksPage,
-    goToPreviousAdminRidesPage,
-    goToPreviousParksPage,
-    goToPreviousRidesCatalogPage,
-    hasActiveCatalogSearch,
-    hasActiveParkCollection,
-    hasActiveRideCollection,
-    highestLevelProfiles,
-    heroCountLabel,
-    isAdminUser,
-    isAuthenticated,
-    isClaimingDailyReward,
-    isCurrentRideRidden,
-    isRideFiltersOpen,
-    isSubmittingDailyChallenge,
-    isUpdatingRideCredit,
-    landingCollections,
-    landingCommunityHighlights,
-    landingFeaturedParks,
-    landingJournalTeasers,
-    liveWaitByRideId,
-    liveWaitRides,
-    liveWaitSource,
-    locale,
-    localizedCollections,
-    localizedParkEditorialBySlug,
-    localizedRideEditorialBySlug,
-    longestStreakProfiles,
-    manufacturerFilter,
-    navigateBackFromRide,
-    navigateToDiscover,
-    navigateToJournal,
-    navigateToPark,
-    navigateToParks,
-    navigateToProfile,
-    navigateToPublicProfile,
-    navigateToRide,
-    navigateToRides,
-    nextRide,
-    normalizedSearchQuery,
-    parkCollectionId,
-    parkCollections,
-    parkDetailStatus,
-    parkLiveWaitsStatus,
-    parkQueueTimesLinks,
-    parkResultRangeLabel,
-    parkRideOptions,
-    parkRideSort,
-    parkRidesStatus,
-    parkProgressBySlug,
-    parksPage,
-    parksPageInfo,
-    parksStatus,
-    parksTotalPages,
-    previousRide,
-    rankedProgressParks,
-    recentlyActiveProfiles,
-    rideCatalogManufacturerFilter,
-    rideCatalogParkFilter,
-    rideCatalogRideTypeFilter,
-    rideCatalogSearchQuery,
-    rideCatalogSort,
-    rideCollectionId,
-    rideCollections,
-    rideCreditMessage,
-    rideCreditsStatus,
-    rideDetailOrigin,
-    rideDetailStatus,
-    rideLineupPositionLabel,
-    rideLineupStatus,
-    rideQueueTimesLinks,
-    rideResultRangeLabel,
-    rideSignInPrompt,
-    rideSpecItems,
-    rideTypeFilter,
-    riddenRideCountLabel,
-    riddenRideIds,
-    ridesCatalogOptions,
-    ridesCatalogPage,
-    ridesCatalogPageInfo,
-    ridesCatalogStatus,
-    ridesCatalogTotalPages,
-    route,
-    searchQuery,
-    secondaryFeaturedParks,
-    selectedParkCollection,
-    selectedRideCollection,
-    setIsRideFiltersOpen,
-    setManufacturerFilter,
-    setParkCollectionId,
-    setParkRideSort,
-    setParksPage,
-    setRideCatalogManufacturerFilter,
-    setRideCatalogParkFilter,
-    setRideCatalogRideTypeFilter,
-    setRideCatalogSearchQuery,
-    setRideCatalogSort,
-    setRideCollectionId,
-    setRideTypeFilter,
-    setRidesCatalogPage,
-    setSearchQuery,
-    showParkQueueTimesSupport,
-    signInPromptBody,
-    signInPromptTitle,
-    spotlightPark,
-    spotlightParkEditorial,
-    spotlightProgress,
-    submitDailyChallengeAnswer,
-    toggleRideCredit,
-    userProgressionStatus,
-    visibleParkCount,
-    visibleRideCatalogCount
-  } = props;
+interface ParkDetailPageProps {
+  activeParkEditorial: EditorialNote | undefined;
+  activeParkProgress: ParkProgress | undefined;
+  copy: UiCopy;
+  defaultParkRideSort: ParkRideSort;
+  locale: Locale;
+  localizedRideEditorialBySlug: Record<string, EditorialNote>;
+  liveWaitByRideId: Map<number, ParkLiveWait>;
+  liveWaitRides: ParkLiveWait[];
+  liveWaitSource: Extract<ParkLiveWaitsStatus, { state: "success" }>["source"] | null;
+  manufacturerFilter: string;
+  parkDetailStatus: ParkDetailStatus;
+  parkLiveWaitsStatus: ParkLiveWaitsStatus;
+  parkQueueTimesLinks: ExternalInsightLink[];
+  parkRideOptions: ParkRideOptions;
+  parkRideSort: ParkRideSort;
+  parkRidesStatus: ParkRidesStatus;
+  parkSlug: string;
+  rideTypeFilter: string;
+  riddenRideIds: Set<number> | null;
+  showParkQueueTimesSupport: boolean;
+  formatParkLocation: (park: Pick<Park, "country" | "city">) => string;
+  getDisplayRideTypeFilterOptions: (
+    locale: Locale,
+    rideTypes: string[]
+  ) => Array<{ value: string; label: string }>;
+  getRideCardMeta: (
+    locale: Locale,
+    ride: Pick<Ride, "rideType" | "manufacturer" | "openingYear" | "speedKmh">
+  ) => string | null;
+  navigateToParks: (options?: { preserveSearch?: boolean; collectionId?: string }) => void;
+  navigateToRide: (
+    parkSlug: string,
+    rideSlug: string,
+    options?: { origin?: RideDetailOrigin }
+  ) => void;
+  setManufacturerFilter: Dispatch<SetStateAction<string>>;
+  setParkRideSort: Dispatch<SetStateAction<ParkRideSort>>;
+  setRideTypeFilter: Dispatch<SetStateAction<string>>;
+}
+
+export function ParkDetailPage({
+  activeParkEditorial,
+  activeParkProgress,
+  copy,
+  defaultParkRideSort,
+  formatParkLocation,
+  getDisplayRideTypeFilterOptions,
+  getRideCardMeta,
+  liveWaitByRideId,
+  liveWaitRides,
+  liveWaitSource,
+  locale,
+  localizedRideEditorialBySlug,
+  manufacturerFilter,
+  navigateToParks,
+  navigateToRide,
+  parkDetailStatus,
+  parkLiveWaitsStatus,
+  parkQueueTimesLinks,
+  parkRideOptions,
+  parkRideSort,
+  parkRidesStatus,
+  parkSlug,
+  rideTypeFilter,
+  riddenRideIds,
+  setManufacturerFilter,
+  setParkRideSort,
+  setRideTypeFilter,
+  showParkQueueTimesSupport
+}: ParkDetailPageProps) {
 
   return (
         <section className="catalog-panel detail-surface" aria-live="polite">
@@ -219,7 +135,7 @@ export function ParkDetailPage(props: ParkDetailPageProps) {
                     ) : null}
                     {activeParkEditorial?.cues.length ? (
                       <div className="detail-micro-nav" aria-label="Park discovery cues">
-                        {activeParkEditorial.cues.slice(0, 2).map((cue: any) => (
+                        {activeParkEditorial.cues.slice(0, 2).map((cue) => (
                           <span className="detail-micro-item" key={cue}>
                             {translateCue(locale, cue)}
                           </span>
@@ -364,7 +280,7 @@ export function ParkDetailPage(props: ParkDetailPageProps) {
                         >
                           <option value="">{copy.browse.allRideTypes}</option>
                           {getDisplayRideTypeFilterOptions(locale, parkRideOptions.rideTypes).map(
-                            ({ value, label }: { value: any; label: any }) => (
+                            ({ value, label }) => (
                               <option key={value} value={value}>
                                 {label}
                               </option>
@@ -385,7 +301,7 @@ export function ParkDetailPage(props: ParkDetailPageProps) {
                           }}
                         >
                           <option value="">{copy.browse.allManufacturers}</option>
-                          {parkRideOptions.manufacturers.map((manufacturer: any) => (
+                          {parkRideOptions.manufacturers.map((manufacturer) => (
                             <option key={manufacturer} value={manufacturer}>
                               {manufacturer}
                             </option>
@@ -441,7 +357,7 @@ export function ParkDetailPage(props: ParkDetailPageProps) {
                   {parkRidesStatus.state === "success" ? (
                     parkRidesStatus.rides.length > 0 ? (
                       <div className="rides-list">
-                        {parkRidesStatus.rides.map((ride: any) => {
+                        {parkRidesStatus.rides.map((ride) => {
                           const rideEditorial = localizedRideEditorialBySlug[ride.slug];
                           const rideLiveWait = liveWaitByRideId.get(ride.id);
                           const rideMeta = getRideCardMeta(locale, ride);
@@ -452,7 +368,7 @@ export function ParkDetailPage(props: ParkDetailPageProps) {
                               key={ride.id}
                               type="button"
                               onClick={() => {
-                                navigateToRide(route.slug, ride.slug);
+                                navigateToRide(parkSlug, ride.slug);
                               }}
                             >
                               <MediaAsset

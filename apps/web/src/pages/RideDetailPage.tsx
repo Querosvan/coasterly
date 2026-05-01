@@ -1,3 +1,5 @@
+import type { Park, Ride } from "@coasterly/types";
+
 import { MediaAsset } from "../components/shared/MediaAsset";
 import {
   QueueTimesAttribution,
@@ -10,179 +12,83 @@ import {
   formatWaitStateLabel,
   translateCue
 } from "../i18n";
+import type { Locale } from "../i18n";
+import type {
+  CurrentUserStatus,
+  EditorialNote,
+  ExternalInsightLink,
+  ParkLiveWaitsStatus,
+  RideCreditsStatus,
+  RideDetailOrigin,
+  RideDetailStatus,
+  RideLineupStatus,
+  RideSpecItem,
+  UiCopy
+} from "../lib/types";
 
-type RideDetailPageProps = Record<string, any>;
+type CurrentRideLiveWait =
+  | Extract<ParkLiveWaitsStatus, { state: "success" }>["rides"][number]
+  | null;
 
-export function RideDetailPage(props: RideDetailPageProps) {
-  const {
-    activeParkEditorial,
-    activeParkProgress,
-    activeRideEditorial,
-    adminFilter,
-    adminFilterLabels,
-    adminForbiddenBody,
-    adminForbiddenTitle,
-    adminInternalNote,
-    adminLoadingLabel,
-    adminMediaAvailable,
-    adminMediaMissing,
-    adminNavLabel,
-    adminNeedsCleanup,
-    adminPageLabel,
-    adminPageTitle,
-    adminParkEmptyLabel,
-    adminParksPage,
-    adminParksStatus,
-    adminParksTitle,
-    adminQueueMapped,
-    adminQueueMissing,
-    adminRideEmptyLabel,
-    adminRidesPage,
-    adminRidesStatus,
-    adminRidesTitle,
-    adminSignedOutBody,
-    adminSignedOutTitle,
-    adminSlugLabel,
-    adminSummaryStatus,
-    applyAdminFilter,
-    beginGoogleSignIn,
-    claimDailyReward,
-    communityHighlights,
-    communityHighlightsStatus,
-    copy,
-    currentRideLiveWait,
-    currentUserStatus,
-    dailyChallengeStatus,
-    defaultAdminCatalogPage,
-    defaultCatalogPage,
-    defaultParkRideSort,
-    defaultRidesCatalogSort,
-    demoUserStatsStatus,
-    displayedParks,
-    displayedRideCatalogItems,
-    featuredParks,
-    featuredProgressParks,
-    formatParkLocation,
-    getDisplayRideTypeFilterOptions,
-    getParkCardMetric,
-    getRideCardMeta,
-    goToNextAdminParksPage,
-    goToNextAdminRidesPage,
-    goToNextParksPage,
-    goToNextRidesCatalogPage,
-    goToPreviousAdminParksPage,
-    goToPreviousAdminRidesPage,
-    goToPreviousParksPage,
-    goToPreviousRidesCatalogPage,
-    hasActiveCatalogSearch,
-    hasActiveParkCollection,
-    hasActiveRideCollection,
-    highestLevelProfiles,
-    heroCountLabel,
-    isAdminUser,
-    isAuthenticated,
-    isClaimingDailyReward,
-    isCurrentRideRidden,
-    isRideFiltersOpen,
-    isSubmittingDailyChallenge,
-    isUpdatingRideCredit,
-    landingCollections,
-    landingCommunityHighlights,
-    landingFeaturedParks,
-    landingJournalTeasers,
-    liveWaitByRideId,
-    liveWaitRides,
-    liveWaitSource,
-    locale,
-    localizedCollections,
-    localizedParkEditorialBySlug,
-    localizedRideEditorialBySlug,
-    longestStreakProfiles,
-    manufacturerFilter,
-    navigateBackFromRide,
-    navigateToDiscover,
-    navigateToJournal,
-    navigateToPark,
-    navigateToParks,
-    navigateToProfile,
-    navigateToPublicProfile,
-    navigateToRide,
-    navigateToRides,
-    nextRide,
-    normalizedSearchQuery,
-    parkCollectionId,
-    parkCollections,
-    parkDetailStatus,
-    parkLiveWaitsStatus,
-    parkQueueTimesLinks,
-    parkResultRangeLabel,
-    parkRideOptions,
-    parkRideSort,
-    parkRidesStatus,
-    parkProgressBySlug,
-    parksPage,
-    parksPageInfo,
-    parksStatus,
-    parksTotalPages,
-    previousRide,
-    rankedProgressParks,
-    recentlyActiveProfiles,
-    rideCatalogManufacturerFilter,
-    rideCatalogParkFilter,
-    rideCatalogRideTypeFilter,
-    rideCatalogSearchQuery,
-    rideCatalogSort,
-    rideCollectionId,
-    rideCollections,
-    rideCreditMessage,
-    rideCreditsStatus,
-    rideDetailOrigin,
-    rideDetailStatus,
-    rideLineupPositionLabel,
-    rideLineupStatus,
-    rideQueueTimesLinks,
-    rideResultRangeLabel,
-    rideSignInPrompt,
-    rideSpecItems,
-    rideTypeFilter,
-    riddenRideCountLabel,
-    riddenRideIds,
-    ridesCatalogOptions,
-    ridesCatalogPage,
-    ridesCatalogPageInfo,
-    ridesCatalogStatus,
-    ridesCatalogTotalPages,
-    route,
-    searchQuery,
-    secondaryFeaturedParks,
-    selectedParkCollection,
-    selectedRideCollection,
-    setIsRideFiltersOpen,
-    setManufacturerFilter,
-    setParkCollectionId,
-    setParkRideSort,
-    setParksPage,
-    setRideCatalogManufacturerFilter,
-    setRideCatalogParkFilter,
-    setRideCatalogRideTypeFilter,
-    setRideCatalogSearchQuery,
-    setRideCatalogSort,
-    setRideCollectionId,
-    setRideTypeFilter,
-    setRidesCatalogPage,
-    setSearchQuery,
-    showParkQueueTimesSupport,
-    signInPromptBody,
-    signInPromptTitle,
-    spotlightPark,
-    spotlightParkEditorial,
-    spotlightProgress,
-    submitDailyChallengeAnswer,
-    toggleRideCredit,
-    userProgressionStatus,
-    visibleParkCount,
-    visibleRideCatalogCount
-  } = props;
+interface RideDetailPageProps {
+  activeRideEditorial: EditorialNote | undefined;
+  copy: UiCopy;
+  currentRideLiveWait: CurrentRideLiveWait;
+  currentUserStatus: CurrentUserStatus;
+  formatParkLocation: (park: Pick<Park, "country" | "city">) => string;
+  isCurrentRideRidden: boolean;
+  isUpdatingRideCredit: boolean;
+  locale: Locale;
+  navigateBackFromRide: (slug: string) => void;
+  navigateToRide: (
+    parkSlug: string,
+    rideSlug: string,
+    options?: { origin?: RideDetailOrigin }
+  ) => void;
+  nextRide: Ride | undefined;
+  parkLiveWaitsStatus: ParkLiveWaitsStatus;
+  parkSlug: string;
+  previousRide: Ride | undefined;
+  rideCreditMessage: string | null;
+  rideCreditsStatus: RideCreditsStatus;
+  rideDetailOrigin: RideDetailOrigin;
+  rideDetailStatus: RideDetailStatus;
+  rideLineupPositionLabel: string | null;
+  rideLineupStatus: RideLineupStatus;
+  rideQueueTimesLinks: ExternalInsightLink[];
+  rideSignInPrompt: string;
+  rideSpecItems: RideSpecItem[];
+  beginGoogleSignIn: (returnTo?: string) => void;
+  toggleRideCredit: (nextRidden: boolean) => Promise<void>;
+}
+
+export function RideDetailPage({
+  activeRideEditorial,
+  beginGoogleSignIn,
+  copy,
+  currentRideLiveWait,
+  currentUserStatus,
+  formatParkLocation,
+  isCurrentRideRidden,
+  isUpdatingRideCredit,
+  locale,
+  navigateBackFromRide,
+  navigateToRide,
+  nextRide,
+  parkLiveWaitsStatus,
+  parkSlug,
+  previousRide,
+  rideCreditMessage,
+  rideCreditsStatus,
+  rideDetailOrigin,
+  rideDetailStatus,
+  rideLineupPositionLabel,
+  rideLineupStatus,
+  rideQueueTimesLinks,
+  rideSignInPrompt,
+  rideSpecItems,
+  toggleRideCredit
+}: RideDetailPageProps) {
 
   return (
         <section className="catalog-panel detail-surface" aria-live="polite">
@@ -192,7 +98,7 @@ export function RideDetailPage(props: RideDetailPageProps) {
                 className="back-link"
                 type="button"
                 onClick={() => {
-                  navigateBackFromRide(route.parkSlug);
+                  navigateBackFromRide(parkSlug);
                 }}
               >
                 {rideDetailOrigin === "rides" ? copy.ride.backToRides : copy.ride.backToLineup}
@@ -224,7 +130,7 @@ export function RideDetailPage(props: RideDetailPageProps) {
                       <span className="detail-micro-item">
                         {rideDetailStatus.ride.rideType}
                       </span>
-                      {activeRideEditorial?.cues.slice(0, 2).map((cue: any) => (
+                      {activeRideEditorial?.cues.slice(0, 2).map((cue) => (
                         <span className="detail-micro-item" key={cue}>
                           {translateCue(locale, cue)}
                         </span>
@@ -381,7 +287,7 @@ export function RideDetailPage(props: RideDetailPageProps) {
                       type="button"
                       onClick={() => {
                         if (previousRide) {
-                          navigateToRide(route.parkSlug, previousRide.slug, {
+                          navigateToRide(parkSlug, previousRide.slug, {
                             origin: rideDetailOrigin
                           });
                         }
@@ -395,7 +301,7 @@ export function RideDetailPage(props: RideDetailPageProps) {
                       type="button"
                       onClick={() => {
                         if (nextRide) {
-                          navigateToRide(route.parkSlug, nextRide.slug, {
+                          navigateToRide(parkSlug, nextRide.slug, {
                             origin: rideDetailOrigin
                           });
                         }
@@ -414,7 +320,7 @@ export function RideDetailPage(props: RideDetailPageProps) {
                     </div>
                   </div>
                   <div className="detail-grid">
-                    {rideSpecItems.map((item: any) => (
+                    {rideSpecItems.map((item) => (
                       <div
                         className={`detail-item${item.wide ? " detail-item-wide" : ""}`}
                         key={item.label}

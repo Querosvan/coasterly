@@ -1,3 +1,9 @@
+import type {
+  CommunityHighlightsResponse,
+  DemoUserStatsResponse,
+  Park
+} from "@coasterly/types";
+
 import { AuthPromptPanel } from "../components/shared/AuthPromptPanel";
 import {
   CommunityHighlightCard,
@@ -7,179 +13,88 @@ import { CuratedCollectionCard } from "../components/shared/CuratedCollectionCar
 import { DailyChallengePanel } from "../components/shared/DailyChallengePanel";
 import { MediaAsset } from "../components/shared/MediaAsset";
 import { ProgressionPanel } from "../components/shared/ProgressionPanel";
+import type { Locale } from "../i18n";
+import type {
+  CommunityHighlightsStatus,
+  CuratedCollection,
+  CurrentUserStatus,
+  DailyChallengeStatus,
+  DemoUserStatsStatus,
+  EditorialNote,
+  UiCopy,
+  UserProgressionStatus
+} from "../lib/types";
 
-type DiscoverPageProps = Record<string, any>;
+type ParkProgress = DemoUserStatsResponse["parks"][number];
 
-export function DiscoverPage(props: DiscoverPageProps) {
-  const {
-    activeParkEditorial,
-    activeParkProgress,
-    activeRideEditorial,
-    adminFilter,
-    adminFilterLabels,
-    adminForbiddenBody,
-    adminForbiddenTitle,
-    adminInternalNote,
-    adminLoadingLabel,
-    adminMediaAvailable,
-    adminMediaMissing,
-    adminNavLabel,
-    adminNeedsCleanup,
-    adminPageLabel,
-    adminPageTitle,
-    adminParkEmptyLabel,
-    adminParksPage,
-    adminParksStatus,
-    adminParksTitle,
-    adminQueueMapped,
-    adminQueueMissing,
-    adminRideEmptyLabel,
-    adminRidesPage,
-    adminRidesStatus,
-    adminRidesTitle,
-    adminSignedOutBody,
-    adminSignedOutTitle,
-    adminSlugLabel,
-    adminSummaryStatus,
-    applyAdminFilter,
-    beginGoogleSignIn,
-    claimDailyReward,
-    communityHighlights,
-    communityHighlightsStatus,
-    copy,
-    currentRideLiveWait,
-    currentUserStatus,
-    dailyChallengeStatus,
-    defaultAdminCatalogPage,
-    defaultCatalogPage,
-    defaultParkRideSort,
-    defaultRidesCatalogSort,
-    demoUserStatsStatus,
-    displayedParks,
-    displayedRideCatalogItems,
-    featuredParks,
-    featuredProgressParks,
-    formatParkLocation,
-    getDisplayRideTypeFilterOptions,
-    getParkCardMetric,
-    getRideCardMeta,
-    goToNextAdminParksPage,
-    goToNextAdminRidesPage,
-    goToNextParksPage,
-    goToNextRidesCatalogPage,
-    goToPreviousAdminParksPage,
-    goToPreviousAdminRidesPage,
-    goToPreviousParksPage,
-    goToPreviousRidesCatalogPage,
-    hasActiveCatalogSearch,
-    hasActiveParkCollection,
-    hasActiveRideCollection,
-    highestLevelProfiles,
-    heroCountLabel,
-    isAdminUser,
-    isAuthenticated,
-    isClaimingDailyReward,
-    isCurrentRideRidden,
-    isRideFiltersOpen,
-    isSubmittingDailyChallenge,
-    isUpdatingRideCredit,
-    landingCollections,
-    landingCommunityHighlights,
-    landingFeaturedParks,
-    landingJournalTeasers,
-    liveWaitByRideId,
-    liveWaitRides,
-    liveWaitSource,
-    locale,
-    localizedCollections,
-    localizedParkEditorialBySlug,
-    localizedRideEditorialBySlug,
-    longestStreakProfiles,
-    manufacturerFilter,
-    navigateBackFromRide,
-    navigateToDiscover,
-    navigateToJournal,
-    navigateToPark,
-    navigateToParks,
-    navigateToProfile,
-    navigateToPublicProfile,
-    navigateToRide,
-    navigateToRides,
-    nextRide,
-    normalizedSearchQuery,
-    parkCollectionId,
-    parkCollections,
-    parkDetailStatus,
-    parkLiveWaitsStatus,
-    parkQueueTimesLinks,
-    parkResultRangeLabel,
-    parkRideOptions,
-    parkRideSort,
-    parkRidesStatus,
-    parkProgressBySlug,
-    parksPage,
-    parksPageInfo,
-    parksStatus,
-    parksTotalPages,
-    previousRide,
-    rankedProgressParks,
-    recentlyActiveProfiles,
-    rideCatalogManufacturerFilter,
-    rideCatalogParkFilter,
-    rideCatalogRideTypeFilter,
-    rideCatalogSearchQuery,
-    rideCatalogSort,
-    rideCollectionId,
-    rideCollections,
-    rideCreditMessage,
-    rideCreditsStatus,
-    rideDetailOrigin,
-    rideDetailStatus,
-    rideLineupPositionLabel,
-    rideLineupStatus,
-    rideQueueTimesLinks,
-    rideResultRangeLabel,
-    rideSignInPrompt,
-    rideSpecItems,
-    rideTypeFilter,
-    riddenRideCountLabel,
-    riddenRideIds,
-    ridesCatalogOptions,
-    ridesCatalogPage,
-    ridesCatalogPageInfo,
-    ridesCatalogStatus,
-    ridesCatalogTotalPages,
-    route,
-    searchQuery,
-    secondaryFeaturedParks,
-    selectedParkCollection,
-    selectedRideCollection,
-    setIsRideFiltersOpen,
-    setManufacturerFilter,
-    setParkCollectionId,
-    setParkRideSort,
-    setParksPage,
-    setRideCatalogManufacturerFilter,
-    setRideCatalogParkFilter,
-    setRideCatalogRideTypeFilter,
-    setRideCatalogSearchQuery,
-    setRideCatalogSort,
-    setRideCollectionId,
-    setRideTypeFilter,
-    setRidesCatalogPage,
-    setSearchQuery,
-    showParkQueueTimesSupport,
-    signInPromptBody,
-    signInPromptTitle,
-    spotlightPark,
-    spotlightParkEditorial,
-    spotlightProgress,
-    submitDailyChallengeAnswer,
-    toggleRideCredit,
-    userProgressionStatus,
-    visibleParkCount,
-    visibleRideCatalogCount
-  } = props;
+interface DiscoverPageProps {
+  communityHighlights: CommunityHighlightsResponse["profiles"];
+  communityHighlightsStatus: CommunityHighlightsStatus;
+  copy: UiCopy;
+  currentUserStatus: CurrentUserStatus;
+  dailyChallengeStatus: DailyChallengeStatus;
+  demoUserStatsStatus: DemoUserStatsStatus;
+  featuredParks: Park[];
+  featuredProgressParks: Array<{ progress: ParkProgress; park: Park }>;
+  highestLevelProfiles: CommunityHighlightsResponse["profiles"];
+  isClaimingDailyReward: boolean;
+  isSubmittingDailyChallenge: boolean;
+  locale: Locale;
+  localizedCollections: readonly CuratedCollection[];
+  localizedParkEditorialBySlug: Record<string, EditorialNote>;
+  longestStreakProfiles: CommunityHighlightsResponse["profiles"];
+  rankedProgressParks: ParkProgress[];
+  recentlyActiveProfiles: CommunityHighlightsResponse["profiles"];
+  signInPromptTitle: string;
+  signInPromptBody: string;
+  userProgressionStatus: UserProgressionStatus;
+  beginGoogleSignIn: (returnTo?: string) => void;
+  claimDailyReward: () => void;
+  formatParkLocation: (park: Pick<Park, "country" | "city">) => string;
+  getParkCardMetric: (
+    copy: UiCopy,
+    parkProgress?: Pick<ParkProgress, "riddenRides" | "totalRides">
+  ) => { label: string; value: string } | null;
+  navigateToPark: (slug: string) => void;
+  navigateToParks: (options?: { preserveSearch?: boolean; collectionId?: string }) => void;
+  navigateToPublicProfile: (userSlug: string) => void;
+  navigateToRide: (parkSlug: string, rideSlug: string) => void;
+  navigateToRides: (options?: { preserveFilters?: boolean; collectionId?: string }) => void;
+  submitDailyChallengeAnswer: (optionId: string) => void;
+}
+
+export function DiscoverPage({
+  beginGoogleSignIn,
+  claimDailyReward,
+  communityHighlights,
+  communityHighlightsStatus,
+  copy,
+  currentUserStatus,
+  dailyChallengeStatus,
+  demoUserStatsStatus,
+  featuredParks,
+  featuredProgressParks,
+  formatParkLocation,
+  getParkCardMetric,
+  highestLevelProfiles,
+  isClaimingDailyReward,
+  isSubmittingDailyChallenge,
+  locale,
+  localizedCollections,
+  localizedParkEditorialBySlug,
+  longestStreakProfiles,
+  navigateToPark,
+  navigateToParks,
+  navigateToPublicProfile,
+  navigateToRide,
+  navigateToRides,
+  rankedProgressParks,
+  recentlyActiveProfiles,
+  signInPromptBody,
+  signInPromptTitle,
+  submitDailyChallengeAnswer,
+  userProgressionStatus
+}: DiscoverPageProps) {
 
   return (
         <section className="catalog-panel browse-panel" aria-live="polite">
@@ -241,7 +156,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
                 </article>
               </div>
               <div className="stats-breakdown">
-                {rankedProgressParks.map((park: any) => (
+                {rankedProgressParks.map((park) => (
                   <button
                     className="stats-park-card"
                     key={park.parkId}
@@ -290,7 +205,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
               </div>
             </div>
             <div className="collection-grid">
-              {localizedCollections.map((collection: any) => (
+              {localizedCollections.map((collection) => (
                 <CuratedCollectionCard
                   collection={collection}
                   key={collection.id}
@@ -375,7 +290,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
             </div>
             <div className="parks-list parks-list-featured">
               {featuredProgressParks.length > 0
-                ? featuredProgressParks.map(({ park, progress }: { park: any; progress: any }) => {
+                ? featuredProgressParks.map(({ park, progress }) => {
                     const parkEditorial = localizedParkEditorialBySlug[park.slug];
                     const parkMetric = getParkCardMetric(copy, progress);
 
@@ -414,7 +329,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
                     </button>
                     );
                   })
-                : featuredParks.map((park: any) => {
+                : featuredParks.map((park) => {
                     const parkEditorial = localizedParkEditorialBySlug[park.slug];
                     const parkMetric = getParkCardMetric(copy);
 
@@ -471,7 +386,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
             {communityHighlightsStatus.state === "success" ? (
               communityHighlights.length > 0 ? (
                 <div className="community-grid">
-                  {communityHighlights.map((profile: any) => (
+                  {communityHighlights.map((profile) => (
                     <CommunityHighlightCard
                       key={profile.user.id}
                       profile={profile}

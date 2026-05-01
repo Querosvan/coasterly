@@ -1,180 +1,103 @@
 import type { AdminCatalogFilter } from "@coasterly/types";
 
 import { AuthPromptPanel } from "../components/shared/AuthPromptPanel";
-import { formatStatusLabel } from "../i18n";
+import { formatStatusLabel, type Locale } from "../i18n";
+import type {
+  AdminParksStatus,
+  AdminRidesStatus,
+  AdminSummaryStatus,
+  CurrentUserStatus,
+  RideDetailOrigin,
+  UiCopy
+} from "../lib/types";
 
-type AdminPageProps = Record<string, any>;
+interface AdminPageProps {
+  adminFilter: AdminCatalogFilter;
+  adminFilterLabels: Record<AdminCatalogFilter, string>;
+  adminForbiddenBody: string;
+  adminForbiddenTitle: string;
+  adminInternalNote: string;
+  adminLoadingLabel: string;
+  adminMediaAvailable: string;
+  adminMediaMissing: string;
+  adminNavLabel: string;
+  adminNeedsCleanup: string;
+  adminPageLabel: string;
+  adminPageTitle: string;
+  adminParkEmptyLabel: string;
+  adminParksPage: number;
+  adminParksStatus: AdminParksStatus;
+  adminParksTitle: string;
+  adminQueueMapped: string;
+  adminQueueMissing: string;
+  adminRideEmptyLabel: string;
+  adminRidesPage: number;
+  adminRidesStatus: AdminRidesStatus;
+  adminRidesTitle: string;
+  adminSignedOutBody: string;
+  adminSignedOutTitle: string;
+  adminSlugLabel: string;
+  adminSummaryStatus: AdminSummaryStatus;
+  copy: UiCopy;
+  currentUserStatus: CurrentUserStatus;
+  defaultAdminCatalogPage: number;
+  isAdminUser: boolean;
+  locale: Locale;
+  applyAdminFilter: (nextFilter: AdminCatalogFilter) => void;
+  beginGoogleSignIn: (returnTo?: string) => void;
+  goToNextAdminParksPage: () => void;
+  goToNextAdminRidesPage: () => void;
+  goToPreviousAdminParksPage: () => void;
+  goToPreviousAdminRidesPage: () => void;
+  navigateToPark: (slug: string) => void;
+  navigateToRide: (
+    parkSlug: string,
+    rideSlug: string,
+    options?: { origin?: RideDetailOrigin }
+  ) => void;
+}
 
-export function AdminPage(props: AdminPageProps) {
-  const {
-    activeParkEditorial,
-    activeParkProgress,
-    activeRideEditorial,
-    adminFilter,
-    adminFilterLabels,
-    adminForbiddenBody,
-    adminForbiddenTitle,
-    adminInternalNote,
-    adminLoadingLabel,
-    adminMediaAvailable,
-    adminMediaMissing,
-    adminNavLabel,
-    adminNeedsCleanup,
-    adminPageLabel,
-    adminPageTitle,
-    adminParkEmptyLabel,
-    adminParksPage,
-    adminParksStatus,
-    adminParksTitle,
-    adminQueueMapped,
-    adminQueueMissing,
-    adminRideEmptyLabel,
-    adminRidesPage,
-    adminRidesStatus,
-    adminRidesTitle,
-    adminSignedOutBody,
-    adminSignedOutTitle,
-    adminSlugLabel,
-    adminSummaryStatus,
-    applyAdminFilter,
-    beginGoogleSignIn,
-    claimDailyReward,
-    communityHighlights,
-    communityHighlightsStatus,
-    copy,
-    currentRideLiveWait,
-    currentUserStatus,
-    dailyChallengeStatus,
-    defaultAdminCatalogPage,
-    defaultCatalogPage,
-    defaultParkRideSort,
-    defaultRidesCatalogSort,
-    demoUserStatsStatus,
-    displayedParks,
-    displayedRideCatalogItems,
-    featuredParks,
-    featuredProgressParks,
-    formatParkLocation,
-    getDisplayRideTypeFilterOptions,
-    getParkCardMetric,
-    getRideCardMeta,
-    goToNextAdminParksPage,
-    goToNextAdminRidesPage,
-    goToNextParksPage,
-    goToNextRidesCatalogPage,
-    goToPreviousAdminParksPage,
-    goToPreviousAdminRidesPage,
-    goToPreviousParksPage,
-    goToPreviousRidesCatalogPage,
-    hasActiveCatalogSearch,
-    hasActiveParkCollection,
-    hasActiveRideCollection,
-    highestLevelProfiles,
-    heroCountLabel,
-    isAdminUser,
-    isAuthenticated,
-    isClaimingDailyReward,
-    isCurrentRideRidden,
-    isRideFiltersOpen,
-    isSubmittingDailyChallenge,
-    isUpdatingRideCredit,
-    landingCollections,
-    landingCommunityHighlights,
-    landingFeaturedParks,
-    landingJournalTeasers,
-    liveWaitByRideId,
-    liveWaitRides,
-    liveWaitSource,
-    locale,
-    localizedCollections,
-    localizedParkEditorialBySlug,
-    localizedRideEditorialBySlug,
-    longestStreakProfiles,
-    manufacturerFilter,
-    navigateBackFromRide,
-    navigateToDiscover,
-    navigateToJournal,
-    navigateToPark,
-    navigateToParks,
-    navigateToProfile,
-    navigateToPublicProfile,
-    navigateToRide,
-    navigateToRides,
-    nextRide,
-    normalizedSearchQuery,
-    parkCollectionId,
-    parkCollections,
-    parkDetailStatus,
-    parkLiveWaitsStatus,
-    parkQueueTimesLinks,
-    parkResultRangeLabel,
-    parkRideOptions,
-    parkRideSort,
-    parkRidesStatus,
-    parkProgressBySlug,
-    parksPage,
-    parksPageInfo,
-    parksStatus,
-    parksTotalPages,
-    previousRide,
-    rankedProgressParks,
-    recentlyActiveProfiles,
-    rideCatalogManufacturerFilter,
-    rideCatalogParkFilter,
-    rideCatalogRideTypeFilter,
-    rideCatalogSearchQuery,
-    rideCatalogSort,
-    rideCollectionId,
-    rideCollections,
-    rideCreditMessage,
-    rideCreditsStatus,
-    rideDetailOrigin,
-    rideDetailStatus,
-    rideLineupPositionLabel,
-    rideLineupStatus,
-    rideQueueTimesLinks,
-    rideResultRangeLabel,
-    rideSignInPrompt,
-    rideSpecItems,
-    rideTypeFilter,
-    riddenRideCountLabel,
-    riddenRideIds,
-    ridesCatalogOptions,
-    ridesCatalogPage,
-    ridesCatalogPageInfo,
-    ridesCatalogStatus,
-    ridesCatalogTotalPages,
-    route,
-    searchQuery,
-    secondaryFeaturedParks,
-    selectedParkCollection,
-    selectedRideCollection,
-    setIsRideFiltersOpen,
-    setManufacturerFilter,
-    setParkCollectionId,
-    setParkRideSort,
-    setParksPage,
-    setRideCatalogManufacturerFilter,
-    setRideCatalogParkFilter,
-    setRideCatalogRideTypeFilter,
-    setRideCatalogSearchQuery,
-    setRideCatalogSort,
-    setRideCollectionId,
-    setRideTypeFilter,
-    setRidesCatalogPage,
-    setSearchQuery,
-    showParkQueueTimesSupport,
-    signInPromptBody,
-    signInPromptTitle,
-    spotlightPark,
-    spotlightParkEditorial,
-    spotlightProgress,
-    submitDailyChallengeAnswer,
-    toggleRideCredit,
-    userProgressionStatus,
-    visibleParkCount,
-    visibleRideCatalogCount
-  } = props;
+export function AdminPage({
+  adminFilter,
+  adminFilterLabels,
+  adminForbiddenBody,
+  adminForbiddenTitle,
+  adminInternalNote,
+  adminLoadingLabel,
+  adminMediaAvailable,
+  adminMediaMissing,
+  adminNavLabel,
+  adminNeedsCleanup,
+  adminPageLabel,
+  adminPageTitle,
+  adminParkEmptyLabel,
+  adminParksPage,
+  adminParksStatus,
+  adminParksTitle,
+  adminQueueMapped,
+  adminQueueMissing,
+  adminRideEmptyLabel,
+  adminRidesPage,
+  adminRidesStatus,
+  adminRidesTitle,
+  adminSignedOutBody,
+  adminSignedOutTitle,
+  adminSlugLabel,
+  adminSummaryStatus,
+  applyAdminFilter,
+  beginGoogleSignIn,
+  copy,
+  currentUserStatus,
+  defaultAdminCatalogPage,
+  goToNextAdminParksPage,
+  goToNextAdminRidesPage,
+  goToPreviousAdminParksPage,
+  goToPreviousAdminRidesPage,
+  isAdminUser,
+  locale,
+  navigateToPark,
+  navigateToRide
+}: AdminPageProps) {
 
   return (
         <section className="catalog-panel browse-panel" aria-live="polite">
@@ -303,7 +226,7 @@ export function AdminPage(props: AdminPageProps) {
                   adminParksStatus.parks.length > 0 ? (
                     <>
                       <div className="admin-review-grid">
-                        {adminParksStatus.parks.map((park: any) => (
+                        {adminParksStatus.parks.map((park) => (
                           <article className="admin-review-card" key={`admin-park-${park.id}`}>
                             <div className="admin-review-copy">
                               <button
@@ -397,7 +320,7 @@ export function AdminPage(props: AdminPageProps) {
                   adminRidesStatus.rides.length > 0 ? (
                     <>
                       <div className="admin-review-grid">
-                        {adminRidesStatus.rides.map((ride: any) => (
+                        {adminRidesStatus.rides.map((ride) => (
                           <article className="admin-review-card" key={`admin-ride-${ride.id}`}>
                             <div className="admin-review-copy">
                               <button
