@@ -115,6 +115,25 @@ export function HomePage({
   submitDailyChallengeAnswer,
   userProgressionStatus
 }: HomePageProps) {
+  const valueProps = [
+    {
+      title: copy.home.valueTrackTitle,
+      body: copy.home.valueTrackBody
+    },
+    {
+      title: copy.home.valueDiscoverTitle,
+      body: copy.home.valueDiscoverBody
+    },
+    {
+      title: copy.home.valueLiveTitle,
+      body: copy.home.valueLiveBody
+    },
+    {
+      title: copy.home.valueProfileTitle,
+      body: copy.home.valueProfileBody
+    }
+  ];
+
   return (
         <>
           <section className="hero-panel hero-panel-landing">
@@ -131,6 +150,15 @@ export function HomePage({
                   className="secondary-button"
                   type="button"
                   onClick={() => {
+                    navigateToRides({ preserveFilters: true });
+                  }}
+                >
+                  {copy.discover.browseRides}
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => {
                     if (isAuthenticated) {
                       navigateToProfile();
                     } else {
@@ -138,10 +166,18 @@ export function HomePage({
                     }
                   }}
                 >
-                  {isAuthenticated ? copy.home.openProfile : copy.nav.signIn}
+                  {isAuthenticated ? copy.home.openProfile : copy.home.startTracking}
                 </button>
               </div>
-              <div className="hero-stats" aria-label="Catalog summary">
+              <div className="home-value-grid" aria-label={copy.home.heroTitle}>
+                {valueProps.map((item) => (
+                  <article className="home-value-card" key={item.title}>
+                    <strong>{item.title}</strong>
+                    <span>{item.body}</span>
+                  </article>
+                ))}
+              </div>
+              <div className="hero-stats" aria-label={copy.home.progressLabel}>
                 <div className="hero-stat">
                   <span className="hero-stat-label">{copy.home.parksStat}</span>
                   <strong>{heroCountLabel}</strong>
@@ -293,6 +329,7 @@ export function HomePage({
                 <div className="catalog-copy">
                   <p className="status-label">{copy.home.progressLabel}</p>
                   <h2 className="section-title">{copy.home.progressTitle}</h2>
+                  <p className="section-copy">{copy.home.signInValueBody}</p>
                 </div>
                 <div className="landing-actions">
                   <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
@@ -348,14 +385,24 @@ export function HomePage({
                   />
                 </div>
               ) : currentUserStatus.state === "signed_out" ? (
-                <AuthPromptPanel
-                  title={signInPromptTitle}
-                  summary={signInPromptBody}
-                  actionLabel={copy.nav.signIn}
-                  onAction={() => {
-                    beginGoogleSignIn();
-                  }}
-                />
+                <div className="signed-out-value-panel">
+                  <div className="home-value-grid home-value-grid-light">
+                    {valueProps.map((item) => (
+                      <article className="home-value-card" key={item.title}>
+                        <strong>{item.title}</strong>
+                        <span>{item.body}</span>
+                      </article>
+                    ))}
+                  </div>
+                  <AuthPromptPanel
+                    title={signInPromptTitle}
+                    summary={signInPromptBody}
+                    actionLabel={copy.home.startTracking}
+                    onAction={() => {
+                      beginGoogleSignIn();
+                    }}
+                  />
+                </div>
               ) : demoUserStatsStatus.state === "loading" || currentUserStatus.state === "loading" ? (
                 <div className="state-message state-message-loading">
                   <p>{copy.browse.loadingResults}</p>
@@ -398,9 +445,9 @@ export function HomePage({
 
           {currentUserStatus.state === "signed_out" ? (
             <AuthPromptPanel
-              title={signInPromptTitle}
-              summary={signInPromptBody}
-              actionLabel={copy.nav.signIn}
+              title={copy.home.signInValueTitle}
+              summary={copy.home.signInValueBody}
+              actionLabel={copy.home.startTracking}
               onAction={() => {
                 beginGoogleSignIn();
               }}
