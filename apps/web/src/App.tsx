@@ -273,14 +273,15 @@ function App() {
       ? "Inicia sesi\u00f3n para guardar esta atracci\u00f3n."
       : "Sign in to track this ride.";
   const adminNavLabel = "Admin";
-  const adminPageLabel = locale === "es" ? "Revision del catalogo" : "Catalog review";
-  const adminPageTitle = locale === "es" ? "Admin catalog" : "Admin catalog";
+  const adminPageLabel = locale === "es" ? "Revision editorial" : "Editorial review";
+  const adminPageTitle =
+    locale === "es" ? "Dashboard de revision editorial" : "Editorial review dashboard";
   const adminParksTitle = locale === "es" ? "Parques" : "Parks";
   const adminRidesTitle = locale === "es" ? "Atracciones" : "Rides";
   const adminInternalNote =
     locale === "es"
-      ? "Vista interna para revisar calidad y cobertura del catalogo."
-      : "Internal view for reviewing catalog quality and coverage.";
+      ? "Vista interna para priorizar calidad, cobertura y readiness del catalogo."
+      : "Internal view for prioritizing catalog quality, coverage, and readiness.";
   const adminSignedOutTitle = locale === "es" ? "Inicia sesion para abrir admin." : "Sign in to open admin.";
   const adminSignedOutBody =
     locale === "es"
@@ -292,12 +293,17 @@ function App() {
       ? "Esta vista solo esta disponible para moderadores, roles editoriales y administradores."
       : "This view is only available to moderators, editorial roles, and admins.";
   const adminLoadingLabel = locale === "es" ? "Cargando catalogo admin..." : "Loading admin catalog...";
-  const adminParkEmptyLabel = locale === "es" ? "No hay parques para revisar." : "No parks to review.";
-  const adminRideEmptyLabel = locale === "es" ? "No hay atracciones para revisar." : "No rides to review.";
-  const adminMediaAvailable = locale === "es" ? "Media disponible" : "Media available";
-  const adminMediaMissing = locale === "es" ? "Sin media" : "No media";
-  const adminQueueMapped = locale === "es" ? "Queue-Times conectado" : "Queue-Times mapped";
-  const adminQueueMissing = locale === "es" ? "Sin mapping Queue-Times" : "No Queue-Times mapping";
+  const adminParkEmptyLabel =
+    locale === "es" ? "No hay parques pendientes en esta cola." : "No parks are pending in this queue.";
+  const adminRideEmptyLabel =
+    locale === "es"
+      ? "No hay atracciones pendientes en esta cola."
+      : "No rides are pending in this queue.";
+  const adminMediaAvailable = locale === "es" ? "Media lista" : "Media ready";
+  const adminMediaMissing = locale === "es" ? "Media pendiente" : "Media missing";
+  const adminQueueMapped = locale === "es" ? "Queue-Times listo" : "Queue-Times ready";
+  const adminQueueMissing =
+    locale === "es" ? "Mapping Queue-Times pendiente" : "Queue-Times mapping missing";
   const adminSlugLabel = "Slug";
   const adminNeedsCleanup = locale === "es" ? "Necesita limpieza" : "Needs cleanup";
   const adminFilterLabels: Record<AdminCatalogFilter, string> = {
