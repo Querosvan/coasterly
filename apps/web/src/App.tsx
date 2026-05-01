@@ -10,14 +10,8 @@ import type {
   DemoUserStatsResponse,
   HealthResponse,
   Park,
-  ParkLiveWaitsResponse,
-  ParkResponse,
-  ParksResponse,
-  RideCatalogResponse,
-  RideCatalogOptionsResponse,
   RideCreditMutationResponse,
-  RideResponse,
-  RidesResponse
+  RideResponse
 } from "@coasterly/types";
 
 import { AppHeader } from "./components/layout/AppHeader";
@@ -34,9 +28,15 @@ import {
   rideEditorialBySlugEs,
   type Locale
 } from "./i18n";
+import { useCatalogQueryState } from "./hooks/useCatalogQueryState";
 import { useCurrentUser } from "./hooks/useCurrentUser";
 import { useDailyChallenge } from "./hooks/useDailyChallenge";
+import { useParkDetail } from "./hooks/useParkDetail";
+import { useParkRides } from "./hooks/useParkRides";
+import { useParksCatalog } from "./hooks/useParksCatalog";
+import { useRideDetail } from "./hooks/useRideDetail";
 import { useRideCredits } from "./hooks/useRideCredits";
+import { useRidesCatalog } from "./hooks/useRidesCatalog";
 import { useUserProfile } from "./hooks/useUserProfile";
 import { useUserProgression } from "./hooks/useUserProgression";
 import { useUserStats } from "./hooks/useUserStats";
@@ -63,23 +63,15 @@ import {
   formatParkLocation,
   getDisplayRideTypeFilterOptions,
   getParkCardMetric,
-  getRideCardMeta,
-  getUniqueSortedFilterValues
+  getRideCardMeta
 } from "./lib/catalogUtils";
 import {
-  browsePageSize,
   buildPathWithQuery,
   defaultCatalogPage,
   defaultParkRideSort,
   defaultRidesCatalogSort,
   fullCatalogFetchLimit,
-  getCatalogPageFromUrl,
-  getCollectionIdFromUrl,
-  getRideBrowserStateFromUrl,
-  getRideDetailOriginFromUrl,
-  getRidesCatalogStateFromUrl,
-  getRoute,
-  getSearchQueryFromUrl
+  getRoute
 } from "./lib/routes";
 import type {
   AdminParksStatus,
@@ -90,18 +82,9 @@ import type {
   CommunityHighlightsStatus,
   CuratedCollection,
   ExternalInsightLink,
-  ParkDetailStatus,
-  ParkLiveWaitsStatus,
-  ParkRideOptions,
-  ParkRideSort,
-  ParkRidesStatus,
   ParksStatus,
   RideDetailOrigin,
-  RideDetailStatus,
-  RideLineupStatus,
   RideSpecItem,
-  RidesCatalogOptions,
-  RidesCatalogSort,
   RidesCatalogStatus,
   Route,
   UiCopy
@@ -141,74 +124,60 @@ function App() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isRideFiltersOpen, setIsRideFiltersOpen] = useState(false);
   const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "loading" });
-  const [searchQuery, setSearchQuery] = useState(() =>
-    getSearchQueryFromUrl(location.search)
-  );
-  const [parkCollectionId, setParkCollectionId] = useState(() =>
-    getCollectionIdFromUrl(location.search)
-  );
   const [locale, setLocale] = useState<Locale>(() => getInitialLocale());
-  const [rideCatalogSearchQuery, setRideCatalogSearchQuery] = useState(() =>
-    getRidesCatalogStateFromUrl(location.search).searchQuery
-  );
-  const [parksStatus, setParksStatus] = useState<ParksStatus>({
-    state: "loading"
+  const {
+    searchQuery,
+    setSearchQuery,
+    parkCollectionId,
+    setParkCollectionId,
+    parksPage,
+    setParksPage,
+    rideTypeFilter,
+    setRideTypeFilter,
+    manufacturerFilter,
+    setManufacturerFilter,
+    parkRideSort,
+    setParkRideSort,
+    rideCatalogSearchQuery,
+    setRideCatalogSearchQuery,
+    rideCatalogParkFilter,
+    setRideCatalogParkFilter,
+    rideCatalogRideTypeFilter,
+    setRideCatalogRideTypeFilter,
+    rideCatalogManufacturerFilter,
+    setRideCatalogManufacturerFilter,
+    rideCatalogSort,
+    setRideCatalogSort,
+    ridesCatalogPage,
+    setRidesCatalogPage,
+    rideCollectionId,
+    setRideCollectionId,
+    rideDetailOrigin,
+    setRideDetailOrigin
+  } = useCatalogQueryState(location.search);
+  const { parksStatus } = useParksCatalog({
+    route,
+    searchQuery,
+    parkCollectionId,
+    parksPage
   });
-  const [parksPage, setParksPage] = useState(() =>
-    getCatalogPageFromUrl(location.search)
-  );
-  const [ridesCatalogStatus, setRidesCatalogStatus] = useState<RidesCatalogStatus>({
-    state: "idle"
+  const { ridesCatalogStatus, ridesCatalogOptions } = useRidesCatalog({
+    route,
+    rideCatalogSearchQuery,
+    rideCatalogParkFilter,
+    rideCatalogRideTypeFilter,
+    rideCatalogManufacturerFilter,
+    rideCatalogSort,
+    rideCollectionId,
+    ridesCatalogPage
   });
-  const [ridesCatalogPage, setRidesCatalogPage] = useState(() =>
-    getCatalogPageFromUrl(location.search)
-  );
-  const [parkDetailStatus, setParkDetailStatus] = useState<ParkDetailStatus>({
-    state: "idle"
+  const { parkDetailStatus, parkLiveWaitsStatus } = useParkDetail(route);
+  const { parkRidesStatus, parkRideOptions } = useParkRides({
+    route,
+    rideTypeFilter,
+    manufacturerFilter,
+    parkRideSort
   });
-  const [parkLiveWaitsStatus, setParkLiveWaitsStatus] =
-    useState<ParkLiveWaitsStatus>({
-      state: "idle"
-    });
-  const [parkRidesStatus, setParkRidesStatus] = useState<ParkRidesStatus>({
-    state: "idle"
-  });
-  const [parkRideOptions, setParkRideOptions] = useState<ParkRideOptions>({
-    rideTypes: [],
-    manufacturers: []
-  });
-  const [ridesCatalogOptions, setRidesCatalogOptions] = useState<RidesCatalogOptions>({
-    parks: [],
-    rideTypes: [],
-    manufacturers: []
-  });
-  const [rideTypeFilter, setRideTypeFilter] = useState(
-    () => getRideBrowserStateFromUrl(location.search).rideType
-  );
-  const [manufacturerFilter, setManufacturerFilter] = useState(
-    () => getRideBrowserStateFromUrl(location.search).manufacturer
-  );
-  const [parkRideSort, setParkRideSort] = useState<ParkRideSort>(
-    () => getRideBrowserStateFromUrl(location.search).sort
-  );
-  const [rideCatalogParkFilter, setRideCatalogParkFilter] = useState(
-    () => getRidesCatalogStateFromUrl(location.search).park
-  );
-  const [rideCatalogRideTypeFilter, setRideCatalogRideTypeFilter] = useState(
-    () => getRidesCatalogStateFromUrl(location.search).rideType
-  );
-  const [rideCatalogManufacturerFilter, setRideCatalogManufacturerFilter] = useState(
-    () => getRidesCatalogStateFromUrl(location.search).manufacturer
-  );
-  const [rideCatalogSort, setRideCatalogSort] = useState<RidesCatalogSort>(
-    () => getRidesCatalogStateFromUrl(location.search).sort
-  );
-  const [rideCollectionId, setRideCollectionId] = useState(() =>
-    getCollectionIdFromUrl(location.search)
-  );
-  const [rideDetailOrigin, setRideDetailOrigin] = useState<RideDetailOrigin>(() =>
-    getRideDetailOriginFromUrl(location.search)
-  );
   const { currentUserStatus, markSignedOut } = useCurrentUser();
   const [adminParksStatus, setAdminParksStatus] = useState<AdminParksStatus>({
     state: "idle"
@@ -259,11 +228,11 @@ function App() {
     claimDailyReward,
     resetDailyChallenge
   } = useDailyChallenge({ onAuthFailure: handleUserAuthFailure });
-  const [rideDetailStatus, setRideDetailStatus] = useState<RideDetailStatus>({
-    state: "idle"
-  });
-  const [rideLineupStatus, setRideLineupStatus] = useState<RideLineupStatus>({
-    state: "idle"
+  const { rideDetailStatus, rideLineupStatus } = useRideDetail({
+    route,
+    rideTypeFilter,
+    manufacturerFilter,
+    parkRideSort
   });
   const [isUpdatingRideCredit, setIsUpdatingRideCredit] = useState(false);
   const [rideCreditMessage, setRideCreditMessage] = useState<string | null>(null);
@@ -549,27 +518,6 @@ function App() {
   }, [location.pathname]);
 
   useEffect(() => {
-    setSearchQuery(getSearchQueryFromUrl(location.search));
-    setParksPage(getCatalogPageFromUrl(location.search));
-    setParkCollectionId(getCollectionIdFromUrl(location.search));
-    setRideCatalogSearchQuery(getRidesCatalogStateFromUrl(location.search).searchQuery);
-
-    const rideBrowserState = getRideBrowserStateFromUrl(location.search);
-    const ridesCatalogState = getRidesCatalogStateFromUrl(location.search);
-
-    setRideTypeFilter(rideBrowserState.rideType);
-    setManufacturerFilter(rideBrowserState.manufacturer);
-    setParkRideSort(rideBrowserState.sort);
-    setRideCatalogParkFilter(ridesCatalogState.park);
-    setRideCatalogRideTypeFilter(ridesCatalogState.rideType);
-    setRideCatalogManufacturerFilter(ridesCatalogState.manufacturer);
-    setRideCatalogSort(ridesCatalogState.sort);
-    setRidesCatalogPage(getCatalogPageFromUrl(location.search));
-    setRideCollectionId(getCollectionIdFromUrl(location.search));
-    setRideDetailOrigin(getRideDetailOriginFromUrl(location.search));
-  }, [location.search]);
-
-  useEffect(() => {
     if (!apiBaseUrl) {
       setApiStatus({
         state: "error",
@@ -811,700 +759,6 @@ function App() {
     parkRideSort,
     rideDetailOrigin
   ]);
-
-  useEffect(() => {
-    if (!apiBaseUrl) {
-      setParksStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    const controller = new AbortController();
-    const activeSearchQuery = route.view === "parks" ? searchQuery.trim() : "";
-    const shouldPaginateParks = route.view === "parks" && !parkCollectionId;
-    const effectiveParkLimit =
-      route.view === "parks"
-        ? shouldPaginateParks
-          ? browsePageSize
-          : fullCatalogFetchLimit
-        : 24;
-    const effectiveParkOffset = shouldPaginateParks
-      ? (parksPage - 1) * browsePageSize
-      : 0;
-
-    setParksStatus({ state: "loading" });
-
-    const timeoutId = window.setTimeout(() => {
-      const loadParks = async () => {
-        try {
-          const parksUrl = new URL("/parks", apiBaseUrl);
-
-          if (activeSearchQuery) {
-            parksUrl.searchParams.set("search", activeSearchQuery);
-          }
-
-          parksUrl.searchParams.set("limit", String(effectiveParkLimit));
-          parksUrl.searchParams.set("offset", String(effectiveParkOffset));
-
-          const response = await fetch(parksUrl, {
-            signal: controller.signal
-          });
-
-          if (!response.ok) {
-            setParksStatus({
-              state: "error",
-              message: `Parks request failed with status ${response.status}.`
-            });
-
-            return;
-          }
-
-          const payload = (await response.json()) as ParksResponse;
-
-          setParksStatus({
-            state: "success",
-            parks: payload.parks,
-            ...(payload.pageInfo ? { pageInfo: payload.pageInfo } : {})
-          });
-        } catch (error) {
-          if (controller.signal.aborted) {
-            return;
-          }
-
-          setParksStatus({
-            state: "error",
-            message:
-              error instanceof Error
-                ? error.message
-              : "The parks request failed."
-          });
-        }
-      };
-
-      void loadParks();
-    }, activeSearchQuery ? 250 : 0);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [route, searchQuery, parkCollectionId, parksPage]);
-
-  useEffect(() => {
-    if (route.view !== "rides") {
-      setRidesCatalogOptions({
-        parks: [],
-        rideTypes: [],
-        manufacturers: []
-      });
-
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const loadRidesCatalogOptions = async () => {
-      try {
-        const response = await fetch(new URL("/rides/options", apiBaseUrl), {
-          signal: controller.signal
-        });
-
-        if (!response.ok) {
-          return;
-        }
-
-        const payload = (await response.json()) as RideCatalogOptionsResponse;
-
-        setRidesCatalogOptions({
-          parks: payload.parks,
-          rideTypes: getUniqueSortedFilterValues(payload.rideTypes, {
-            excludeGenericRideTypes: true
-          }),
-          manufacturers: getUniqueSortedFilterValues(payload.manufacturers)
-        });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-      }
-    };
-
-    void loadRidesCatalogOptions();
-
-    return () => {
-      controller.abort();
-    };
-  }, [route, apiBaseUrl]);
-
-  useEffect(() => {
-    if (route.view !== "rides") {
-      setRidesCatalogStatus({ state: "idle" });
-
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      setRidesCatalogStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    const controller = new AbortController();
-    const activeSearchQuery = rideCatalogSearchQuery.trim();
-    const shouldPaginateRides = !rideCollectionId;
-    const effectiveRideLimit = shouldPaginateRides
-      ? browsePageSize
-      : fullCatalogFetchLimit;
-    const effectiveRideOffset = shouldPaginateRides
-      ? (ridesCatalogPage - 1) * browsePageSize
-      : 0;
-
-    setRidesCatalogStatus({ state: "loading" });
-
-    const timeoutId = window.setTimeout(() => {
-      const loadRidesCatalog = async () => {
-        try {
-          const ridesUrl = new URL("/rides", apiBaseUrl);
-
-          if (activeSearchQuery) {
-            ridesUrl.searchParams.set("search", activeSearchQuery);
-          }
-
-          if (rideCatalogParkFilter) {
-            ridesUrl.searchParams.set("park", rideCatalogParkFilter);
-          }
-
-          if (rideCatalogRideTypeFilter) {
-            ridesUrl.searchParams.set("rideType", rideCatalogRideTypeFilter);
-          }
-
-          if (rideCatalogManufacturerFilter) {
-            ridesUrl.searchParams.set("manufacturer", rideCatalogManufacturerFilter);
-          }
-
-          ridesUrl.searchParams.set("sort", rideCatalogSort);
-          ridesUrl.searchParams.set("limit", String(effectiveRideLimit));
-          ridesUrl.searchParams.set("offset", String(effectiveRideOffset));
-
-          const response = await fetch(ridesUrl, {
-            signal: controller.signal
-          });
-
-          if (!response.ok) {
-            setRidesCatalogStatus({
-              state: "error",
-              message: `Rides request failed with status ${response.status}.`
-            });
-
-            return;
-          }
-
-          const payload = (await response.json()) as RideCatalogResponse;
-
-          setRidesCatalogStatus({
-            state: "success",
-            rides: payload.rides,
-            ...(payload.pageInfo ? { pageInfo: payload.pageInfo } : {})
-          });
-        } catch (error) {
-          if (controller.signal.aborted) {
-            return;
-          }
-
-          setRidesCatalogStatus({
-            state: "error",
-            message:
-              error instanceof Error
-                ? error.message
-              : "The rides request failed."
-          });
-        }
-      };
-
-      void loadRidesCatalog();
-    }, activeSearchQuery ? 250 : 0);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [
-    route,
-    rideCatalogSearchQuery,
-    rideCatalogParkFilter,
-    rideCatalogRideTypeFilter,
-    rideCatalogManufacturerFilter,
-    rideCatalogSort,
-    rideCollectionId,
-    ridesCatalogPage
-  ]);
-
-  useEffect(() => {
-    if (route.view !== "park") {
-      setParkDetailStatus({ state: "idle" });
-
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      setParkDetailStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const loadPark = async () => {
-      setParkDetailStatus({ state: "loading" });
-
-      try {
-        const response = await fetch(
-          new URL(`/parks/${route.slug}`, apiBaseUrl),
-          { signal: controller.signal }
-        );
-
-        if (response.status === 404) {
-          setParkDetailStatus({
-            state: "error",
-            message: "Park not found."
-          });
-
-          return;
-        }
-
-        if (!response.ok) {
-          setParkDetailStatus({
-            state: "error",
-            message: `Park request failed with status ${response.status}.`
-          });
-
-          return;
-        }
-
-        const payload = (await response.json()) as ParkResponse;
-
-        setParkDetailStatus({
-          state: "success",
-          park: payload.park,
-          ...(payload.queueTimes ? { queueTimes: payload.queueTimes } : {})
-        });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setParkDetailStatus({
-          state: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "The park request failed."
-        });
-      }
-    };
-
-    void loadPark();
-
-    return () => {
-      controller.abort();
-    };
-  }, [route]);
-
-  useEffect(() => {
-    const liveWaitParkSlug =
-      route.view === "park"
-        ? route.slug
-        : route.view === "ride"
-          ? route.parkSlug
-          : null;
-
-    if (!liveWaitParkSlug) {
-      setParkLiveWaitsStatus({ state: "idle" });
-
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      setParkLiveWaitsStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const loadParkLiveWaits = async () => {
-      setParkLiveWaitsStatus({ state: "loading" });
-
-      try {
-        const response = await fetch(
-          new URL(`/parks/${liveWaitParkSlug}/live-waits`, apiBaseUrl),
-          { signal: controller.signal }
-        );
-
-        if (response.status === 404) {
-          setParkLiveWaitsStatus({
-            state: "error",
-            message: "Park not found."
-          });
-
-          return;
-        }
-
-        if (!response.ok) {
-          setParkLiveWaitsStatus({
-            state: "error",
-            message: `Live waits request failed with status ${response.status}.`
-          });
-
-          return;
-        }
-
-        const payload = (await response.json()) as ParkLiveWaitsResponse;
-
-        setParkLiveWaitsStatus({
-          state: "success",
-          source: payload.source,
-          rides: payload.rides
-        });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setParkLiveWaitsStatus({
-          state: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "The live waits request failed."
-        });
-      }
-    };
-
-    void loadParkLiveWaits();
-
-    return () => {
-      controller.abort();
-    };
-  }, [route]);
-
-  useEffect(() => {
-    if (route.view !== "park") {
-      setParkRideOptions({
-        rideTypes: [],
-        manufacturers: []
-      });
-
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const loadRideOptions = async () => {
-      try {
-        const ridesUrl = new URL(`/parks/${route.slug}/rides`, apiBaseUrl);
-
-        ridesUrl.searchParams.set("sort", defaultParkRideSort);
-
-        const response = await fetch(ridesUrl, { signal: controller.signal });
-
-        if (!response.ok) {
-          return;
-        }
-
-        const payload = (await response.json()) as RidesResponse;
-        const rideTypes = getUniqueSortedFilterValues(
-          payload.rides.map((ride) => ride.rideType),
-          {
-            excludeGenericRideTypes: true
-          }
-        );
-
-        const manufacturers = getUniqueSortedFilterValues(
-          payload.rides.map((ride) => ride.manufacturer)
-        );
-
-        setParkRideOptions({
-          rideTypes,
-          manufacturers
-        });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-      }
-    };
-
-    void loadRideOptions();
-
-    return () => {
-      controller.abort();
-    };
-  }, [route, apiBaseUrl]);
-
-  useEffect(() => {
-    if (route.view !== "park") {
-      setParkRidesStatus({ state: "idle" });
-
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      setParkRidesStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const loadRides = async () => {
-      setParkRidesStatus({ state: "loading" });
-
-      try {
-        const ridesUrl = new URL(`/parks/${route.slug}/rides`, apiBaseUrl);
-
-        if (rideTypeFilter) {
-          ridesUrl.searchParams.set("rideType", rideTypeFilter);
-        }
-
-        if (manufacturerFilter) {
-          ridesUrl.searchParams.set("manufacturer", manufacturerFilter);
-        }
-
-        ridesUrl.searchParams.set("sort", parkRideSort);
-
-        const response = await fetch(ridesUrl, { signal: controller.signal });
-
-        if (response.status === 404) {
-          setParkRidesStatus({
-            state: "error",
-            message: "Park not found."
-          });
-
-          return;
-        }
-
-        if (!response.ok) {
-          setParkRidesStatus({
-            state: "error",
-            message: `Rides request failed with status ${response.status}.`
-          });
-
-          return;
-        }
-
-        const payload = (await response.json()) as RidesResponse;
-
-        setParkRidesStatus({
-          state: "success",
-          rides: payload.rides
-        });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setParkRidesStatus({
-          state: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "The rides request failed."
-        });
-      }
-    };
-
-    void loadRides();
-
-    return () => {
-      controller.abort();
-    };
-  }, [route, rideTypeFilter, manufacturerFilter, parkRideSort]);
-
-  useEffect(() => {
-    if (route.view !== "ride") {
-      setRideLineupStatus({ state: "idle" });
-
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      setRideLineupStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const loadRideLineup = async () => {
-      setRideLineupStatus({ state: "loading" });
-
-      try {
-        const ridesUrl = new URL(`/parks/${route.parkSlug}/rides`, apiBaseUrl);
-
-        if (rideTypeFilter) {
-          ridesUrl.searchParams.set("rideType", rideTypeFilter);
-        }
-
-        if (manufacturerFilter) {
-          ridesUrl.searchParams.set("manufacturer", manufacturerFilter);
-        }
-
-        ridesUrl.searchParams.set("sort", parkRideSort);
-
-        const response = await fetch(ridesUrl, { signal: controller.signal });
-
-        if (response.status === 404) {
-          setRideLineupStatus({
-            state: "error",
-            message: "Park not found."
-          });
-
-          return;
-        }
-
-        if (!response.ok) {
-          setRideLineupStatus({
-            state: "error",
-            message: `Ride lineup request failed with status ${response.status}.`
-          });
-
-          return;
-        }
-
-        const payload = (await response.json()) as RidesResponse;
-
-        setRideLineupStatus({
-          state: "success",
-          rides: payload.rides
-        });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setRideLineupStatus({
-          state: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "The ride lineup request failed."
-        });
-      }
-    };
-
-    void loadRideLineup();
-
-    return () => {
-      controller.abort();
-    };
-  }, [route, rideTypeFilter, manufacturerFilter, parkRideSort]);
-
-  useEffect(() => {
-    if (route.view !== "ride") {
-      setRideDetailStatus({ state: "idle" });
-
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      setRideDetailStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const loadRide = async () => {
-      setRideDetailStatus({ state: "loading" });
-
-      try {
-        const response = await fetch(
-          new URL(`/parks/${route.parkSlug}/rides/${route.rideSlug}`, apiBaseUrl),
-          { signal: controller.signal }
-        );
-
-        if (response.status === 404) {
-          setRideDetailStatus({
-            state: "error",
-            message: "Ride not found."
-          });
-
-          return;
-        }
-
-        if (!response.ok) {
-          setRideDetailStatus({
-            state: "error",
-            message: `Ride request failed with status ${response.status}.`
-          });
-
-          return;
-        }
-
-        const payload = (await response.json()) as RideResponse;
-
-        setRideDetailStatus({
-          state: "success",
-          park: payload.park,
-          ride: payload.ride,
-          ...(payload.parkQueueTimes
-            ? { parkQueueTimes: payload.parkQueueTimes }
-            : {}),
-          ...(payload.rideQueueTimes
-            ? { rideQueueTimes: payload.rideQueueTimes }
-            : {})
-        });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setRideDetailStatus({
-          state: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "The ride request failed."
-        });
-      }
-    };
-
-    void loadRide();
-
-    return () => {
-      controller.abort();
-    };
-  }, [route]);
 
   const getCatalogSearchParams = () => {
     const params = new URLSearchParams();
