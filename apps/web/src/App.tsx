@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import type {
   AdminCatalogFilter,
@@ -142,31 +143,34 @@ const dedupeExternalLinks = (links: ExternalInsightLink[]) => {
 };
 
 function App() {
-  const [route, setRoute] = useState<Route>(() => getRoute(window.location.pathname));
+  const location = useLocation();
+  const navigate = useNavigate();
+  const route = useMemo<Route>(() => getRoute(location.pathname), [location.pathname]);
+  const currentLocation = `${location.pathname}${location.search}`;
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isRideFiltersOpen, setIsRideFiltersOpen] = useState(false);
   const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "loading" });
   const [searchQuery, setSearchQuery] = useState(() =>
-    getSearchQueryFromUrl(window.location.search)
+    getSearchQueryFromUrl(location.search)
   );
   const [parkCollectionId, setParkCollectionId] = useState(() =>
-    getCollectionIdFromUrl(window.location.search)
+    getCollectionIdFromUrl(location.search)
   );
   const [locale, setLocale] = useState<Locale>(() => getInitialLocale());
   const [rideCatalogSearchQuery, setRideCatalogSearchQuery] = useState(() =>
-    getRidesCatalogStateFromUrl(window.location.search).searchQuery
+    getRidesCatalogStateFromUrl(location.search).searchQuery
   );
   const [parksStatus, setParksStatus] = useState<ParksStatus>({
     state: "loading"
   });
   const [parksPage, setParksPage] = useState(() =>
-    getCatalogPageFromUrl(window.location.search)
+    getCatalogPageFromUrl(location.search)
   );
   const [ridesCatalogStatus, setRidesCatalogStatus] = useState<RidesCatalogStatus>({
     state: "idle"
   });
   const [ridesCatalogPage, setRidesCatalogPage] = useState(() =>
-    getCatalogPageFromUrl(window.location.search)
+    getCatalogPageFromUrl(location.search)
   );
   const [parkDetailStatus, setParkDetailStatus] = useState<ParkDetailStatus>({
     state: "idle"
@@ -188,31 +192,31 @@ function App() {
     manufacturers: []
   });
   const [rideTypeFilter, setRideTypeFilter] = useState(
-    () => getRideBrowserStateFromUrl(window.location.search).rideType
+    () => getRideBrowserStateFromUrl(location.search).rideType
   );
   const [manufacturerFilter, setManufacturerFilter] = useState(
-    () => getRideBrowserStateFromUrl(window.location.search).manufacturer
+    () => getRideBrowserStateFromUrl(location.search).manufacturer
   );
   const [parkRideSort, setParkRideSort] = useState<ParkRideSort>(
-    () => getRideBrowserStateFromUrl(window.location.search).sort
+    () => getRideBrowserStateFromUrl(location.search).sort
   );
   const [rideCatalogParkFilter, setRideCatalogParkFilter] = useState(
-    () => getRidesCatalogStateFromUrl(window.location.search).park
+    () => getRidesCatalogStateFromUrl(location.search).park
   );
   const [rideCatalogRideTypeFilter, setRideCatalogRideTypeFilter] = useState(
-    () => getRidesCatalogStateFromUrl(window.location.search).rideType
+    () => getRidesCatalogStateFromUrl(location.search).rideType
   );
   const [rideCatalogManufacturerFilter, setRideCatalogManufacturerFilter] = useState(
-    () => getRidesCatalogStateFromUrl(window.location.search).manufacturer
+    () => getRidesCatalogStateFromUrl(location.search).manufacturer
   );
   const [rideCatalogSort, setRideCatalogSort] = useState<RidesCatalogSort>(
-    () => getRidesCatalogStateFromUrl(window.location.search).sort
+    () => getRidesCatalogStateFromUrl(location.search).sort
   );
   const [rideCollectionId, setRideCollectionId] = useState(() =>
-    getCollectionIdFromUrl(window.location.search)
+    getCollectionIdFromUrl(location.search)
   );
   const [rideDetailOrigin, setRideDetailOrigin] = useState<RideDetailOrigin>(() =>
-    getRideDetailOriginFromUrl(window.location.search)
+    getRideDetailOriginFromUrl(location.search)
   );
   const [currentUserStatus, setCurrentUserStatus] = useState<CurrentUserStatus>({
     state: "loading"
@@ -853,38 +857,30 @@ function App() {
   };
 
   useEffect(() => {
-    const syncRoute = () => {
-      setRoute(getRoute(window.location.pathname));
-      setIsMobileNavOpen(false);
-      setIsRideFiltersOpen(false);
-      setSearchQuery(getSearchQueryFromUrl(window.location.search));
-      setParksPage(getCatalogPageFromUrl(window.location.search));
-      setParkCollectionId(getCollectionIdFromUrl(window.location.search));
-      setRideCatalogSearchQuery(
-        getRidesCatalogStateFromUrl(window.location.search).searchQuery
-      );
+    setIsMobileNavOpen(false);
+    setIsRideFiltersOpen(false);
+  }, [location.pathname]);
 
-      const rideBrowserState = getRideBrowserStateFromUrl(window.location.search);
-      const ridesCatalogState = getRidesCatalogStateFromUrl(window.location.search);
+  useEffect(() => {
+    setSearchQuery(getSearchQueryFromUrl(location.search));
+    setParksPage(getCatalogPageFromUrl(location.search));
+    setParkCollectionId(getCollectionIdFromUrl(location.search));
+    setRideCatalogSearchQuery(getRidesCatalogStateFromUrl(location.search).searchQuery);
 
-      setRideTypeFilter(rideBrowserState.rideType);
-      setManufacturerFilter(rideBrowserState.manufacturer);
-      setParkRideSort(rideBrowserState.sort);
-      setRideCatalogParkFilter(ridesCatalogState.park);
-      setRideCatalogRideTypeFilter(ridesCatalogState.rideType);
-      setRideCatalogManufacturerFilter(ridesCatalogState.manufacturer);
-      setRideCatalogSort(ridesCatalogState.sort);
-      setRidesCatalogPage(getCatalogPageFromUrl(window.location.search));
-      setRideCollectionId(getCollectionIdFromUrl(window.location.search));
-      setRideDetailOrigin(getRideDetailOriginFromUrl(window.location.search));
-    };
+    const rideBrowserState = getRideBrowserStateFromUrl(location.search);
+    const ridesCatalogState = getRidesCatalogStateFromUrl(location.search);
 
-    window.addEventListener("popstate", syncRoute);
-
-    return () => {
-      window.removeEventListener("popstate", syncRoute);
-    };
-  }, []);
+    setRideTypeFilter(rideBrowserState.rideType);
+    setManufacturerFilter(rideBrowserState.manufacturer);
+    setParkRideSort(rideBrowserState.sort);
+    setRideCatalogParkFilter(ridesCatalogState.park);
+    setRideCatalogRideTypeFilter(ridesCatalogState.rideType);
+    setRideCatalogManufacturerFilter(ridesCatalogState.manufacturer);
+    setRideCatalogSort(ridesCatalogState.sort);
+    setRidesCatalogPage(getCatalogPageFromUrl(location.search));
+    setRideCollectionId(getCollectionIdFromUrl(location.search));
+    setRideDetailOrigin(getRideDetailOriginFromUrl(location.search));
+  }, [location.search]);
 
   useEffect(() => {
     if (!apiBaseUrl) {
@@ -1167,13 +1163,15 @@ function App() {
       }
     }
 
-    const nextLocation = buildPathWithQuery(window.location.pathname, params);
-    const currentLocation = `${window.location.pathname}${window.location.search}`;
+    const nextLocation = buildPathWithQuery(location.pathname, params);
 
     if (nextLocation !== currentLocation) {
-      window.history.replaceState({}, "", nextLocation);
+      navigate(nextLocation, { replace: true });
     }
   }, [
+    currentLocation,
+    location.pathname,
+    navigate,
     route,
     searchQuery,
     parkCollectionId,
@@ -1949,11 +1947,9 @@ function App() {
 
   const navigateWithParams = (pathname: string, params: URLSearchParams) => {
     const nextLocation = buildPathWithQuery(pathname, params);
-    const currentLocation = `${window.location.pathname}${window.location.search}`;
 
     if (currentLocation !== nextLocation) {
-      window.history.pushState({}, "", nextLocation);
-      setRoute(getRoute(pathname));
+      navigate(nextLocation);
     }
   };
 
@@ -1969,7 +1965,7 @@ function App() {
     const authUrl = new URL("/auth/google/start", apiBaseUrl);
     authUrl.searchParams.set(
       "returnTo",
-      returnTo ?? `${window.location.pathname}${window.location.search}`
+      returnTo ?? currentLocation
     );
     window.location.assign(authUrl.toString());
   };
@@ -2356,7 +2352,7 @@ function App() {
 
     if (currentUserStatus.state !== "signed_in") {
       setRideCreditMessage(rideSignInPrompt);
-      beginGoogleSignIn(`${window.location.pathname}${window.location.search}`);
+      beginGoogleSignIn(currentLocation);
 
       return;
     }

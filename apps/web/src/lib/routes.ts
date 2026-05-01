@@ -1,3 +1,5 @@
+import { matchPath } from "react-router-dom";
+
 import type { ParkRideSort, RideDetailOrigin, RidesCatalogSort, Route } from "./types";
 
 export type { Route } from "./types";
@@ -71,56 +73,61 @@ export const buildPathWithQuery = (pathname: string, params: URLSearchParams) =>
   return query ? `${pathname}?${query}` : pathname;
 };
 
-export const getRoute = (pathname: string): Route => {
-  const rideMatch = pathname.match(/^\/parks\/([^/]+)\/rides\/([^/]+)\/?$/);
+const decodeRouteParam = (value: string) => decodeURIComponent(value);
 
-  if (rideMatch?.[1] && rideMatch[2]) {
+export const getRoute = (pathname: string): Route => {
+  const rideMatch = matchPath(
+    { path: "/parks/:parkSlug/rides/:rideSlug", end: true },
+    pathname
+  );
+
+  if (rideMatch?.params.parkSlug && rideMatch.params.rideSlug) {
     return {
       view: "ride",
-      parkSlug: decodeURIComponent(rideMatch[1]),
-      rideSlug: decodeURIComponent(rideMatch[2])
+      parkSlug: decodeRouteParam(rideMatch.params.parkSlug),
+      rideSlug: decodeRouteParam(rideMatch.params.rideSlug)
     };
   }
 
-  if (pathname === "/parks" || pathname === "/parks/") {
+  if (matchPath({ path: "/parks", end: true }, pathname)) {
     return { view: "parks" };
   }
 
-  if (pathname === "/rides" || pathname === "/rides/") {
+  if (matchPath({ path: "/rides", end: true }, pathname)) {
     return { view: "rides" };
   }
 
-  const parkMatch = pathname.match(/^\/parks\/([^/]+)\/?$/);
+  const parkMatch = matchPath({ path: "/parks/:slug", end: true }, pathname);
 
-  if (parkMatch?.[1]) {
+  if (parkMatch?.params.slug) {
     return {
       view: "park",
-      slug: decodeURIComponent(parkMatch[1])
+      slug: decodeRouteParam(parkMatch.params.slug)
     };
   }
 
-  if (pathname === "/discover" || pathname === "/discover/") {
+  if (matchPath({ path: "/discover", end: true }, pathname)) {
     return { view: "discover" };
   }
 
-  if (pathname === "/admin" || pathname === "/admin/") {
+  if (matchPath({ path: "/admin", end: true }, pathname)) {
     return { view: "admin" };
   }
 
-  if (pathname === "/profile" || pathname === "/profile/") {
+  if (matchPath({ path: "/profile", end: true }, pathname)) {
     return { view: "profile" };
   }
 
-  const userProfileMatch = pathname.match(/^\/users\/([^/]+)\/?$/);
+  const userProfileMatch = matchPath({ path: "/users/:slug", end: true }, pathname);
 
-  if (userProfileMatch?.[1]) {
+  if (userProfileMatch?.params.slug) {
     return {
       view: "user-profile",
-      slug: decodeURIComponent(userProfileMatch[1])
+      slug: decodeRouteParam(userProfileMatch.params.slug)
     };
   }
 
-  if (pathname === "/journal" || pathname === "/journal/") {
+  if (matchPath({ path: "/journal", end: true }, pathname)) {
     return { view: "journal" };
   }
 
