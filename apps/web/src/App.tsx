@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import type {
@@ -7,9 +7,6 @@ import type {
   AdminRidesResponse,
   AdminSummaryResponse,
   CommunityHighlightsResponse,
-  CurrentUserResponse,
-  DailyChallengeAnswerRequest,
-  DailyChallengeResponse,
   DemoUserStatsResponse,
   HealthResponse,
   Park,
@@ -19,11 +16,8 @@ import type {
   RideCatalogResponse,
   RideCatalogOptionsResponse,
   RideCreditMutationResponse,
-  RideCreditsResponse,
   RideResponse,
-  RidesResponse,
-  UserProfileResponse,
-  UserProgressionResponse
+  RidesResponse
 } from "@coasterly/types";
 
 import { AppHeader } from "./components/layout/AppHeader";
@@ -40,6 +34,18 @@ import {
   rideEditorialBySlugEs,
   type Locale
 } from "./i18n";
+import { useCurrentUser } from "./hooks/useCurrentUser";
+import { useDailyChallenge } from "./hooks/useDailyChallenge";
+import { useRideCredits } from "./hooks/useRideCredits";
+import { useUserProfile } from "./hooks/useUserProfile";
+import { useUserProgression } from "./hooks/useUserProgression";
+import { useUserStats } from "./hooks/useUserStats";
+import {
+  apiBaseUrl,
+  authFailureStatusCode,
+  fetchWithSession,
+  missingApiBaseUrlMessage
+} from "./hooks/userDataApi";
 import {
   adminCatalogPageSize,
   defaultAdminCatalogPage,
@@ -83,9 +89,6 @@ import type {
   BreadcrumbItem,
   CommunityHighlightsStatus,
   CuratedCollection,
-  CurrentUserStatus,
-  DailyChallengeStatus,
-  DemoUserStatsStatus,
   ExternalInsightLink,
   ParkDetailStatus,
   ParkLiveWaitsStatus,
@@ -93,7 +96,6 @@ import type {
   ParkRideSort,
   ParkRidesStatus,
   ParksStatus,
-  RideCreditsStatus,
   RideDetailOrigin,
   RideDetailStatus,
   RideLineupStatus,
@@ -102,9 +104,7 @@ import type {
   RidesCatalogSort,
   RidesCatalogStatus,
   Route,
-  UiCopy,
-  UserProfileStatus,
-  UserProgressionStatus
+  UiCopy
 } from "./lib/types";
 import { JournalPage } from "./pages/JournalPage";
 import { AdminPage } from "./pages/AdminPage";
@@ -116,15 +116,6 @@ import { RideDetailPage } from "./pages/RideDetailPage";
 import { RidesPage } from "./pages/RidesPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { PublicProfilePage } from "./pages/PublicProfilePage";
-
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-const authFailureStatusCode = 401;
-
-const fetchWithSession = (input: URL | RequestInfo, init?: RequestInit) =>
-  fetch(input, {
-    ...init,
-    credentials: "include"
-  });
 
 const dedupeExternalLinks = (links: ExternalInsightLink[]) => {
   const seen = new Set<string>();
@@ -218,9 +209,7 @@ function App() {
   const [rideDetailOrigin, setRideDetailOrigin] = useState<RideDetailOrigin>(() =>
     getRideDetailOriginFromUrl(location.search)
   );
-  const [currentUserStatus, setCurrentUserStatus] = useState<CurrentUserStatus>({
-    state: "loading"
-  });
+  const { currentUserStatus, markSignedOut } = useCurrentUser();
   const [adminParksStatus, setAdminParksStatus] = useState<AdminParksStatus>({
     state: "idle"
   });
@@ -233,25 +222,43 @@ function App() {
   const [adminParksPage, setAdminParksPage] = useState(defaultAdminCatalogPage);
   const [adminRidesPage, setAdminRidesPage] = useState(defaultAdminCatalogPage);
   const [adminFilter, setAdminFilter] = useState<AdminCatalogFilter>(defaultAdminFilter);
-  const [rideCreditsStatus, setRideCreditsStatus] = useState<RideCreditsStatus>({
-    state: "idle"
-  });
-  const [demoUserStatsStatus, setDemoUserStatsStatus] = useState<DemoUserStatsStatus>({
-    state: "idle"
-  });
-  const [userProgressionStatus, setUserProgressionStatus] = useState<UserProgressionStatus>({
-    state: "idle"
-  });
-  const [userProfileStatus, setUserProfileStatus] = useState<UserProfileStatus>({
-    state: "idle"
-  });
+  const {
+    rideCreditsStatus,
+    resetRideCredits,
+    updateRiddenRide
+  } = useRideCredits(currentUserStatus.state);
+  const {
+    demoUserStatsStatus,
+    loadDemoUserStats,
+    resetDemoUserStats
+  } = useUserStats();
+  const {
+    userProgressionStatus,
+    loadUserProgression,
+    resetUserProgression
+  } = useUserProgression();
+  const {
+    userProfileStatus,
+    loadUserProfile,
+    loadPublicUserProfile,
+    resetUserProfile
+  } = useUserProfile();
   const [communityHighlightsStatus, setCommunityHighlightsStatus] =
     useState<CommunityHighlightsStatus>({
       state: "loading"
     });
-  const [dailyChallengeStatus, setDailyChallengeStatus] = useState<DailyChallengeStatus>({
-    state: "idle"
-  });
+  const handleUserAuthFailure = useCallback(() => {
+    markSignedOut();
+  }, [markSignedOut]);
+  const {
+    dailyChallengeStatus,
+    isSubmittingDailyChallenge,
+    isClaimingDailyReward,
+    loadDailyChallenge,
+    submitDailyChallengeAnswer,
+    claimDailyReward,
+    resetDailyChallenge
+  } = useDailyChallenge({ onAuthFailure: handleUserAuthFailure });
   const [rideDetailStatus, setRideDetailStatus] = useState<RideDetailStatus>({
     state: "idle"
   });
@@ -259,8 +266,6 @@ function App() {
     state: "idle"
   });
   const [isUpdatingRideCredit, setIsUpdatingRideCredit] = useState(false);
-  const [isSubmittingDailyChallenge, setIsSubmittingDailyChallenge] = useState(false);
-  const [isClaimingDailyReward, setIsClaimingDailyReward] = useState(false);
   const [rideCreditMessage, setRideCreditMessage] = useState<string | null>(null);
   const [profileShareMessage, setProfileShareMessage] = useState<string | null>(null);
   const copy = messages[locale];
@@ -339,222 +344,11 @@ function App() {
     currentUserStatus.state === "signed_in" &&
     isAdminRole(currentUserStatus.currentUser.user.role);
 
-  const loadCurrentUser = async (signal?: AbortSignal) => {
-    if (!apiBaseUrl) {
-      setCurrentUserStatus({
-        state: "error",
-        message: "VITE_API_BASE_URL is not configured."
-      });
-
-      return;
-    }
-
-    setCurrentUserStatus({ state: "loading" });
-
-    try {
-      const response = await fetchWithSession(new URL("/me", apiBaseUrl), {
-        ...(signal ? { signal } : {})
-      });
-
-      if (response.status === authFailureStatusCode) {
-        setCurrentUserStatus({ state: "signed_out" });
-        return;
-      }
-
-      if (!response.ok) {
-        setCurrentUserStatus({
-          state: "error",
-          message: `Current user request failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as CurrentUserResponse;
-
-      setCurrentUserStatus({
-        state: "signed_in",
-        currentUser: payload
-      });
-    } catch (error) {
-      if (signal?.aborted) {
-        return;
-      }
-
-      setCurrentUserStatus({
-        state: "error",
-        message: error instanceof Error ? error.message : "The current user request failed."
-      });
-    }
-  };
-
-  const loadDemoUserStats = async (signal?: AbortSignal) => {
-    if (!apiBaseUrl) {
-      setDemoUserStatsStatus({
-        state: "error",
-        message: "VITE_API_BASE_URL is not configured."
-      });
-
-      return;
-    }
-
-    setDemoUserStatsStatus({ state: "loading" });
-
-    try {
-      const response = await fetchWithSession(new URL("/me/stats", apiBaseUrl), {
-        ...(signal ? { signal } : {})
-      });
-
-      if (response.status === authFailureStatusCode) {
-        setDemoUserStatsStatus({ state: "idle" });
-
-        return;
-      }
-
-      if (!response.ok) {
-        setDemoUserStatsStatus({
-          state: "error",
-          message: `User stats request failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as DemoUserStatsResponse;
-
-      setDemoUserStatsStatus({
-        state: "success",
-        userName: payload.user.name,
-        totalRiddenRides: payload.totalRiddenRides,
-        totalParksWithRiddenRides: payload.totalParksWithRiddenRides,
-        parks: payload.parks
-      });
-    } catch (error) {
-      if (signal?.aborted) {
-        return;
-      }
-
-      setDemoUserStatsStatus({
-        state: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "The user stats request failed."
-      });
-    }
-  };
-
-  const loadUserProgression = async (signal?: AbortSignal) => {
-    if (!apiBaseUrl) {
-      setUserProgressionStatus({
-        state: "error",
-        message: "VITE_API_BASE_URL is not configured."
-      });
-
-      return;
-    }
-
-    setUserProgressionStatus({ state: "loading" });
-
-    try {
-      const response = await fetchWithSession(new URL("/me/progression", apiBaseUrl), {
-        ...(signal ? { signal } : {})
-      });
-
-      if (response.status === authFailureStatusCode) {
-        setUserProgressionStatus({ state: "idle" });
-
-        return;
-      }
-
-      if (!response.ok) {
-        setUserProgressionStatus({
-          state: "error",
-          message: `Progression request failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as UserProgressionResponse;
-
-      setUserProgressionStatus({
-        state: "success",
-        userName: payload.user.name,
-        badges: payload.badges,
-        activeMissions: payload.activeMissions
-      });
-    } catch (error) {
-      if (signal?.aborted) {
-        return;
-      }
-
-      setUserProgressionStatus({
-        state: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "The progression request failed."
-      });
-    }
-  };
-
-  const loadUserProfile = async (signal?: AbortSignal) => {
-    if (!apiBaseUrl) {
-      setUserProfileStatus({
-        state: "error",
-        message: "VITE_API_BASE_URL is not configured."
-      });
-
-      return;
-    }
-
-    setUserProfileStatus({ state: "loading" });
-
-    try {
-      const response = await fetchWithSession(new URL("/me/profile", apiBaseUrl), {
-        ...(signal ? { signal } : {})
-      });
-
-      if (response.status === authFailureStatusCode) {
-        setUserProfileStatus({ state: "idle" });
-
-        return;
-      }
-
-      if (!response.ok) {
-        setUserProfileStatus({
-          state: "error",
-          message: `Profile request failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as UserProfileResponse;
-
-      setUserProfileStatus({
-        state: "success",
-        profile: payload
-      });
-    } catch (error) {
-      if (signal?.aborted) {
-        return;
-      }
-
-      setUserProfileStatus({
-        state: "error",
-        message:
-          error instanceof Error ? error.message : "The profile request failed."
-      });
-    }
-  };
-
   const loadAdminParks = async (signal?: AbortSignal) => {
     if (!apiBaseUrl) {
       setAdminParksStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -606,7 +400,7 @@ function App() {
     if (!apiBaseUrl) {
       setAdminRidesStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -658,7 +452,7 @@ function App() {
     if (!apiBaseUrl) {
       setAdminSummaryStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -708,7 +502,7 @@ function App() {
     if (!apiBaseUrl) {
       setCommunityHighlightsStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -749,113 +543,6 @@ function App() {
     }
   };
 
-  const loadDailyChallenge = async (signal?: AbortSignal) => {
-    if (!apiBaseUrl) {
-      setDailyChallengeStatus({
-        state: "error",
-        message: "VITE_API_BASE_URL is not configured."
-      });
-
-      return;
-    }
-
-    setDailyChallengeStatus({ state: "loading" });
-
-    try {
-      const response = await fetchWithSession(new URL("/me/daily-challenge", apiBaseUrl), {
-        ...(signal ? { signal } : {})
-      });
-
-      if (response.status === authFailureStatusCode) {
-        setDailyChallengeStatus({ state: "idle" });
-
-        return;
-      }
-
-      if (!response.ok) {
-        setDailyChallengeStatus({
-          state: "error",
-          message: `Daily challenge request failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as DailyChallengeResponse;
-
-      setDailyChallengeStatus({
-        state: "success",
-        response: payload
-      });
-    } catch (error) {
-      if (signal?.aborted) {
-        return;
-      }
-
-      setDailyChallengeStatus({
-        state: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "The daily challenge request failed."
-      });
-    }
-  };
-
-  const loadPublicUserProfile = async (userSlug: string, signal?: AbortSignal) => {
-    if (!apiBaseUrl) {
-      setUserProfileStatus({
-        state: "error",
-        message: "VITE_API_BASE_URL is not configured."
-      });
-
-      return;
-    }
-
-    setUserProfileStatus({ state: "loading" });
-
-    try {
-      const response = await fetch(new URL(`/users/${userSlug}/profile`, apiBaseUrl), {
-        ...(signal ? { signal } : {})
-      });
-
-      if (response.status === 404) {
-        setUserProfileStatus({
-          state: "error",
-          message: "User not found."
-        });
-
-        return;
-      }
-
-      if (!response.ok) {
-        setUserProfileStatus({
-          state: "error",
-          message: `Profile request failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as UserProfileResponse;
-
-      setUserProfileStatus({
-        state: "success",
-        profile: payload
-      });
-    } catch (error) {
-      if (signal?.aborted) {
-        return;
-      }
-
-      setUserProfileStatus({
-        state: "error",
-        message:
-          error instanceof Error ? error.message : "The profile request failed."
-      });
-    }
-  };
-
   useEffect(() => {
     setIsMobileNavOpen(false);
     setIsRideFiltersOpen(false);
@@ -886,7 +573,7 @@ function App() {
     if (!apiBaseUrl) {
       setApiStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -940,92 +627,14 @@ function App() {
   useEffect(() => {
     const controller = new AbortController();
 
-    void loadCurrentUser(controller.signal);
-
-    return () => {
-      controller.abort();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (currentUserStatus.state !== "signed_in") {
-      setRideCreditsStatus({ state: "idle" });
-
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      setRideCreditsStatus({
-        state: "error",
-        message: "VITE_API_BASE_URL is not configured."
-      });
-
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const loadRideCredits = async () => {
-      try {
-        const response = await fetchWithSession(new URL("/me/ride-credits", apiBaseUrl), {
-          signal: controller.signal
-        });
-
-        if (response.status === authFailureStatusCode) {
-          setRideCreditsStatus({ state: "idle" });
-
-          return;
-        }
-
-        if (!response.ok) {
-          setRideCreditsStatus({
-            state: "error",
-            message: `Ride credits request failed with status ${response.status}.`
-          });
-
-          return;
-        }
-
-        const payload = (await response.json()) as RideCreditsResponse;
-
-        setRideCreditsStatus({
-          state: "success",
-          rideIds: payload.rideIds,
-          userName: payload.user.name
-        });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setRideCreditsStatus({
-          state: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "The ride credits request failed."
-        });
-      }
-    };
-
-    void loadRideCredits();
-
-    return () => {
-      controller.abort();
-    };
-  }, [currentUserStatus.state]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
     if (currentUserStatus.state === "signed_in") {
       void loadDemoUserStats(controller.signal);
       void loadUserProgression(controller.signal);
       void loadDailyChallenge(controller.signal);
     } else {
-      setDemoUserStatsStatus({ state: "idle" });
-      setUserProgressionStatus({ state: "idle" });
-      setDailyChallengeStatus({ state: "idle" });
+      resetDemoUserStats();
+      resetUserProgression();
+      resetDailyChallenge();
     }
 
     void loadCommunityHighlights(controller.signal);
@@ -1033,11 +642,19 @@ function App() {
     return () => {
       controller.abort();
     };
-  }, [currentUserStatus.state]);
+  }, [
+    currentUserStatus.state,
+    loadDailyChallenge,
+    loadDemoUserStats,
+    loadUserProgression,
+    resetDailyChallenge,
+    resetDemoUserStats,
+    resetUserProgression
+  ]);
 
   useEffect(() => {
     if (route.view !== "profile" && route.view !== "user-profile") {
-      setUserProfileStatus({ state: "idle" });
+      resetUserProfile();
       setProfileShareMessage(null);
 
       return;
@@ -1050,13 +667,19 @@ function App() {
     } else if (route.view === "user-profile") {
       void loadPublicUserProfile(route.slug, controller.signal);
     } else {
-      setUserProfileStatus({ state: "idle" });
+      resetUserProfile();
     }
 
     return () => {
       controller.abort();
     };
-  }, [route, currentUserStatus.state]);
+  }, [
+    route,
+    currentUserStatus.state,
+    loadPublicUserProfile,
+    loadUserProfile,
+    resetUserProfile
+  ]);
 
   useEffect(() => {
     if (route.view !== "admin" || !isAdminUser) {
@@ -1193,7 +816,7 @@ function App() {
     if (!apiBaseUrl) {
       setParksStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -1330,7 +953,7 @@ function App() {
     if (!apiBaseUrl) {
       setRidesCatalogStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -1436,7 +1059,7 @@ function App() {
     if (!apiBaseUrl) {
       setParkDetailStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -1517,7 +1140,7 @@ function App() {
     if (!apiBaseUrl) {
       setParkLiveWaitsStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -1649,7 +1272,7 @@ function App() {
     if (!apiBaseUrl) {
       setParkRidesStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -1731,7 +1354,7 @@ function App() {
     if (!apiBaseUrl) {
       setRideLineupStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -1813,7 +1436,7 @@ function App() {
     if (!apiBaseUrl) {
       setRideDetailStatus({
         state: "error",
-        message: "VITE_API_BASE_URL is not configured."
+        message: missingApiBaseUrlMessage
       });
 
       return;
@@ -1979,12 +1602,12 @@ function App() {
       method: "POST"
     });
 
-    setCurrentUserStatus({ state: "signed_out" });
-    setRideCreditsStatus({ state: "idle" });
-    setDemoUserStatsStatus({ state: "idle" });
-    setUserProgressionStatus({ state: "idle" });
-    setDailyChallengeStatus({ state: "idle" });
-    setUserProfileStatus({ state: "idle" });
+    markSignedOut();
+    resetRideCredits();
+    resetDemoUserStats();
+    resetUserProgression();
+    resetDailyChallenge();
+    resetUserProfile();
     setProfileShareMessage(null);
 
     if (route.view === "profile" || route.view === "admin") {
@@ -2170,102 +1793,6 @@ function App() {
     }
   };
 
-  const submitDailyChallengeAnswer = async (optionId: string) => {
-    if (!apiBaseUrl || dailyChallengeStatus.state !== "success") {
-      return;
-    }
-
-    setIsSubmittingDailyChallenge(true);
-
-    try {
-      const response = await fetchWithSession(new URL("/me/daily-challenge/answer", apiBaseUrl), {
-        method: "POST",
-        headers: {
-          "content-type": "application/json"
-        },
-        body: JSON.stringify({
-          optionId
-        } satisfies DailyChallengeAnswerRequest)
-      });
-
-      if (!response.ok) {
-        if (response.status === authFailureStatusCode) {
-          setCurrentUserStatus({ state: "signed_out" });
-          setDailyChallengeStatus({ state: "idle" });
-          return;
-        }
-
-        setDailyChallengeStatus({
-          state: "error",
-          message: `Daily challenge answer failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as DailyChallengeResponse;
-
-      setDailyChallengeStatus({
-        state: "success",
-        response: payload
-      });
-    } catch (error) {
-      setDailyChallengeStatus({
-        state: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "The daily challenge answer failed."
-      });
-    } finally {
-      setIsSubmittingDailyChallenge(false);
-    }
-  };
-
-  const claimDailyReward = async () => {
-    if (!apiBaseUrl || dailyChallengeStatus.state !== "success") {
-      return;
-    }
-
-    setIsClaimingDailyReward(true);
-
-    try {
-      const response = await fetchWithSession(new URL("/me/daily-challenge/reward", apiBaseUrl), {
-        method: "POST"
-      });
-
-      if (!response.ok) {
-        if (response.status === authFailureStatusCode) {
-          setCurrentUserStatus({ state: "signed_out" });
-          setDailyChallengeStatus({ state: "idle" });
-          return;
-        }
-
-        setDailyChallengeStatus({
-          state: "error",
-          message: `Daily reward claim failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as DailyChallengeResponse;
-
-      setDailyChallengeStatus({
-        state: "success",
-        response: payload
-      });
-    } catch (error) {
-      setDailyChallengeStatus({
-        state: "error",
-        message:
-          error instanceof Error ? error.message : "The daily reward claim failed."
-      });
-    } finally {
-      setIsClaimingDailyReward(false);
-    }
-  };
-
   const navigateToJournal = () => {
     navigateWithParams("/journal", new URLSearchParams());
   };
@@ -2326,25 +1853,6 @@ function App() {
     navigateToPark(slug, { preserveRideBrowserState: true });
   };
 
-  const updateRiddenRide = (rideId: number, ridden: boolean) => {
-    setRideCreditsStatus((current) => {
-      if (current.state !== "success") {
-        return current;
-      }
-
-      const rideIds = ridden
-        ? current.rideIds.includes(rideId)
-          ? current.rideIds
-          : [...current.rideIds, rideId]
-        : current.rideIds.filter((currentRideId) => currentRideId !== rideId);
-
-      return {
-        ...current,
-        rideIds
-      };
-    });
-  };
-
   const toggleRideCredit = async (nextRidden: boolean) => {
     if (!apiBaseUrl || route.view !== "ride" || rideDetailStatus.state !== "success") {
       return;
@@ -2371,8 +1879,8 @@ function App() {
 
       if (!response.ok) {
         if (response.status === authFailureStatusCode) {
-          setCurrentUserStatus({ state: "signed_out" });
-          setRideCreditsStatus({ state: "idle" });
+          markSignedOut();
+          resetRideCredits();
           setRideCreditMessage(rideSignInPrompt);
           return;
         }
