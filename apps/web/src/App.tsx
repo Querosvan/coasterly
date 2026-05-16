@@ -226,26 +226,26 @@ function App() {
       ? "Inicia sesi\u00f3n para guardar esta atracci\u00f3n."
       : "Sign in to track this ride.";
   const adminNavLabel = "Admin";
-  const adminPageLabel = locale === "es" ? "Revision editorial" : "Editorial review";
+  const adminPageLabel = locale === "es" ? "Revisi\u00f3n editorial" : "Editorial review";
   const adminPageTitle =
-    locale === "es" ? "Dashboard de revision editorial" : "Editorial review dashboard";
+    locale === "es" ? "Dashboard de revisi\u00f3n editorial" : "Editorial review dashboard";
   const adminParksTitle = locale === "es" ? "Parques" : "Parks";
   const adminRidesTitle = locale === "es" ? "Atracciones" : "Rides";
   const adminInternalNote =
     locale === "es"
-      ? "Vista interna para priorizar calidad, cobertura y readiness del catalogo."
+      ? "Vista interna para priorizar calidad, cobertura y readiness del cat\u00e1logo."
       : "Internal view for prioritizing catalog quality, coverage, and readiness.";
-  const adminSignedOutTitle = locale === "es" ? "Inicia sesion para abrir admin." : "Sign in to open admin.";
+  const adminSignedOutTitle = locale === "es" ? "Inicia sesi\u00f3n para abrir admin." : "Sign in to open admin.";
   const adminSignedOutBody =
     locale === "es"
-      ? "Solo moderadores, editores y administradores pueden revisar el catalogo."
+      ? "Solo moderadores, editores y administradores pueden revisar el cat\u00e1logo."
       : "Only moderators, editors, and admins can review the catalog.";
   const adminForbiddenTitle = locale === "es" ? "No tienes acceso a admin." : "You do not have admin access.";
   const adminForbiddenBody =
     locale === "es"
-      ? "Esta vista solo esta disponible para moderadores, roles editoriales y administradores."
+      ? "Esta vista solo est\u00e1 disponible para moderadores, roles editoriales y administradores."
       : "This view is only available to moderators, editorial roles, and admins.";
-  const adminLoadingLabel = locale === "es" ? "Cargando catalogo admin..." : "Loading admin catalog...";
+  const adminLoadingLabel = locale === "es" ? "Cargando cat\u00e1logo admin..." : "Loading admin catalog...";
   const adminParkEmptyLabel =
     locale === "es" ? "No hay parques pendientes en esta cola." : "No parks are pending in this queue.";
   const adminRideEmptyLabel =

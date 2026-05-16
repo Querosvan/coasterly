@@ -34,28 +34,28 @@ export function ProfileSurface({
     isCurrentUser && (onOpenPublicProfile !== undefined || onCopyPublicProfile !== undefined);
   const hasRideActivity = profile.totalRiddenRides > 0;
   const showOnboardingState = isCurrentUser && !hasRideActivity;
-  const emptyStateLabel = locale === "es" ? "Empieza aqui" : "Get started";
+  const emptyStateLabel = locale === "es" ? "Empieza aqu\u00ed" : "Get started";
   const emptyStateTitle =
     locale === "es"
       ? "Empieza a construir tu historial coaster."
       : "Start building your coaster history.";
   const emptyStateBody =
     locale === "es"
-      ? "Registra tus primeras atracciones para guardar creditos, ver tu progreso en parques y crear un perfil publico presentable."
+      ? "Registra tus primeras atracciones para guardar cr\u00e9ditos, ver tu progreso en parques y crear un perfil p\u00fablico presentable."
       : "Log your first rides to track credits, build park progress, and turn this into a public profile worth sharing.";
   const emptyStateValueCredits =
-    locale === "es" ? "Guardar creditos coaster" : "Track coaster credits";
+    locale === "es" ? "Guardar cr\u00e9ditos coaster" : "Track coaster credits";
   const emptyStateValueParks =
     locale === "es" ? "Construir progreso en parques" : "Build park progress";
   const emptyStateValuePublic =
-    locale === "es" ? "Crear un perfil publico" : "Create a public profile";
+    locale === "es" ? "Crear un perfil p\u00fablico" : "Create a public profile";
   const emptyStateBrowseParks = locale === "es" ? "Ver parques" : "Browse parks";
   const emptyStateBrowseRides = locale === "es" ? "Ver atracciones" : "Browse rides";
   const publicEmptyTitle =
-    locale === "es" ? "Todavia no hay atracciones registradas." : "No rides logged yet.";
+    locale === "es" ? "Todav\u00eda no hay atracciones registradas." : "No rides logged yet.";
   const publicEmptyBody =
     locale === "es"
-      ? "Este perfil ganara contexto cuando empiece a registrar atracciones."
+      ? "Este perfil ganar\u00e1 contexto cuando empiece a registrar atracciones."
       : "This profile will start to fill out once rides are logged.";
 
   return (
