@@ -115,24 +115,18 @@ export function HomePage({
   submitDailyChallengeAnswer,
   userProgressionStatus
 }: HomePageProps) {
-  const valueProps = [
-    {
-      title: copy.home.valueTrackTitle,
-      body: copy.home.valueTrackBody
-    },
-    {
-      title: copy.home.valueDiscoverTitle,
-      body: copy.home.valueDiscoverBody
-    },
-    {
-      title: copy.home.valueLiveTitle,
-      body: copy.home.valueLiveBody
-    },
-    {
-      title: copy.home.valueProfileTitle,
-      body: copy.home.valueProfileBody
-    }
-  ];
+  const isSignedOut = currentUserStatus.state === "signed_out";
+  const canShowProgress =
+    currentUserStatus.state === "signed_in" && demoUserStatsStatus.state === "success";
+  const isProgressLoading =
+    currentUserStatus.state === "loading" ||
+    (currentUserStatus.state === "signed_in" && demoUserStatsStatus.state === "loading");
+  const progressError =
+    currentUserStatus.state === "signed_in" && demoUserStatsStatus.state === "error"
+      ? demoUserStatsStatus.message
+      : currentUserStatus.state === "error"
+        ? currentUserStatus.message
+        : null;
 
   return (
         <>
@@ -168,14 +162,6 @@ export function HomePage({
                 >
                   {isAuthenticated ? copy.home.openProfile : copy.home.startTracking}
                 </button>
-              </div>
-              <div className="home-value-grid" aria-label={copy.home.heroTitle}>
-                {valueProps.map((item) => (
-                  <article className="home-value-card" key={item.title}>
-                    <strong>{item.title}</strong>
-                    <span>{item.body}</span>
-                  </article>
-                ))}
               </div>
               <div className="hero-stats" aria-label={copy.home.progressLabel}>
                 <div className="hero-stat">
@@ -329,7 +315,11 @@ export function HomePage({
                 <div className="catalog-copy">
                   <p className="status-label">{copy.home.progressLabel}</p>
                   <h2 className="section-title">{copy.home.progressTitle}</h2>
-                  <p className="section-copy">{copy.home.signInValueBody}</p>
+                  <p className="section-copy">
+                    {isSignedOut
+                      ? copy.home.signInValueBody
+                      : copy.home.progressSummary}
+                  </p>
                 </div>
                 <div className="landing-actions">
                   <button className="catalog-inline-button" type="button" onClick={navigateToDiscover}>
@@ -337,7 +327,16 @@ export function HomePage({
                   </button>
                 </div>
               </div>
-              {demoUserStatsStatus.state === "success" ? (
+              {isSignedOut ? (
+                <AuthPromptPanel
+                  title={signInPromptTitle}
+                  summary={signInPromptBody}
+                  actionLabel={copy.home.startTracking}
+                  onAction={() => {
+                    beginGoogleSignIn();
+                  }}
+                />
+              ) : canShowProgress ? (
                 <div className="stats-panel stats-panel-compact" aria-label="Ride progress">
                   <div className="stats-grid">
                     <article className="stats-card">
@@ -383,34 +382,27 @@ export function HomePage({
                     locale={locale}
                     copy={copy}
                   />
-                </div>
-              ) : currentUserStatus.state === "signed_out" ? (
-                <div className="signed-out-value-panel">
-                  <div className="home-value-grid home-value-grid-light">
-                    {valueProps.map((item) => (
-                      <article className="home-value-card" key={item.title}>
-                        <strong>{item.title}</strong>
-                        <span>{item.body}</span>
-                      </article>
-                    ))}
-                  </div>
-                  <AuthPromptPanel
-                    title={signInPromptTitle}
-                    summary={signInPromptBody}
-                    actionLabel={copy.home.startTracking}
-                    onAction={() => {
-                      beginGoogleSignIn();
+                  <DailyChallengePanel
+                    dailyChallengeStatus={dailyChallengeStatus}
+                    isSubmitting={isSubmittingDailyChallenge}
+                    isClaimingReward={isClaimingDailyReward}
+                    onAnswer={submitDailyChallengeAnswer}
+                    onClaimReward={claimDailyReward}
+                    locale={locale}
+                    copy={copy}
+                    onOpenRide={(parkSlug, rideSlug) => {
+                      navigateToRide(parkSlug, rideSlug);
                     }}
                   />
                 </div>
-              ) : demoUserStatsStatus.state === "loading" || currentUserStatus.state === "loading" ? (
+              ) : isProgressLoading ? (
                 <div className="state-message state-message-loading">
                   <p>{copy.browse.loadingResults}</p>
                 </div>
-              ) : demoUserStatsStatus.state === "error" ? (
+              ) : progressError ? (
                 <div className="state-message state-message-error">
                   <p>{copy.progression.unableLoadMissions}</p>
-                  <p>{demoUserStatsStatus.message}</p>
+                  <p>{progressError}</p>
                 </div>
               ) : null}
             </section>
@@ -442,30 +434,6 @@ export function HomePage({
               ))}
             </div>
           </section>
-
-          {currentUserStatus.state === "signed_out" ? (
-            <AuthPromptPanel
-              title={copy.home.signInValueTitle}
-              summary={copy.home.signInValueBody}
-              actionLabel={copy.home.startTracking}
-              onAction={() => {
-                beginGoogleSignIn();
-              }}
-            />
-          ) : (
-            <DailyChallengePanel
-              dailyChallengeStatus={dailyChallengeStatus}
-              isSubmitting={isSubmittingDailyChallenge}
-              isClaimingReward={isClaimingDailyReward}
-              onAnswer={submitDailyChallengeAnswer}
-              onClaimReward={claimDailyReward}
-              locale={locale}
-              copy={copy}
-              onOpenRide={(parkSlug, rideSlug) => {
-                navigateToRide(parkSlug, rideSlug);
-              }}
-            />
-          )}
 
           <section className="catalog-panel landing-panel">
               <div className="catalog-header landing-header">

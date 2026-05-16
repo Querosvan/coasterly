@@ -605,54 +605,6 @@ img {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.home-value-grid {
-  display: grid;
-  gap: 0.7rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.home-value-card {
-  display: grid;
-  gap: 0.28rem;
-  min-width: 0;
-  padding: 0.78rem 0.82rem;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.055);
-  backdrop-filter: blur(14px);
-}
-
-.home-value-card strong {
-  color: #ffffff;
-  font-size: 0.92rem;
-  line-height: 1.2;
-}
-
-.home-value-card span {
-  color: rgba(226, 234, 241, 0.74);
-  font-size: 0.86rem;
-  line-height: 1.45;
-}
-
-.home-value-grid-light .home-value-card {
-  border-color: var(--border-soft);
-  background: rgba(252, 253, 255, 0.86);
-  backdrop-filter: none;
-}
-
-.home-value-grid-light .home-value-card strong {
-  color: var(--brand-navy-strong);
-}
-
-.home-value-grid-light .home-value-card span {
-  color: var(--text-muted);
-}
-
-.signed-out-value-panel {
-  display: grid;
-  gap: 0.9rem;
-}
-
 .hero-stat {
   padding: 0.78rem 0.82rem;
   border-radius: 18px;
@@ -2731,10 +2683,6 @@ img {
     grid-template-columns: 1fr;
   }
 
-  .home-value-grid {
-    grid-template-columns: 1fr;
-  }
-
   .spotlight-stack {
     grid-template-columns: 1fr;
   }
@@ -2956,8 +2904,7 @@ img {
   .parks-list,
   .rides-list,
   .daily-challenge-options,
-  .ride-toolbar,
-  .home-value-grid {
+  .ride-toolbar {
     grid-template-columns: 1fr;
   }
 
