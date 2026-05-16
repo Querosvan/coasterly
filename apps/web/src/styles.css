@@ -88,14 +88,14 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.25rem;
-  margin-bottom: 1rem;
-  padding: 0.82rem 0.96rem;
+  gap: 1rem;
+  margin-bottom: 0.86rem;
+  padding: 0.68rem 0.86rem;
   border-radius: var(--radius-lg);
   background:
     linear-gradient(135deg, rgba(11, 22, 39, 0.98), rgba(22, 41, 66, 0.96));
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: var(--shadow-strong);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 34px rgba(10, 18, 31, 0.1);
 }
 
 .topbar-primary {
@@ -210,7 +210,9 @@ img {
 }
 
 .brand-link {
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.12rem;
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -218,15 +220,16 @@ img {
 }
 
 .brand-link-image {
-  display: block;
   flex: 0 0 auto;
+  min-width: 0;
 }
 
 .brand-logo {
   display: block;
-  width: clamp(180px, 22vw, 270px);
-  height: auto;
-  border-radius: 16px;
+  width: clamp(164px, 18vw, 228px);
+  height: 2.7rem;
+  object-fit: contain;
+  object-position: left center;
 }
 
 .topbar-actions {
@@ -2719,7 +2722,8 @@ img {
 
   .topbar {
     gap: 0.75rem;
-    padding: 0.8rem;
+    padding: 0.72rem;
+    box-shadow: 0 12px 28px rgba(10, 18, 31, 0.1);
   }
 
   .topbar-primary {
@@ -2730,7 +2734,8 @@ img {
   }
 
   .brand-logo {
-    width: clamp(150px, 44vw, 210px);
+    width: clamp(142px, 42vw, 198px);
+    height: 2.55rem;
   }
 
   .mobile-route-label {
@@ -2861,6 +2866,7 @@ img {
 
   .topbar {
     border-radius: 20px;
+    padding: 0.68rem;
   }
 
   .topbar-primary {
