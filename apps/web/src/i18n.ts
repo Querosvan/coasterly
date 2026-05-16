@@ -465,8 +465,8 @@ export const messages = {
       rides: "Atracciones",
       discover: "Descubrir",
       profile: "Perfil",
-      signIn: "Iniciar sesiÃ³n",
-      signOut: "Cerrar sesiÃ³n",
+      signIn: "Iniciar sesi\u00f3n",
+      signOut: "Cerrar sesi\u00f3n",
       journal: "Revista",
       language: "Idioma"
     },
