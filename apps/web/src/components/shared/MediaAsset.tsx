@@ -32,8 +32,10 @@ export function MediaAsset({
 
   const activeSource = sources[activeSourceIndex];
 
+  const fallbackClassName = activeSource ? "" : " media-frame-fallback";
+
   return (
-    <div className={`${frameClassName}${activeSource ? "" : " media-frame-fallback"}`}>
+    <div className={`${frameClassName} media-kind-${kind}${fallbackClassName}`}>
       {activeSource ? (
         <img
           className={imageClassName}
