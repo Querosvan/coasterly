@@ -1727,10 +1727,10 @@ export const listAdminParks = async (
       FROM parks
       WHERE ${filterCondition}
       ORDER BY parks.name ASC
-      LIMIT $${filterValues.length + 1}
-      OFFSET $${filterValues.length + 2}
+      LIMIT $2
+      OFFSET $3
     `,
-    [...filterValues, limit, offset]
+    [QUEUE_TIMES_SOURCE_NAME, limit, offset]
   );
 
   return {
@@ -2410,10 +2410,10 @@ export const listAdminRides = async (
       INNER JOIN parks ON parks.id = rides.park_id
       WHERE ${filterCondition}
       ORDER BY parks.name ASC, rides.name ASC
-      LIMIT $${filterValues.length + 1}
-      OFFSET $${filterValues.length + 2}
+      LIMIT $2
+      OFFSET $3
     `,
-    [...filterValues, limit, offset]
+    [QUEUE_TIMES_SOURCE_NAME, limit, offset]
   );
 
   return {
