@@ -3,9 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import type {
   AdminCatalogFilter,
-  CommunityHighlightsResponse,
   DemoUserStatsResponse,
-  HealthResponse,
   Park,
   RideCreditMutationResponse,
   RideResponse
@@ -26,8 +24,10 @@ import {
   type Locale
 } from "./i18n";
 import { useAdminData } from "./hooks/useAdminData";
+import { useApiHealth } from "./hooks/useApiHealth";
 import { useAppNavigation } from "./hooks/useAppNavigation";
 import { useCatalogQueryState } from "./hooks/useCatalogQueryState";
+import { useCommunityHighlights } from "./hooks/useCommunityHighlights";
 import { useCurrentUser } from "./hooks/useCurrentUser";
 import { useDailyChallenge } from "./hooks/useDailyChallenge";
 import { useParkDetail } from "./hooks/useParkDetail";
@@ -42,8 +42,7 @@ import { useUserStats } from "./hooks/useUserStats";
 import {
   apiBaseUrl,
   authFailureStatusCode,
-  fetchWithSession,
-  missingApiBaseUrlMessage
+  fetchWithSession
 } from "./hooks/userDataApi";
 import {
   defaultAdminCatalogPage,
@@ -71,9 +70,7 @@ import {
   getRoute
 } from "./lib/routes";
 import type {
-  ApiStatus,
   BreadcrumbItem,
-  CommunityHighlightsStatus,
   CuratedCollection,
   ExternalInsightLink,
   ParksStatus,
@@ -115,7 +112,7 @@ function App() {
   const currentLocation = `${location.pathname}${location.search}`;
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isRideFiltersOpen, setIsRideFiltersOpen] = useState(false);
-  const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "loading" });
+  const { apiStatus } = useApiHealth();
   const [locale, setLocale] = useState<Locale>(() => getInitialLocale());
   const {
     searchQuery,
@@ -192,10 +189,8 @@ function App() {
     loadPublicUserProfile,
     resetUserProfile
   } = useUserProfile();
-  const [communityHighlightsStatus, setCommunityHighlightsStatus] =
-    useState<CommunityHighlightsStatus>({
-      state: "loading"
-    });
+  const { communityHighlightsStatus, loadCommunityHighlights } =
+    useCommunityHighlights();
   const handleUserAuthFailure = useCallback(() => {
     markSignedOut();
   }, [markSignedOut]);
@@ -367,110 +362,10 @@ function App() {
     document.documentElement.lang = locale;
   }, [locale]);
 
-  const loadCommunityHighlights = async (signal?: AbortSignal) => {
-    if (!apiBaseUrl) {
-      setCommunityHighlightsStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    setCommunityHighlightsStatus({ state: "loading" });
-
-    try {
-      const response = await fetch(new URL("/community/highlights", apiBaseUrl), {
-        ...(signal ? { signal } : {})
-      });
-
-      if (!response.ok) {
-        setCommunityHighlightsStatus({
-          state: "error",
-          message: `Community request failed with status ${response.status}.`
-        });
-
-        return;
-      }
-
-      const payload = (await response.json()) as CommunityHighlightsResponse;
-
-      setCommunityHighlightsStatus({
-        state: "success",
-        profiles: payload.profiles
-      });
-    } catch (error) {
-      if (signal?.aborted) {
-        return;
-      }
-
-      setCommunityHighlightsStatus({
-        state: "error",
-        message:
-          error instanceof Error ? error.message : "The community request failed."
-      });
-    }
-  };
-
   useEffect(() => {
     setIsMobileNavOpen(false);
     setIsRideFiltersOpen(false);
   }, [location.pathname]);
-
-  useEffect(() => {
-    if (!apiBaseUrl) {
-      setApiStatus({
-        state: "error",
-        message: missingApiBaseUrlMessage
-      });
-
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const loadHealth = async () => {
-      try {
-        const response = await fetch(new URL("/health", apiBaseUrl), {
-          signal: controller.signal
-        });
-
-        if (!response.ok) {
-          setApiStatus({
-            state: "error",
-            message: `Health check failed with status ${response.status}.`
-          });
-
-          return;
-        }
-
-        const payload = (await response.json()) as HealthResponse;
-
-        setApiStatus({
-          state: "success",
-          response: payload
-        });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setApiStatus({
-          state: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "The API health check failed."
-        });
-      }
-    };
-
-    void loadHealth();
-
-    return () => {
-      controller.abort();
-    };
-  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -495,6 +390,7 @@ function App() {
     loadDailyChallenge,
     loadDemoUserStats,
     loadUserProgression,
+    loadCommunityHighlights,
     resetDailyChallenge,
     resetDemoUserStats,
     resetUserProgression
