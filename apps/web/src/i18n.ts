@@ -199,6 +199,8 @@ export const messages = {
       featuredTitle: "Parks with a reason to open next.",
       progressLabel: "Your coaster history",
       progressTitle: "Progress that turns ride days into a profile.",
+      progressSummary:
+        "Review your saved credits, strongest park progress, profile progression, and daily challenge in one place.",
       seeProgress: "Open Discover",
       collectionsLabel: "Ride paths",
       collectionsTitle: "Curated ways to choose the next park or coaster.",
@@ -491,6 +493,8 @@ export const messages = {
       featuredTitle: "Parques con una razón para abrir ahora.",
       progressLabel: "Tu historial coaster",
       progressTitle: "Progreso que convierte tus días de parque en un perfil.",
+      progressSummary:
+        "Revisa tus créditos guardados, mejor avance por parque, progresión del perfil y reto diario en un solo lugar.",
       seeProgress: "Abrir Descubrir",
       collectionsLabel: "Rutas coaster",
       collectionsTitle: "Formas curadas de elegir el siguiente parque o coaster.",
