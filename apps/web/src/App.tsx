@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 import type {
   AdminCatalogFilter,
@@ -26,6 +26,7 @@ import {
   type Locale
 } from "./i18n";
 import { useAdminData } from "./hooks/useAdminData";
+import { useAppNavigation } from "./hooks/useAppNavigation";
 import { useCatalogQueryState } from "./hooks/useCatalogQueryState";
 import { useCurrentUser } from "./hooks/useCurrentUser";
 import { useDailyChallenge } from "./hooks/useDailyChallenge";
@@ -76,7 +77,6 @@ import type {
   CuratedCollection,
   ExternalInsightLink,
   ParksStatus,
-  RideDetailOrigin,
   RideSpecItem,
   RidesCatalogStatus,
   Route,
@@ -111,7 +111,6 @@ const dedupeExternalLinks = (links: ExternalInsightLink[]) => {
 
 function App() {
   const location = useLocation();
-  const navigate = useNavigate();
   const route = useMemo<Route>(() => getRoute(location.pathname), [location.pathname]);
   const currentLocation = `${location.pathname}${location.search}`;
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -307,6 +306,61 @@ function App() {
     goToPreviousAdminRidesPage,
     goToNextAdminRidesPage
   } = useAdminData({ route, isAdminUser });
+  const {
+    getCatalogSearchParams,
+    getRidesCatalogParams,
+    getRideBrowserParams,
+    navigateHome,
+    navigateToParks,
+    navigateToRides,
+    navigateToAdmin,
+    navigateToDiscover,
+    navigateToProfile,
+    navigateToPublicProfile,
+    navigateToJournal,
+    navigateToPark,
+    navigateToRide,
+    navigateBackFromRide,
+    goToPreviousParksPage,
+    goToNextParksPage,
+    goToPreviousRidesCatalogPage,
+    goToNextRidesCatalogPage
+  } = useAppNavigation({
+    route,
+    location,
+    currentLocation,
+    parksStatus,
+    ridesCatalogStatus,
+    searchQuery,
+    setSearchQuery,
+    parkCollectionId,
+    setParkCollectionId,
+    parksPage,
+    setParksPage,
+    rideTypeFilter,
+    setRideTypeFilter,
+    manufacturerFilter,
+    setManufacturerFilter,
+    parkRideSort,
+    setParkRideSort,
+    rideCatalogSearchQuery,
+    setRideCatalogSearchQuery,
+    rideCatalogParkFilter,
+    setRideCatalogParkFilter,
+    rideCatalogRideTypeFilter,
+    setRideCatalogRideTypeFilter,
+    rideCatalogManufacturerFilter,
+    setRideCatalogManufacturerFilter,
+    rideCatalogSort,
+    setRideCatalogSort,
+    ridesCatalogPage,
+    setRidesCatalogPage,
+    rideCollectionId,
+    setRideCollectionId,
+    rideDetailOrigin,
+    setRideDetailOrigin,
+    resetAdminCatalog
+  });
 
   useEffect(() => {
     window.localStorage.setItem(localeStorageKey, locale);
@@ -475,191 +529,6 @@ function App() {
     resetUserProfile
   ]);
 
-  useEffect(() => {
-    const params = new URLSearchParams();
-
-    if (route.view === "parks") {
-      const normalizedQuery = searchQuery.trim();
-
-      if (normalizedQuery) {
-        params.set("search", normalizedQuery);
-      }
-
-      if (parkCollectionId) {
-        params.set("collection", parkCollectionId);
-      } else if (parksPage > defaultCatalogPage) {
-        params.set("page", String(parksPage));
-      }
-    }
-
-    if (route.view === "rides") {
-      const normalizedQuery = rideCatalogSearchQuery.trim();
-
-      if (normalizedQuery) {
-        params.set("search", normalizedQuery);
-      }
-
-      if (rideCatalogParkFilter) {
-        params.set("park", rideCatalogParkFilter);
-      }
-
-      if (rideCatalogRideTypeFilter) {
-        params.set("rideType", rideCatalogRideTypeFilter);
-      }
-
-      if (rideCatalogManufacturerFilter) {
-        params.set("manufacturer", rideCatalogManufacturerFilter);
-      }
-
-      params.set("sort", rideCatalogSort);
-
-      if (rideCollectionId) {
-        params.set("collection", rideCollectionId);
-      } else if (ridesCatalogPage > defaultCatalogPage) {
-        params.set("page", String(ridesCatalogPage));
-      }
-    }
-
-    if (route.view === "park" || route.view === "ride") {
-      if (route.view === "park") {
-        const catalogParams = getCatalogSearchParams();
-
-        catalogParams.forEach((value, key) => {
-          params.set(key, value);
-        });
-      }
-
-      if (rideTypeFilter) {
-        params.set("rideType", rideTypeFilter);
-      }
-
-      if (manufacturerFilter) {
-        params.set("manufacturer", manufacturerFilter);
-      }
-
-      params.set("sort", parkRideSort);
-
-      if (route.view === "ride" && rideDetailOrigin === "rides") {
-        const normalizedCatalogQuery = rideCatalogSearchQuery.trim();
-
-        params.set("origin", "rides");
-
-        if (normalizedCatalogQuery) {
-          params.set("search", normalizedCatalogQuery);
-        }
-
-        if (rideCatalogParkFilter) {
-          params.set("park", rideCatalogParkFilter);
-        }
-
-        if (rideCollectionId) {
-          params.set("collection", rideCollectionId);
-        } else if (ridesCatalogPage > defaultCatalogPage) {
-          params.set("page", String(ridesCatalogPage));
-        }
-      }
-    }
-
-    const nextLocation = buildPathWithQuery(location.pathname, params);
-
-    if (nextLocation !== currentLocation) {
-      navigate(nextLocation, { replace: true });
-    }
-  }, [
-    currentLocation,
-    location.pathname,
-    navigate,
-    route,
-    searchQuery,
-    parkCollectionId,
-    rideCatalogSearchQuery,
-    rideCatalogParkFilter,
-    rideCatalogRideTypeFilter,
-    rideCatalogManufacturerFilter,
-    rideCatalogSort,
-    rideCollectionId,
-    parksPage,
-    ridesCatalogPage,
-    rideTypeFilter,
-    manufacturerFilter,
-    parkRideSort,
-    rideDetailOrigin
-  ]);
-
-  const getCatalogSearchParams = () => {
-    const params = new URLSearchParams();
-
-    if (searchQuery.trim()) {
-      params.set("search", searchQuery.trim());
-    }
-
-    if (parkCollectionId) {
-      params.set("collection", parkCollectionId);
-    } else if (parksPage > defaultCatalogPage) {
-      params.set("page", String(parksPage));
-    }
-
-    return params;
-  };
-
-  const getRidesCatalogParams = () => {
-    const params = new URLSearchParams();
-
-    if (rideCatalogSearchQuery.trim()) {
-      params.set("search", rideCatalogSearchQuery.trim());
-    }
-
-    if (rideCatalogParkFilter) {
-      params.set("park", rideCatalogParkFilter);
-    }
-
-    if (rideCatalogRideTypeFilter) {
-      params.set("rideType", rideCatalogRideTypeFilter);
-    }
-
-    if (rideCatalogManufacturerFilter) {
-      params.set("manufacturer", rideCatalogManufacturerFilter);
-    }
-
-    params.set("sort", rideCatalogSort);
-
-    if (rideCollectionId) {
-      params.set("collection", rideCollectionId);
-    } else if (ridesCatalogPage > defaultCatalogPage) {
-      params.set("page", String(ridesCatalogPage));
-    }
-
-    return params;
-  };
-
-  const getRideBrowserParams = () => {
-    const params = new URLSearchParams();
-
-    if (rideTypeFilter) {
-      params.set("rideType", rideTypeFilter);
-    }
-
-    if (manufacturerFilter) {
-      params.set("manufacturer", manufacturerFilter);
-    }
-
-    params.set("sort", parkRideSort);
-
-    return params;
-  };
-
-  const navigateWithParams = (pathname: string, params: URLSearchParams) => {
-    const nextLocation = buildPathWithQuery(pathname, params);
-
-    if (currentLocation !== nextLocation) {
-      navigate(nextLocation);
-    }
-  };
-
-  const navigateHome = () => {
-    navigateWithParams("/", new URLSearchParams());
-  };
-
   const beginGoogleSignIn = (returnTo?: string) => {
     if (!apiBaseUrl) {
       return;
@@ -695,137 +564,6 @@ function App() {
     }
   };
 
-  const navigateToParks = (options?: { preserveSearch?: boolean; collectionId?: string }) => {
-    if (!options?.preserveSearch) {
-      setSearchQuery("");
-    }
-    const nextCollectionId = options?.preserveSearch
-      ? options && "collectionId" in options
-        ? options.collectionId ?? ""
-        : parkCollectionId
-      : "";
-    const shouldPreserveParksPage = Boolean(options?.preserveSearch) && !nextCollectionId;
-    const nextParksPage = shouldPreserveParksPage ? parksPage : defaultCatalogPage;
-
-    setParksPage(nextParksPage);
-
-    setParkCollectionId(nextCollectionId);
-
-    navigateWithParams(
-      "/parks",
-      options?.preserveSearch || nextCollectionId
-        ? (() => {
-            const params = new URLSearchParams();
-
-            if (options?.preserveSearch && searchQuery.trim()) {
-              params.set("search", searchQuery.trim());
-            }
-
-            if (nextCollectionId) {
-              params.set("collection", nextCollectionId);
-            }
-
-            if (!nextCollectionId && nextParksPage > defaultCatalogPage) {
-              params.set("page", String(nextParksPage));
-            }
-
-            return params;
-          })()
-        : new URLSearchParams()
-    );
-  };
-
-  const navigateToRides = (options?: { preserveFilters?: boolean; collectionId?: string }) => {
-    if (!options?.preserveFilters) {
-      setRideCatalogSearchQuery("");
-      setRideCatalogParkFilter("");
-      setRideCatalogRideTypeFilter("");
-      setRideCatalogManufacturerFilter("");
-      setRideCatalogSort(defaultRidesCatalogSort);
-    }
-    const nextCollectionId = options?.preserveFilters
-      ? options && "collectionId" in options
-        ? options.collectionId ?? ""
-        : rideCollectionId
-      : "";
-    const shouldPreserveRidesPage = Boolean(options?.preserveFilters) && !nextCollectionId;
-    const nextRidesCatalogPage = shouldPreserveRidesPage
-      ? ridesCatalogPage
-      : defaultCatalogPage;
-
-    setRidesCatalogPage(nextRidesCatalogPage);
-
-    setRideCollectionId(nextCollectionId);
-
-    navigateWithParams(
-      "/rides",
-      options?.preserveFilters || nextCollectionId
-        ? (() => {
-            const params = options?.preserveFilters
-              ? getRidesCatalogParams()
-              : new URLSearchParams();
-
-            if (nextCollectionId) {
-              params.set("collection", nextCollectionId);
-            } else if (!options?.preserveFilters) {
-              params.delete("collection");
-            }
-
-            if (!nextCollectionId && nextRidesCatalogPage > defaultCatalogPage) {
-              params.set("page", String(nextRidesCatalogPage));
-            }
-
-            return params;
-          })()
-        : new URLSearchParams()
-    );
-  };
-
-  const navigateToAdmin = () => {
-    resetAdminCatalog();
-    navigateWithParams("/admin", new URLSearchParams());
-  };
-
-  const goToPreviousParksPage = () => {
-    setParksPage((currentPage) =>
-      currentPage > defaultCatalogPage ? currentPage - 1 : currentPage
-    );
-  };
-
-  const goToNextParksPage = () => {
-    if (parksStatus.state !== "success" || !parksStatus.pageInfo?.hasMore) {
-      return;
-    }
-
-    setParksPage((currentPage) => currentPage + 1);
-  };
-
-  const goToPreviousRidesCatalogPage = () => {
-    setRidesCatalogPage((currentPage) =>
-      currentPage > defaultCatalogPage ? currentPage - 1 : currentPage
-    );
-  };
-
-  const goToNextRidesCatalogPage = () => {
-    if (ridesCatalogStatus.state !== "success" || !ridesCatalogStatus.pageInfo?.hasMore) {
-      return;
-    }
-
-    setRidesCatalogPage((currentPage) => currentPage + 1);
-  };
-
-  const navigateToDiscover = () => {
-    navigateWithParams("/discover", new URLSearchParams());
-  };
-
-  const navigateToProfile = () => {
-    navigateWithParams("/profile", new URLSearchParams());
-  };
-
-  const navigateToPublicProfile = (userSlug: string) => {
-    navigateWithParams(`/users/${userSlug}`, new URLSearchParams());
-  };
-
   const copyPublicProfileLink = async (userSlug: string) => {
     const profileUrl = `${window.location.origin}/users/${userSlug}`;
 
@@ -835,66 +573,6 @@ function App() {
     } catch {
       setProfileShareMessage(profileUrl);
     }
-  };
-
-  const navigateToJournal = () => {
-    navigateWithParams("/journal", new URLSearchParams());
-  };
-
-  const navigateToPark = (
-    slug: string,
-    options?: { preserveRideBrowserState?: boolean }
-  ) => {
-    if (!options?.preserveRideBrowserState) {
-      setRideTypeFilter("");
-      setManufacturerFilter("");
-      setParkRideSort(defaultParkRideSort);
-    }
-
-    const params = options?.preserveRideBrowserState
-      ? getRideBrowserParams()
-      : route.view === "parks"
-        ? getCatalogSearchParams()
-        : new URLSearchParams();
-
-    navigateWithParams(`/parks/${slug}`, params);
-  };
-
-  const navigateToRide = (
-    parkSlug: string,
-    rideSlug: string,
-    options?: { origin?: RideDetailOrigin }
-  ) => {
-    const origin = options?.origin ?? "park";
-
-    setRideDetailOrigin(origin);
-
-    if (origin === "rides") {
-      setRideTypeFilter(rideCatalogRideTypeFilter);
-      setManufacturerFilter(rideCatalogManufacturerFilter);
-      setParkRideSort(rideCatalogSort);
-    }
-
-    const params =
-      origin === "rides"
-        ? (() => {
-            const nextParams = getRidesCatalogParams();
-            nextParams.set("origin", "rides");
-            return nextParams;
-          })()
-        : getRideBrowserParams();
-
-    navigateWithParams(`/parks/${parkSlug}/rides/${rideSlug}`, params);
-  };
-
-  const navigateBackFromRide = (slug: string) => {
-    if (rideDetailOrigin === "rides") {
-      navigateToRides({ preserveFilters: true });
-
-      return;
-    }
-
-    navigateToPark(slug, { preserveRideBrowserState: true });
   };
 
   const toggleRideCredit = async (nextRidden: boolean) => {
