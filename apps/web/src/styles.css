@@ -2539,6 +2539,55 @@ img {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+.rides-list-lineup {
+  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.ride-card-lineup {
+  min-height: 100%;
+}
+
+.ride-card-headline {
+  grid-column: span 2;
+  grid-template-columns: minmax(220px, 0.95fr) minmax(0, 1.05fr);
+  align-items: center;
+  gap: 0.9rem;
+  background:
+    radial-gradient(circle at top right, rgba(245, 130, 32, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 252, 0.96));
+}
+
+.ride-card-headline .media-frame-ride-card:not(.media-frame-fallback) {
+  min-height: 13rem;
+}
+
+.ride-card-compact:has(.media-frame-fallback) {
+  gap: 0.48rem;
+  padding: 0.78rem;
+  background: rgba(251, 253, 255, 0.92);
+  box-shadow: 0 10px 24px rgba(16, 30, 47, 0.035);
+}
+
+.ride-card-compact:has(.media-frame-fallback)::before {
+  height: 2px;
+  opacity: 0.38;
+}
+
+.ride-card-compact:has(.media-frame-fallback) .media-frame-ride-card {
+  aspect-ratio: 8 / 1;
+  min-height: 2.8rem;
+}
+
+.ride-card-compact:has(.media-frame-fallback) .ride-name {
+  font-size: 1.02rem;
+}
+
+.ride-card-compact:has(.media-frame-fallback) .card-meta-line {
+  color: #66777f;
+  font-size: 0.84rem;
+}
+
 .rides-list-catalog {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
@@ -3159,6 +3208,15 @@ img {
   .ride-toolbar-catalog,
   .rides-list-catalog {
     grid-template-columns: 1fr;
+  }
+
+  .ride-card-headline {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .ride-card-headline .media-frame-ride-card:not(.media-frame-fallback) {
+    min-height: 0;
   }
 
   .filter-disclosure {
