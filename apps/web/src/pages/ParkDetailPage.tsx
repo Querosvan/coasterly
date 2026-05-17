@@ -30,6 +30,23 @@ import type { Locale } from "../i18n";
 type ParkProgress = UserStatsResponse["parks"][number];
 type ParkLiveWait = Extract<ParkLiveWaitsStatus, { state: "success" }>["rides"][number];
 
+const editorialCueRank = {
+  Headliner: 0,
+  Featured: 1,
+  Iconic: 2,
+  Standout: 3
+} as const;
+
+const getRideEditorialRank = (rideEditorial: EditorialNote | undefined) => {
+  if (!rideEditorial) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.min(
+    ...rideEditorial.cues.map((cue) => editorialCueRank[cue] ?? Number.POSITIVE_INFINITY)
+  );
+};
+
 interface ParkDetailPageProps {
   activeParkEditorial: EditorialNote | undefined;
   activeParkProgress: ParkProgress | undefined;
@@ -101,6 +118,23 @@ export function ParkDetailPage({
   setRideTypeFilter,
   showParkQueueTimesSupport
 }: ParkDetailPageProps) {
+  const shouldUseEditorialLineupOrder =
+    !rideTypeFilter && !manufacturerFilter && parkRideSort === defaultParkRideSort;
+  const getDisplayLineupRides = (rides: Ride[]) => {
+    if (!shouldUseEditorialLineupOrder) {
+      return rides;
+    }
+
+    return rides
+      .map((ride, index) => ({ ride, index }))
+      .sort((left, right) => {
+        const leftRank = getRideEditorialRank(localizedRideEditorialBySlug[left.ride.slug]);
+        const rightRank = getRideEditorialRank(localizedRideEditorialBySlug[right.ride.slug]);
+
+        return leftRank - rightRank || left.index - right.index;
+      })
+      .map(({ ride }) => ride);
+  };
 
   return (
         <section className="catalog-panel detail-surface" aria-live="polite">
@@ -356,15 +390,24 @@ export function ParkDetailPage({
                   ) : null}
                   {parkRidesStatus.state === "success" ? (
                     parkRidesStatus.rides.length > 0 ? (
-                      <div className="rides-list">
-                        {parkRidesStatus.rides.map((ride) => {
+                      <div className="rides-list rides-list-lineup">
+                        {getDisplayLineupRides(parkRidesStatus.rides).map((ride) => {
                           const rideEditorial = localizedRideEditorialBySlug[ride.slug];
+                          const isEditorialRide = Boolean(rideEditorial);
+                          const isHeadlineRide =
+                            rideEditorial?.cues.some(
+                              (cue) => cue === "Headliner" || cue === "Featured" || cue === "Iconic"
+                            ) ?? false;
                           const rideLiveWait = liveWaitByRideId.get(ride.id);
                           const rideMeta = getRideCardMeta(locale, ride);
 
                           return (
                             <button
-                              className={`ride-card ride-card-button${riddenRideIds?.has(ride.id) ? " ride-card-ridden" : ""}`}
+                              className={`ride-card ride-card-button ride-card-lineup${
+                                isEditorialRide ? " ride-card-editorial" : " ride-card-compact"
+                              }${isHeadlineRide ? " ride-card-headline" : ""}${
+                                riddenRideIds?.has(ride.id) ? " ride-card-ridden" : ""
+                              }`}
                               key={ride.id}
                               type="button"
                               onClick={() => {
@@ -386,6 +429,15 @@ export function ParkDetailPage({
                               </div>
                               {rideEditorial ? (
                                 <p className="card-summary">{rideEditorial.summary}</p>
+                              ) : null}
+                              {rideEditorial?.cues.length ? (
+                                <div className="card-cues" aria-label="Ride discovery cues">
+                                  {rideEditorial.cues.slice(0, 2).map((cue) => (
+                                    <span className="detail-micro-item" key={cue}>
+                                      {translateCue(locale, cue)}
+                                    </span>
+                                  ))}
+                                </div>
                               ) : null}
                               {rideMeta ? <p className="card-meta-line">{rideMeta}</p> : null}
                               {rideLiveWait ? (
