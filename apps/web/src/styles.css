@@ -820,8 +820,44 @@ img {
   flex-wrap: wrap;
 }
 
+.hero-actions-minimal {
+  max-width: 28rem;
+}
+
+.primary-button-compact {
+  min-height: 2.7rem;
+  padding-inline: 1rem;
+}
+
+.landing-panel-minimal {
+  gap: 1.25rem;
+}
+
+.home-discovery-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
 .parks-list-featured {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.parks-list-minimal {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.park-card-minimal {
+  gap: 0.68rem;
+}
+
+.park-card-minimal .card-summary {
+  margin-bottom: 0;
+}
+
+.card-key-stat-subtle {
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .editorial-grid {
@@ -846,6 +882,39 @@ img {
 
 .collection-grid {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.collection-grid-minimal {
+  grid-template-columns: 1fr;
+}
+
+.discover-minimal {
+  gap: 1.25rem;
+}
+
+.discover-hero {
+  align-items: center;
+  padding-bottom: 0.25rem;
+}
+
+.discover-section {
+  display: grid;
+  gap: 0.95rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid rgba(19, 37, 59, 0.08);
+}
+
+.discover-section-open {
+  padding-top: 0.25rem;
+  border-top: 0;
+}
+
+.discover-section-muted {
+  padding-bottom: 0.15rem;
+}
+
+.discover-collection-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .collection-card {
@@ -1516,6 +1585,10 @@ img {
   display: grid;
   gap: 0.9rem;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.community-grid.community-grid-compact {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .community-ranking-grid {
@@ -2901,9 +2974,12 @@ img {
   }
 
   .landing-grid,
+  .home-discovery-grid,
   .editorial-grid,
   .collection-strip,
-  .collection-grid {
+  .collection-grid,
+  .discover-collection-grid,
+  .parks-list-minimal {
     display: grid;
     grid-template-columns: 1fr;
   }
