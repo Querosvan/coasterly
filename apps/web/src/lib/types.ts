@@ -6,7 +6,7 @@ import type {
   CommunityHighlightsResponse,
   CurrentUserResponse,
   DailyChallengeResponse,
-  DemoUserStatsResponse,
+  UserStatsResponse,
   HealthResponse,
   Park,
   ParkLiveWaitsResponse,
@@ -115,7 +115,7 @@ export type RideCreditsStatus =
   | { state: "success"; rideIds: number[]; userName: string }
   | { state: "error"; message: string };
 
-export type DemoUserStatsStatus =
+export type UserStatsStatus =
   | { state: "idle" }
   | { state: "loading" }
   | {
@@ -123,7 +123,7 @@ export type DemoUserStatsStatus =
       userName: string;
       totalRiddenRides: number;
       totalParksWithRiddenRides: number;
-      parks: DemoUserStatsResponse["parks"];
+      parks: UserStatsResponse["parks"];
     }
   | { state: "error"; message: string };
 

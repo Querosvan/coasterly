@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import type {
   AdminCatalogFilter,
-  DemoUserStatsResponse,
+  UserStatsResponse,
   Park,
   RideCreditMutationResponse,
   RideResponse
@@ -174,9 +174,9 @@ function App() {
     updateRiddenRide
   } = useRideCredits(currentUserStatus.state);
   const {
-    demoUserStatsStatus,
-    loadDemoUserStats,
-    resetDemoUserStats
+    userStatsStatus,
+    loadUserStats,
+    resetUserStats
   } = useUserStats();
   const {
     userProgressionStatus,
@@ -368,11 +368,11 @@ function App() {
     const controller = new AbortController();
 
     if (currentUserStatus.state === "signed_in") {
-      void loadDemoUserStats(controller.signal);
+      void loadUserStats(controller.signal);
       void loadUserProgression(controller.signal);
       void loadDailyChallenge(controller.signal);
     } else {
-      resetDemoUserStats();
+      resetUserStats();
       resetUserProgression();
       resetDailyChallenge();
     }
@@ -385,11 +385,11 @@ function App() {
   }, [
     currentUserStatus.state,
     loadDailyChallenge,
-    loadDemoUserStats,
+    loadUserStats,
     loadUserProgression,
     loadCommunityHighlights,
     resetDailyChallenge,
-    resetDemoUserStats,
+    resetUserStats,
     resetUserProgression
   ]);
 
@@ -446,7 +446,7 @@ function App() {
 
     markSignedOut();
     resetRideCredits();
-    resetDemoUserStats();
+    resetUserStats();
     resetUserProgression();
     resetDailyChallenge();
     resetUserProfile();
@@ -508,7 +508,7 @@ function App() {
       const payload = (await response.json()) as RideCreditMutationResponse;
 
       updateRiddenRide(payload.rideId, payload.ridden);
-      await loadDemoUserStats();
+      await loadUserStats();
       await loadUserProgression();
       await loadUserProfile();
       setRideCreditMessage(
@@ -539,25 +539,25 @@ function App() {
         )
       : copy.route.parkResults;
   const riddenRideCountLabel =
-    demoUserStatsStatus.state === "success"
-      ? formatCountLabel(locale, demoUserStatsStatus.totalRiddenRides, "riddenRide")
+    userStatsStatus.state === "success"
+      ? formatCountLabel(locale, userStatsStatus.totalRiddenRides, "riddenRide")
       : currentUserStatus.state === "signed_out"
         ? copy.nav.signIn
-      : demoUserStatsStatus.state === "loading"
+      : userStatsStatus.state === "loading"
         ? copy.browse.loadingResults
         : copy.route.statsUnavailable;
   const riddenParkCountLabel =
-    demoUserStatsStatus.state === "success"
-      ? formatCountLabel(locale, demoUserStatsStatus.totalParksWithRiddenRides, "park")
+    userStatsStatus.state === "success"
+      ? formatCountLabel(locale, userStatsStatus.totalParksWithRiddenRides, "park")
       : currentUserStatus.state === "signed_out"
         ? copy.nav.signIn
-      : demoUserStatsStatus.state === "loading"
+      : userStatsStatus.state === "loading"
         ? copy.browse.loadingResults
         : copy.route.statsUnavailable;
   const parkProgressBySlug =
-    demoUserStatsStatus.state === "success"
+    userStatsStatus.state === "success"
       ? new Map(
-          demoUserStatsStatus.parks.map((park) => [park.parkSlug, park])
+          userStatsStatus.parks.map((park) => [park.parkSlug, park])
         )
       : null;
   const riddenRideIds =
@@ -663,8 +663,8 @@ function App() {
     : undefined;
   const secondaryFeaturedParks = landingFeaturedParks.slice(1);
   const rankedProgressParks =
-    demoUserStatsStatus.state === "success"
-      ? [...demoUserStatsStatus.parks]
+    userStatsStatus.state === "success"
+      ? [...userStatsStatus.parks]
           .sort(
             (left, right) =>
               right.completionPercentage - left.completionPercentage ||
@@ -678,7 +678,7 @@ function App() {
       progress,
       park: parkBySlug.get(progress.parkSlug)
     }))
-    .filter((entry): entry is { progress: DemoUserStatsResponse["parks"][number]; park: Park } =>
+    .filter((entry): entry is { progress: UserStatsResponse["parks"][number]; park: Park } =>
       Boolean(entry.park)
     );
   const activeParkProgress =
@@ -1126,7 +1126,7 @@ function App() {
           copy={copy}
           currentUserStatus={currentUserStatus}
           dailyChallengeStatus={dailyChallengeStatus}
-          demoUserStatsStatus={demoUserStatsStatus}
+          userStatsStatus={userStatsStatus}
           formatParkLocation={formatParkLocation}
           getParkCardMetric={getParkCardMetric}
           heroCountLabel={heroCountLabel}
@@ -1246,7 +1246,7 @@ function App() {
           copy={copy}
           currentUserStatus={currentUserStatus}
           dailyChallengeStatus={dailyChallengeStatus}
-          demoUserStatsStatus={demoUserStatsStatus}
+          userStatsStatus={userStatsStatus}
           featuredParks={featuredParks}
           featuredProgressParks={featuredProgressParks}
           formatParkLocation={formatParkLocation}

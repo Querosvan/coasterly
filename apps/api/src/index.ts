@@ -61,7 +61,7 @@ import type {
   CurrentUserResponse,
   DailyChallengeAnswerRequest,
   DailyChallengeResponse,
-  DemoUserStatsResponse,
+  UserStatsResponse,
   HealthResponse,
   ParkResponse,
   ParkLiveWaitsResponse,
@@ -408,7 +408,7 @@ app.get("/demo-user/ride-credits", async () => {
 app.get("/demo-user/stats", async () => {
   const stats = await getDemoUserRideStats();
 
-  const response: DemoUserStatsResponse = {
+  const response: UserStatsResponse = {
     user: stats.user,
     totalRiddenRides: stats.totalRiddenRides,
     totalParksWithRiddenRides: stats.totalParksWithRiddenRides,
@@ -522,7 +522,7 @@ app.get("/me/stats", async (request, reply) => {
     const currentUser = await resolveRequestCurrentUser(request);
     const stats = await getRideStatsForUser(currentUser.user);
 
-    const response: DemoUserStatsResponse = {
+    const response: UserStatsResponse = {
       user: stats.user,
       totalRiddenRides: stats.totalRiddenRides,
       totalParksWithRiddenRides: stats.totalParksWithRiddenRides,

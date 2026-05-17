@@ -10,7 +10,7 @@ import type {
   DailyChallengeAttempt,
   DailyRewardClaim,
   DailyChallengeResponse,
-  DemoUserParkProgress,
+  UserParkProgress,
   ExternalEntityType,
   ExternalSourceName,
   PageInfo,
@@ -2730,7 +2730,7 @@ export const getRideStatsForUser = async (
 ): Promise<Omit<CurrentUserResponse, "identity"> & {
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
-  parks: DemoUserParkProgress[];
+  parks: UserParkProgress[];
 }> => {
   const result = await pool.query<{
     park_id: number;
@@ -2785,7 +2785,7 @@ const getUserRideStatsBySlug = async (userSlug: string): Promise<{
   user: UserSummary;
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
-  parks: DemoUserParkProgress[];
+  parks: UserParkProgress[];
 }> => {
   const user = await getUserBySlug(userSlug);
 

@@ -1,4 +1,4 @@
-import type { DemoUserStatsResponse, Park } from "@coasterly/types";
+import type { UserStatsResponse, Park } from "@coasterly/types";
 import type { Dispatch, SetStateAction } from "react";
 
 import { CatalogSkeletonGrid } from "../components/shared/CatalogSkeletonGrid";
@@ -12,7 +12,7 @@ import type {
   UiCopy
 } from "../lib/types";
 
-type ParkProgress = DemoUserStatsResponse["parks"][number];
+type ParkProgress = UserStatsResponse["parks"][number];
 
 interface ParksPageProps {
   copy: UiCopy;

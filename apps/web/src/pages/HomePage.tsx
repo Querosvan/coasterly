@@ -1,6 +1,6 @@
 import type {
   CommunityHighlightsResponse,
-  DemoUserStatsResponse,
+  UserStatsResponse,
   Park
 } from "@coasterly/types";
 
@@ -15,14 +15,14 @@ import type {
   CommunityHighlightsStatus,
   CuratedCollection,
   DailyChallengeStatus,
-  DemoUserStatsStatus,
+  UserStatsStatus,
   EditorialNote,
   CurrentUserStatus,
   UiCopy,
   UserProgressionStatus
 } from "../lib/types";
 
-type ParkProgress = DemoUserStatsResponse["parks"][number];
+type ParkProgress = UserStatsResponse["parks"][number];
 
 type JournalTeaser = {
   category: string;
@@ -36,7 +36,7 @@ interface HomePageProps {
   locale: Locale;
   currentUserStatus: CurrentUserStatus;
   dailyChallengeStatus: DailyChallengeStatus;
-  demoUserStatsStatus: DemoUserStatsStatus;
+  userStatsStatus: UserStatsStatus;
   userProgressionStatus: UserProgressionStatus;
   communityHighlightsStatus: CommunityHighlightsStatus;
   heroCountLabel: string;
@@ -82,7 +82,7 @@ export function HomePage({
   copy,
   currentUserStatus,
   dailyChallengeStatus,
-  demoUserStatsStatus,
+  userStatsStatus,
   formatParkLocation,
   getParkCardMetric,
   heroCountLabel,
@@ -117,13 +117,13 @@ export function HomePage({
 }: HomePageProps) {
   const isSignedOut = currentUserStatus.state === "signed_out";
   const canShowProgress =
-    currentUserStatus.state === "signed_in" && demoUserStatsStatus.state === "success";
+    currentUserStatus.state === "signed_in" && userStatsStatus.state === "success";
   const isProgressLoading =
     currentUserStatus.state === "loading" ||
-    (currentUserStatus.state === "signed_in" && demoUserStatsStatus.state === "loading");
+    (currentUserStatus.state === "signed_in" && userStatsStatus.state === "loading");
   const progressError =
-    currentUserStatus.state === "signed_in" && demoUserStatsStatus.state === "error"
-      ? demoUserStatsStatus.message
+    currentUserStatus.state === "signed_in" && userStatsStatus.state === "error"
+      ? userStatsStatus.message
       : currentUserStatus.state === "error"
         ? currentUserStatus.message
         : null;
@@ -342,13 +342,13 @@ export function HomePage({
                     <article className="stats-card">
                       <span className="stats-card-label">{copy.profile.ridesLabel}</span>
                       <strong className="stats-card-value">
-                        {demoUserStatsStatus.totalRiddenRides}
+                        {userStatsStatus.totalRiddenRides}
                       </strong>
                     </article>
                     <article className="stats-card">
                       <span className="stats-card-label">{copy.profile.parksLabel}</span>
                       <strong className="stats-card-value">
-                        {demoUserStatsStatus.totalParksWithRiddenRides}
+                        {userStatsStatus.totalParksWithRiddenRides}
                       </strong>
                     </article>
                   </div>

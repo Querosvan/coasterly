@@ -1,6 +1,6 @@
 import type {
   CommunityHighlightsResponse,
-  DemoUserStatsResponse,
+  UserStatsResponse,
   Park
 } from "@coasterly/types";
 
@@ -19,13 +19,13 @@ import type {
   CuratedCollection,
   CurrentUserStatus,
   DailyChallengeStatus,
-  DemoUserStatsStatus,
+  UserStatsStatus,
   EditorialNote,
   UiCopy,
   UserProgressionStatus
 } from "../lib/types";
 
-type ParkProgress = DemoUserStatsResponse["parks"][number];
+type ParkProgress = UserStatsResponse["parks"][number];
 
 interface DiscoverPageProps {
   communityHighlights: CommunityHighlightsResponse["profiles"];
@@ -33,7 +33,7 @@ interface DiscoverPageProps {
   copy: UiCopy;
   currentUserStatus: CurrentUserStatus;
   dailyChallengeStatus: DailyChallengeStatus;
-  demoUserStatsStatus: DemoUserStatsStatus;
+  userStatsStatus: UserStatsStatus;
   featuredParks: Park[];
   featuredProgressParks: Array<{ progress: ParkProgress; park: Park }>;
   highestLevelProfiles: CommunityHighlightsResponse["profiles"];
@@ -69,7 +69,7 @@ export function DiscoverPage({
   copy,
   currentUserStatus,
   dailyChallengeStatus,
-  demoUserStatsStatus,
+  userStatsStatus,
   featuredParks,
   featuredProgressParks,
   formatParkLocation,
@@ -91,7 +91,7 @@ export function DiscoverPage({
   submitDailyChallengeAnswer,
   userProgressionStatus
 }: DiscoverPageProps) {
-  const hasProgress = demoUserStatsStatus.state === "success";
+  const hasProgress = userStatsStatus.state === "success";
 
   return (
         <section className="catalog-panel browse-panel" aria-live="polite">
@@ -164,13 +164,13 @@ export function DiscoverPage({
                 <article className="stats-card">
                   <span className="stats-card-label">{copy.profile.ridesLabel}</span>
                   <strong className="stats-card-value">
-                    {demoUserStatsStatus.totalRiddenRides}
+                    {userStatsStatus.totalRiddenRides}
                   </strong>
                 </article>
                 <article className="stats-card">
                   <span className="stats-card-label">{copy.profile.parksLabel}</span>
                   <strong className="stats-card-value">
-                    {demoUserStatsStatus.totalParksWithRiddenRides}
+                    {userStatsStatus.totalParksWithRiddenRides}
                   </strong>
                 </article>
               </div>

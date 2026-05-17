@@ -183,7 +183,7 @@ export interface RideCreditMutationResponse {
   ridden: boolean;
 }
 
-export interface DemoUserParkProgress {
+export interface UserParkProgress {
   parkId: number;
   parkName: string;
   parkSlug: string;
@@ -192,11 +192,11 @@ export interface DemoUserParkProgress {
   completionPercentage: number;
 }
 
-export interface DemoUserStatsResponse {
+export interface UserStatsResponse {
   user: UserSummary;
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
-  parks: DemoUserParkProgress[];
+  parks: UserParkProgress[];
 }
 
 export type ProgressionBadgeTone = "milestone" | "explorer" | "lineup";
@@ -239,7 +239,7 @@ export interface UserProfileResponse {
   identity: UserIdentityProgress;
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
-  parks: DemoUserParkProgress[];
+  parks: UserParkProgress[];
   badges: UserProgressionBadge[];
   activeMissions: UserProgressionMission[];
   recentActivity: UserRecentActivityItem[];
@@ -250,7 +250,7 @@ export interface CommunityHighlight {
   identity: UserIdentityProgress;
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
-  featuredPark?: DemoUserParkProgress;
+  featuredPark?: UserParkProgress;
   badges: UserProgressionBadge[];
   recentActivity: UserRecentActivityItem[];
 }

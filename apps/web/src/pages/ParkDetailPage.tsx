@@ -1,4 +1,4 @@
-import type { DemoUserStatsResponse, Park, Ride } from "@coasterly/types";
+import type { UserStatsResponse, Park, Ride } from "@coasterly/types";
 import type { Dispatch, SetStateAction } from "react";
 
 import { MediaAsset } from "../components/shared/MediaAsset";
@@ -27,7 +27,7 @@ import type {
 } from "../lib/types";
 import type { Locale } from "../i18n";
 
-type ParkProgress = DemoUserStatsResponse["parks"][number];
+type ParkProgress = UserStatsResponse["parks"][number];
 type ParkLiveWait = Extract<ParkLiveWaitsStatus, { state: "success" }>["rides"][number];
 
 interface ParkDetailPageProps {
