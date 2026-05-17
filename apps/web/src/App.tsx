@@ -1309,6 +1309,7 @@ function App() {
           goToPreviousAdminRidesPage={goToPreviousAdminRidesPage}
           isAdminUser={isAdminUser}
           locale={locale}
+          localizedRideEditorialBySlug={localizedRideEditorialBySlug}
           navigateToPark={navigateToPark}
           navigateToRide={navigateToRide}
         />

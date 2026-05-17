@@ -1726,7 +1726,23 @@ export const listAdminParks = async (
         ) AS has_queue_times_mapping
       FROM parks
       WHERE ${filterCondition}
-      ORDER BY parks.name ASC
+      ORDER BY
+        (parks.image_url IS NOT NULL) ASC,
+        CASE parks.status
+          WHEN 'operating' THEN 0
+          WHEN 'closed' THEN 1
+          WHEN 'planned' THEN 2
+          ELSE 3
+        END ASC,
+        EXISTS (
+          SELECT 1
+          FROM external_source_mappings
+          WHERE
+            source_name = $1
+            AND entity_type = 'park'
+            AND internal_entity_id = parks.id
+        ) DESC,
+        parks.name ASC
       LIMIT $2
       OFFSET $3
     `,
@@ -2409,7 +2425,24 @@ export const listAdminRides = async (
       FROM rides
       INNER JOIN parks ON parks.id = rides.park_id
       WHERE ${filterCondition}
-      ORDER BY parks.name ASC, rides.name ASC
+      ORDER BY
+        (rides.image_url IS NOT NULL) ASC,
+        EXISTS (
+          SELECT 1
+          FROM external_source_mappings
+          WHERE
+            source_name = $1
+            AND entity_type = 'ride'
+            AND internal_entity_id = rides.id
+        ) DESC,
+        CASE rides.status
+          WHEN 'operating' THEN 0
+          WHEN 'closed' THEN 1
+          WHEN 'planned' THEN 2
+          ELSE 3
+        END ASC,
+        parks.name ASC,
+        rides.name ASC
       LIMIT $2
       OFFSET $3
     `,

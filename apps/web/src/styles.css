@@ -1343,6 +1343,17 @@ img {
   background: rgba(255, 255, 255, 0.54);
 }
 
+.admin-priority-guide {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.86rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(245, 130, 32, 0.14);
+  background:
+    radial-gradient(circle at top right, rgba(245, 130, 32, 0.08), transparent 28%),
+    rgba(255, 253, 250, 0.72);
+}
+
 .admin-filter-copy {
   display: grid;
   gap: 0.25rem;
@@ -1437,6 +1448,24 @@ img {
   border-color: rgba(28, 112, 84, 0.14);
   background: rgba(232, 246, 239, 0.9);
   color: #1f6b54;
+}
+
+.admin-chip-critical {
+  border-color: rgba(194, 69, 30, 0.24);
+  background: rgba(255, 236, 226, 0.96);
+  color: #b3431d;
+}
+
+.admin-chip-high-value {
+  border-color: rgba(245, 130, 32, 0.24);
+  background: rgba(255, 244, 230, 0.96);
+  color: var(--brand-orange-strong);
+}
+
+.admin-chip-later {
+  border-color: rgba(84, 106, 123, 0.18);
+  background: rgba(238, 243, 247, 0.92);
+  color: #4d6171;
 }
 
 .admin-chip-attention {
