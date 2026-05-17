@@ -889,18 +889,22 @@ img {
 }
 
 .discover-minimal {
-  gap: 1.25rem;
+  gap: 1.05rem;
 }
 
 .discover-hero {
   align-items: center;
-  padding-bottom: 0.25rem;
+  padding-bottom: 0.1rem;
+}
+
+.discover-hero .landing-actions {
+  gap: 0.55rem;
 }
 
 .discover-section {
   display: grid;
-  gap: 0.95rem;
-  padding-top: 1.15rem;
+  gap: 0.78rem;
+  padding-top: 0.98rem;
   border-top: 1px solid rgba(19, 37, 59, 0.08);
 }
 
@@ -914,7 +918,22 @@ img {
 }
 
 .discover-collection-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.discover-minimal .collection-card-header,
+.discover-minimal .collection-card-meta {
+  display: none;
+}
+
+.discover-park-note {
+  color: #65757d;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.discover-community-mobile {
+  display: none;
 }
 
 .collection-card {
@@ -2984,6 +3003,50 @@ img {
   .parks-list-minimal {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .discover-minimal {
+    gap: 0.82rem;
+  }
+
+  .discover-section {
+    gap: 0.68rem;
+    padding-top: 0.78rem;
+  }
+
+  .discover-hero .landing-actions {
+    justify-content: flex-start;
+  }
+
+  .discover-community-desktop {
+    display: none;
+  }
+
+  .discover-community-mobile {
+    display: block;
+  }
+
+  .discover-community-mobile summary {
+    width: fit-content;
+    min-height: 2.55rem;
+    padding: 0.72rem 0.95rem;
+    border-radius: 999px;
+    border: 1px solid rgba(19, 37, 59, 0.1);
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--brand-navy);
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .discover-community-mobile summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .discover-community-mobile[open] {
+    display: grid;
+    gap: 0.75rem;
   }
 
   .browse-toolbar {

@@ -57,10 +57,35 @@ export function DiscoverPage({
 }: DiscoverPageProps) {
   const recommendedParks =
     featuredProgressParks.length > 0
-      ? featuredProgressParks.slice(0, 3)
-      : featuredParks.slice(0, 3).map((park) => ({ park, progress: undefined }));
-  const discoveryCollections = localizedCollections.slice(0, 4);
+      ? featuredProgressParks.slice(0, 2)
+      : featuredParks.slice(0, 2).map((park) => ({ park, progress: undefined }));
+  const discoveryCollections = localizedCollections.slice(0, 3);
   const visibleCommunityHighlights = communityHighlights.slice(0, 2);
+  const primaryCollection = discoveryCollections[0];
+
+  const openCollection = (collection: CuratedCollection) => {
+    if (collection.kind === "park") {
+      navigateToParks({ collectionId: collection.id });
+      return;
+    }
+
+    navigateToRides({ collectionId: collection.id });
+  };
+
+  const renderCommunityCards = () =>
+    visibleCommunityHighlights.map((profile) => (
+      <CommunityHighlightCard
+        key={profile.user.id}
+        profile={profile}
+        locale={locale}
+        copy={copy}
+        onOpenProfile={navigateToPublicProfile}
+        onOpenPark={navigateToPark}
+        onOpenRide={(parkSlug, rideSlug) => {
+          navigateToRide(parkSlug, rideSlug);
+        }}
+      />
+    ));
 
   return (
     <section className="catalog-panel browse-panel discover-minimal" aria-live="polite">
@@ -88,6 +113,17 @@ export function DiscoverPage({
           >
             {copy.discover.browseRides}
           </button>
+          {primaryCollection ? (
+            <button
+              className="catalog-inline-button"
+              type="button"
+              onClick={() => {
+                openCollection(primaryCollection);
+              }}
+            >
+              {copy.discover.startRoute}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -106,12 +142,7 @@ export function DiscoverPage({
               locale={locale}
               copy={copy}
               onOpen={() => {
-                if (collection.kind === "park") {
-                  navigateToParks({ collectionId: collection.id });
-                  return;
-                }
-
-                navigateToRides({ collectionId: collection.id });
+                openCollection(collection);
               }}
             />
           ))}
@@ -154,12 +185,7 @@ export function DiscoverPage({
                 </div>
                 <p className="park-location">{formatParkLocation(park)}</p>
                 {parkEditorial ? <p className="card-summary">{parkEditorial.summary}</p> : null}
-                {parkMetric ? (
-                  <p className="card-key-stat card-key-stat-subtle">
-                    <span className="card-stat-label">{parkMetric.label}</span>
-                    <strong className="card-stat-value">{parkMetric.value}</strong>
-                  </p>
-                ) : null}
+                {parkMetric ? <span className="discover-park-note">{parkMetric.value}</span> : null}
               </button>
             );
           })}
@@ -179,21 +205,17 @@ export function DiscoverPage({
         ) : null}
         {communityHighlightsStatus.state === "success" ? (
           visibleCommunityHighlights.length > 0 ? (
-            <div className="community-grid community-grid-compact">
-              {visibleCommunityHighlights.map((profile) => (
-                <CommunityHighlightCard
-                  key={profile.user.id}
-                  profile={profile}
-                  locale={locale}
-                  copy={copy}
-                  onOpenProfile={navigateToPublicProfile}
-                  onOpenPark={navigateToPark}
-                  onOpenRide={(parkSlug, rideSlug) => {
-                    navigateToRide(parkSlug, rideSlug);
-                  }}
-                />
-              ))}
-            </div>
+            <>
+              <div className="community-grid community-grid-compact discover-community-desktop">
+                {renderCommunityCards()}
+              </div>
+              <details className="discover-community-mobile">
+                <summary>{copy.home.seeMore}</summary>
+                <div className="community-grid community-grid-compact">
+                  {renderCommunityCards()}
+                </div>
+              </details>
+            </>
           ) : (
             <div className="state-message state-message-empty state-message-compact">
               <p>{copy.discover.communityEmpty}</p>
