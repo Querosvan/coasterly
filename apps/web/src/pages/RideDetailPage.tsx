@@ -90,6 +90,36 @@ export function RideDetailPage({
   toggleRideCredit
 }: RideDetailPageProps) {
   const isCreditCtaReady = currentUserStatus.state === "signed_in" && !isCurrentRideRidden;
+  const creditPanelState =
+    currentUserStatus.state === "signed_out"
+      ? "signed-out"
+      : isUpdatingRideCredit
+        ? "saving"
+        : isCurrentRideRidden
+          ? "ridden"
+          : "ready";
+  const creditPanelTitle =
+    currentUserStatus.state === "signed_out"
+      ? copy.ride.creditSignedOutTitle
+      : isUpdatingRideCredit
+        ? copy.ride.creditSavingTitle
+        : rideCreditMessage
+          ? copy.ride.creditSuccessTitle
+        : isCurrentRideRidden
+          ? copy.ride.creditRiddenTitle
+          : copy.ride.creditReadyTitle;
+  const creditPanelCopy =
+    currentUserStatus.state === "signed_out"
+      ? rideSignInPrompt
+      : isUpdatingRideCredit
+        ? copy.ride.creditSavingBody
+        : rideCreditsStatus.state === "success"
+          ? isCurrentRideRidden
+            ? copy.ride.saved
+            : copy.ride.savePrompt
+        : rideCreditsStatus.state === "error"
+          ? copy.ride.creditUnavailable
+          : copy.ride.checking;
 
   return (
         <section className="catalog-panel detail-surface" aria-live="polite">
@@ -165,19 +195,16 @@ export function RideDetailPage({
                   loading="eager"
                 />
 
-                <div className={`credit-panel${isCreditCtaReady ? " credit-panel-ready" : ""}`}>
-                  <div>
+                <div
+                  className={`credit-panel credit-panel-${creditPanelState}${
+                    isCreditCtaReady ? " credit-panel-ready" : ""
+                  }`}
+                >
+                  <div className="credit-panel-copy">
                     <p className="status-label">{copy.ride.rideLog}</p>
+                    <h3 className="credit-title">{creditPanelTitle}</h3>
                     <p className="credit-copy">
-                      {currentUserStatus.state === "signed_out"
-                        ? rideSignInPrompt
-                        : rideCreditsStatus.state === "success"
-                        ? isCurrentRideRidden
-                          ? copy.ride.saved
-                          : copy.ride.savePrompt
-                        : rideCreditsStatus.state === "error"
-                          ? rideCreditsStatus.message
-                          : copy.ride.checking}
+                      {creditPanelCopy}
                     </p>
                   </div>
                   <button
@@ -208,7 +235,9 @@ export function RideDetailPage({
                   </button>
                 </div>
                 {rideCreditMessage ? (
-                  <p className="credit-copy">{rideCreditMessage}</p>
+                  <p className="credit-message">{rideCreditMessage}</p>
+                ) : rideCreditsStatus.state === "error" ? (
+                  <p className="credit-message credit-message-muted">{rideCreditsStatus.message}</p>
                 ) : null}
 
                 <div className="queue-times-panel">
@@ -254,9 +283,8 @@ export function RideDetailPage({
                       </div>
                     </div>
                   ) : parkLiveWaitsStatus.state === "error" ? (
-                    <div className="state-message state-message-error state-message-compact">
+                    <div className="state-message state-message-empty state-message-compact">
                       <p>{copy.ride.currentWaitUnavailable}</p>
-                      <p>{parkLiveWaitsStatus.message}</p>
                     </div>
                   ) : rideDetailStatus.rideQueueTimes ? (
                     <div className="state-message state-message-empty state-message-compact">
