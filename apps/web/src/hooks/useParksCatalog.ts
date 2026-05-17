@@ -48,7 +48,7 @@ export const useParksCatalog = ({
         ? shouldPaginateParks
           ? browsePageSize
           : fullCatalogFetchLimit
-        : 24;
+        : fullCatalogFetchLimit;
     const effectiveParkOffset = shouldPaginateParks
       ? (parksPage - 1) * browsePageSize
       : 0;
