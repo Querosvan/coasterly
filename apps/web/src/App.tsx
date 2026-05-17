@@ -15,7 +15,6 @@ import {
   curatedCollectionsEs,
   formatCountLabel,
   getInitialLocale,
-  journalTeasersEs,
   localeStorageKey,
   messages,
   normalizeLocale,
@@ -263,8 +262,6 @@ function App() {
       locale === "es" ? "Sin Queue-Times" : "Missing Queue-Times",
     needs_cleanup: adminNeedsCleanup
   };
-  const localizedJournalTeasers = locale === "es" ? journalTeasersEs : journalTeasers;
-  const landingJournalTeasers = localizedJournalTeasers.slice(0, 1);
   const localizedParkEditorialBySlug =
     locale === "es" ? parkEditorialBySlugEs : parkEditorialBySlug;
   const localizedRideEditorialBySlug =
@@ -619,45 +616,7 @@ function App() {
   const landingFeaturedParks = featuredParks.slice(0, 3);
   const communityHighlights =
     communityHighlightsStatus.state === "success" ? communityHighlightsStatus.profiles : [];
-  const landingCommunityHighlights = communityHighlights.slice(0, 2);
-  const highestLevelProfiles = [...communityHighlights]
-    .sort(
-      (left, right) =>
-        right.identity.level - left.identity.level ||
-        right.identity.totalXp - left.identity.totalXp ||
-        right.totalRiddenRides - left.totalRiddenRides ||
-        left.user.name.localeCompare(right.user.name)
-    )
-    .slice(0, 3);
-  const longestStreakProfiles = [...communityHighlights]
-    .sort(
-      (left, right) =>
-        right.identity.currentStreak - left.identity.currentStreak ||
-        right.identity.completedDays - left.identity.completedDays ||
-        right.identity.totalXp - left.identity.totalXp ||
-        left.user.name.localeCompare(right.user.name)
-    )
-    .slice(0, 3);
-  const recentlyActiveProfiles = [...communityHighlights]
-    .sort((left, right) => {
-      const leftTime = left.recentActivity[0]?.riddenAt
-        ? Date.parse(left.recentActivity[0].riddenAt)
-        : 0;
-      const rightTime = right.recentActivity[0]?.riddenAt
-        ? Date.parse(right.recentActivity[0].riddenAt)
-        : 0;
-
-      return (
-        rightTime - leftTime ||
-        right.identity.currentStreak - left.identity.currentStreak ||
-        left.user.name.localeCompare(right.user.name)
-      );
-    })
-    .slice(0, 3);
   const spotlightPark = landingFeaturedParks[0];
-  const spotlightProgress = spotlightPark
-    ? parkProgressBySlug?.get(spotlightPark.slug)
-    : undefined;
   const spotlightParkEditorial = spotlightPark
     ? localizedParkEditorialBySlug[spotlightPark.slug]
     : undefined;
@@ -1121,43 +1080,21 @@ function App() {
       {route.view === "home" ? (
         <HomePage
           beginGoogleSignIn={beginGoogleSignIn}
-          claimDailyReward={claimDailyReward}
-          communityHighlightsStatus={communityHighlightsStatus}
           copy={copy}
-          currentUserStatus={currentUserStatus}
-          dailyChallengeStatus={dailyChallengeStatus}
-          userStatsStatus={userStatsStatus}
           formatParkLocation={formatParkLocation}
-          getParkCardMetric={getParkCardMetric}
-          heroCountLabel={heroCountLabel}
           isAuthenticated={isAuthenticated}
-          isClaimingDailyReward={isClaimingDailyReward}
-          isSubmittingDailyChallenge={isSubmittingDailyChallenge}
           landingCollections={landingCollections}
-          landingCommunityHighlights={landingCommunityHighlights}
           landingFeaturedParks={landingFeaturedParks}
-          landingJournalTeasers={landingJournalTeasers}
           locale={locale}
           localizedParkEditorialBySlug={localizedParkEditorialBySlug}
           navigateToDiscover={navigateToDiscover}
-          navigateToJournal={navigateToJournal}
           navigateToPark={navigateToPark}
           navigateToParks={navigateToParks}
           navigateToProfile={navigateToProfile}
-          navigateToPublicProfile={navigateToPublicProfile}
-          navigateToRide={navigateToRide}
           navigateToRides={navigateToRides}
-          parkProgressBySlug={parkProgressBySlug}
-          rankedProgressParks={rankedProgressParks}
-          riddenRideCountLabel={riddenRideCountLabel}
           secondaryFeaturedParks={secondaryFeaturedParks}
-          signInPromptBody={signInPromptBody}
-          signInPromptTitle={signInPromptTitle}
           spotlightPark={spotlightPark}
           spotlightParkEditorial={spotlightParkEditorial}
-          spotlightProgress={spotlightProgress}
-          submitDailyChallengeAnswer={submitDailyChallengeAnswer}
-          userProgressionStatus={userProgressionStatus}
         />
       ) : null}
 
@@ -1239,34 +1176,21 @@ function App() {
 
       {route.view === "discover" ? (
         <DiscoverPage
-          beginGoogleSignIn={beginGoogleSignIn}
-          claimDailyReward={claimDailyReward}
           communityHighlights={communityHighlights}
           communityHighlightsStatus={communityHighlightsStatus}
           copy={copy}
-          currentUserStatus={currentUserStatus}
-          dailyChallengeStatus={dailyChallengeStatus}
-          userStatsStatus={userStatsStatus}
           featuredParks={featuredParks}
           featuredProgressParks={featuredProgressParks}
           formatParkLocation={formatParkLocation}
           getParkCardMetric={getParkCardMetric}
-          highestLevelProfiles={highestLevelProfiles}
-          isClaimingDailyReward={isClaimingDailyReward}
-          isSubmittingDailyChallenge={isSubmittingDailyChallenge}
           locale={locale}
           localizedCollections={localizedCollections}
           localizedParkEditorialBySlug={localizedParkEditorialBySlug}
-          longestStreakProfiles={longestStreakProfiles}
           navigateToPark={navigateToPark}
           navigateToParks={navigateToParks}
           navigateToPublicProfile={navigateToPublicProfile}
           navigateToRide={navigateToRide}
           navigateToRides={navigateToRides}
-          rankedProgressParks={rankedProgressParks}
-          recentlyActiveProfiles={recentlyActiveProfiles}
-          submitDailyChallengeAnswer={submitDailyChallengeAnswer}
-          userProgressionStatus={userProgressionStatus}
         />
       ) : null}
 
