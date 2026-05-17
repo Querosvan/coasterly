@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react";
 
-import type { DemoUserStatsResponse } from "@coasterly/types";
+import type { UserStatsResponse } from "@coasterly/types";
 
-import type { DemoUserStatsStatus } from "../lib/types";
+import type { UserStatsStatus } from "../lib/types";
 import {
   apiBaseUrl,
   authFailureStatusCode,
@@ -11,23 +11,23 @@ import {
 } from "./userDataApi";
 
 export type UseUserStatsResult = {
-  demoUserStatsStatus: DemoUserStatsStatus;
-  loadDemoUserStats: (signal?: AbortSignal) => Promise<void>;
-  resetDemoUserStats: () => void;
+  userStatsStatus: UserStatsStatus;
+  loadUserStats: (signal?: AbortSignal) => Promise<void>;
+  resetUserStats: () => void;
 };
 
 export const useUserStats = (): UseUserStatsResult => {
-  const [demoUserStatsStatus, setDemoUserStatsStatus] = useState<DemoUserStatsStatus>({
+  const [userStatsStatus, setUserStatsStatus] = useState<UserStatsStatus>({
     state: "idle"
   });
 
-  const resetDemoUserStats = useCallback(() => {
-    setDemoUserStatsStatus({ state: "idle" });
+  const resetUserStats = useCallback(() => {
+    setUserStatsStatus({ state: "idle" });
   }, []);
 
-  const loadDemoUserStats = useCallback(async (signal?: AbortSignal) => {
+  const loadUserStats = useCallback(async (signal?: AbortSignal) => {
     if (!apiBaseUrl) {
-      setDemoUserStatsStatus({
+      setUserStatsStatus({
         state: "error",
         message: missingApiBaseUrlMessage
       });
@@ -35,7 +35,7 @@ export const useUserStats = (): UseUserStatsResult => {
       return;
     }
 
-    setDemoUserStatsStatus({ state: "loading" });
+    setUserStatsStatus({ state: "loading" });
 
     try {
       const response = await fetchWithSession(new URL("/me/stats", apiBaseUrl), {
@@ -43,13 +43,13 @@ export const useUserStats = (): UseUserStatsResult => {
       });
 
       if (response.status === authFailureStatusCode) {
-        setDemoUserStatsStatus({ state: "idle" });
+        setUserStatsStatus({ state: "idle" });
 
         return;
       }
 
       if (!response.ok) {
-        setDemoUserStatsStatus({
+        setUserStatsStatus({
           state: "error",
           message: `User stats request failed with status ${response.status}.`
         });
@@ -57,9 +57,9 @@ export const useUserStats = (): UseUserStatsResult => {
         return;
       }
 
-      const payload = (await response.json()) as DemoUserStatsResponse;
+      const payload = (await response.json()) as UserStatsResponse;
 
-      setDemoUserStatsStatus({
+      setUserStatsStatus({
         state: "success",
         userName: payload.user.name,
         totalRiddenRides: payload.totalRiddenRides,
@@ -71,7 +71,7 @@ export const useUserStats = (): UseUserStatsResult => {
         return;
       }
 
-      setDemoUserStatsStatus({
+      setUserStatsStatus({
         state: "error",
         message: error instanceof Error ? error.message : "The user stats request failed."
       });
@@ -79,8 +79,8 @@ export const useUserStats = (): UseUserStatsResult => {
   }, []);
 
   return {
-    demoUserStatsStatus,
-    loadDemoUserStats,
-    resetDemoUserStats
+    userStatsStatus,
+    loadUserStats,
+    resetUserStats
   };
 };

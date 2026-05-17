@@ -1,5 +1,5 @@
 import type {
-  DemoUserParkProgress,
+  UserParkProgress,
   ProgressionBadgeTone,
   UserProgressionBadge,
   UserProgressionMission
@@ -115,7 +115,7 @@ const toTimestampValue = (value: string) => {
 
 export const buildUserProgression = (input: {
   rideCredits: ProgressionRideCreditRecord[];
-  parkProgress: DemoUserParkProgress[];
+  parkProgress: UserParkProgress[];
   totalRiddenRides: number;
   totalParksWithRiddenRides: number;
 }): {
