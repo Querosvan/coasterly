@@ -1,4 +1,8 @@
-import type { AdminCatalogFilter } from "@coasterly/types";
+import type {
+  AdminCatalogFilter,
+  AdminParkCatalogItem,
+  AdminRideCatalogItem
+} from "@coasterly/types";
 
 import { AuthPromptPanel } from "../components/shared/AuthPromptPanel";
 import { formatStatusLabel, type Locale } from "../i18n";
@@ -7,6 +11,7 @@ import type {
   AdminRidesStatus,
   AdminSummaryStatus,
   CurrentUserStatus,
+  EditorialNote,
   RideDetailOrigin,
   UiCopy
 } from "../lib/types";
@@ -43,6 +48,7 @@ interface AdminPageProps {
   defaultAdminCatalogPage: number;
   isAdminUser: boolean;
   locale: Locale;
+  localizedRideEditorialBySlug: Record<string, EditorialNote>;
   applyAdminFilter: (nextFilter: AdminCatalogFilter) => void;
   beginGoogleSignIn: (returnTo?: string) => void;
   goToNextAdminParksPage: () => void;
@@ -95,6 +101,7 @@ export function AdminPage({
   goToPreviousAdminRidesPage,
   isAdminUser,
   locale,
+  localizedRideEditorialBySlug,
   navigateToPark,
   navigateToRide
 }: AdminPageProps) {
@@ -112,17 +119,22 @@ export function AdminPage({
     ? "Revisa parques sin imagen o sin mapping de Queue-Times antes de publicarlos como completos."
     : "Review parks missing images or Queue-Times mappings before treating them as complete.";
   const ridesSectionHelp = isSpanish
-    ? "Escanea atracciones por media, mapping de Queue-Times y señales de limpieza editorial."
-    : "Scan rides for media coverage, Queue-Times mapping, and editorial cleanup signals.";
+    ? "Primero media de headliners, atracciones mapeadas en Queue-Times y rides operativas; deja cerradas, planned o sin mapping para después."
+    : "Fix media for headliners, Queue-Times mapped rides, and operating rides first; leave closed, planned, or unmapped minor rides for later.";
+  const mediaPriorityTitle = isSpanish ? "Orden de media" : "Media priority order";
+  const mediaPriorityBody = isSpanish
+    ? "1) Parques sin media principal. 2) Rides destacadas, operativas o con Queue-Times. 3) Resto de rides sin mapping o no operativas."
+    : "1) Parks missing primary media. 2) Featured, operating, or Queue-Times mapped rides. 3) Remaining unmapped or non-operating rides.";
   const activeFilterLabel = isSpanish ? "Filtro activo" : "Active filter";
-  const attentionLabel = isSpanish ? "Atención" : "Needs attention";
   const completeLabel = isSpanish ? "Completo" : "Complete";
+  const criticalPriorityLabel = isSpanish ? "Crítico" : "Critical";
+  const highValuePriorityLabel = isSpanish ? "Alto valor" : "High value";
+  const laterPriorityLabel = isSpanish ? "Después" : "Later";
   const coverageLabel = isSpanish ? "Cobertura" : "Coverage";
   const locationLabel = isSpanish ? "Ubicación" : "Location";
   const parkLabel = isSpanish ? "Parque" : "Park";
   const statusLabel = isSpanish ? "Estado" : "Status";
   const typeLabel = isSpanish ? "Tipo" : "Type";
-  const reviewNowLabel = isSpanish ? "Revisar ahora" : "Review now";
   const noIssuesLabel = isSpanish ? "Sin incidencias visibles" : "No visible issues";
   const noParksForFilter = isSpanish
     ? `No hay parques en la cola "${currentFilterLabel}".`
@@ -142,6 +154,40 @@ export function AdminPage({
     isSpanish
       ? `${count} ${count === 1 ? "incidencia" : "incidencias"}`
       : `${count} ${count === 1 ? "issue" : "issues"}`;
+  const isFeaturedRide = (ride: AdminRideCatalogItem) => {
+    const cues = localizedRideEditorialBySlug[ride.slug]?.cues ?? [];
+
+    return cues.some((cue) => cue === "Featured" || cue === "Headliner" || cue === "Iconic");
+  };
+  const getParkMediaPriority = (park: AdminParkCatalogItem) => {
+    if (!park.hasImage) {
+      return {
+        label: criticalPriorityLabel,
+        className: "admin-chip-critical"
+      };
+    }
+
+    return {
+      label: laterPriorityLabel,
+      className: "admin-chip-later"
+    };
+  };
+  const getRideMediaPriority = (ride: AdminRideCatalogItem) => {
+    if (
+      !ride.hasImage &&
+      (isFeaturedRide(ride) || ride.hasQueueTimesMapping || ride.status === "operating")
+    ) {
+      return {
+        label: highValuePriorityLabel,
+        className: "admin-chip-high-value"
+      };
+    }
+
+    return {
+      label: laterPriorityLabel,
+      className: "admin-chip-later"
+    };
+  };
 
   return (
         <section className="catalog-panel browse-panel" aria-live="polite">
@@ -212,6 +258,23 @@ export function AdminPage({
                         {adminFilterLabels[filterKey]}
                       </button>
                     ))}
+                  </div>
+                </div>
+                <div className="admin-priority-guide" aria-label={mediaPriorityTitle}>
+                  <div className="admin-filter-copy">
+                    <span className="detail-item-label">{mediaPriorityTitle}</span>
+                    <p className="catalog-note">{mediaPriorityBody}</p>
+                  </div>
+                  <div className="detail-chip-row">
+                    <span className="catalog-chip route-chip admin-chip-critical">
+                      {criticalPriorityLabel}
+                    </span>
+                    <span className="catalog-chip route-chip admin-chip-high-value">
+                      {highValuePriorityLabel}
+                    </span>
+                    <span className="catalog-chip route-chip admin-chip-later">
+                      {laterPriorityLabel}
+                    </span>
                   </div>
                 </div>
                 {adminSummaryStatus.state === "loading" ? (
@@ -308,6 +371,7 @@ export function AdminPage({
                         {adminParksStatus.parks.map((park) => {
                           const issueCount =
                             (park.hasImage ? 0 : 1) + (park.hasQueueTimesMapping ? 0 : 1);
+                          const priority = getParkMediaPriority(park);
 
                           return (
                             <article
@@ -333,10 +397,10 @@ export function AdminPage({
                                 </div>
                                 <span
                                   className={`catalog-chip route-chip ${
-                                    issueCount > 0 ? "admin-chip-attention" : "admin-chip-good"
+                                    issueCount > 0 ? priority.className : "admin-chip-good"
                                   }`}
                                 >
-                                  {issueCount > 0 ? attentionLabel : completeLabel}
+                                  {issueCount > 0 ? priority.label : completeLabel}
                                 </span>
                               </div>
                               <div className="admin-review-meta-grid">
@@ -438,6 +502,7 @@ export function AdminPage({
                             (ride.hasImage ? 0 : 1) +
                             (ride.hasQueueTimesMapping ? 0 : 1) +
                             (ride.needsCleanup ? 1 : 0);
+                          const priority = getRideMediaPriority(ride);
 
                           return (
                             <article
@@ -463,10 +528,10 @@ export function AdminPage({
                                 </div>
                                 <span
                                   className={`catalog-chip route-chip ${
-                                    issueCount > 0 ? "admin-chip-attention" : "admin-chip-good"
+                                    issueCount > 0 ? priority.className : "admin-chip-good"
                                   }`}
                                 >
-                                  {issueCount > 0 ? reviewNowLabel : completeLabel}
+                                  {issueCount > 0 ? priority.label : completeLabel}
                                 </span>
                               </div>
                               <div className="admin-review-meta-grid">
