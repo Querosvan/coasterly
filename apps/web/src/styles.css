@@ -1275,6 +1275,11 @@ img {
   gap: 0.75rem;
 }
 
+.profile-empty-actions .primary-button,
+.profile-empty-actions .ghost-button {
+  min-width: min(100%, 13.5rem);
+}
+
 .profile-identity-strip {
   display: flex;
   flex-wrap: wrap;
@@ -2523,11 +2528,24 @@ img {
   border: 1px solid var(--border-soft);
 }
 
+.credit-panel-ready {
+  align-items: stretch;
+  border-color: rgba(245, 130, 32, 0.3);
+  box-shadow: 0 18px 42px rgba(216, 104, 15, 0.1);
+}
+
 .credit-button {
   border-color: rgba(245, 130, 32, 0.24);
   background: linear-gradient(135deg, rgba(245, 130, 32, 1), rgba(216, 104, 15, 1));
   color: #fff8f1;
   box-shadow: 0 14px 30px rgba(216, 104, 15, 0.18);
+}
+
+.credit-button-ready {
+  min-width: 10.5rem;
+  min-height: 3.35rem;
+  padding-inline: 1.32rem;
+  box-shadow: 0 18px 38px rgba(216, 104, 15, 0.24);
 }
 
 .credit-button:hover:not(:disabled) {

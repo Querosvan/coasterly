@@ -89,6 +89,7 @@ export function RideDetailPage({
   rideSpecItems,
   toggleRideCredit
 }: RideDetailPageProps) {
+  const isCreditCtaReady = currentUserStatus.state === "signed_in" && !isCurrentRideRidden;
 
   return (
         <section className="catalog-panel detail-surface" aria-live="polite">
@@ -164,7 +165,7 @@ export function RideDetailPage({
                   loading="eager"
                 />
 
-                <div className="credit-panel">
+                <div className={`credit-panel${isCreditCtaReady ? " credit-panel-ready" : ""}`}>
                   <div>
                     <p className="status-label">{copy.ride.rideLog}</p>
                     <p className="credit-copy">
@@ -180,7 +181,9 @@ export function RideDetailPage({
                     </p>
                   </div>
                   <button
-                    className={`credit-button${isCurrentRideRidden ? " credit-button-active" : ""}`}
+                    className={`credit-button${isCurrentRideRidden ? " credit-button-active" : ""}${
+                      isCreditCtaReady ? " credit-button-ready" : ""
+                    }`}
                     type="button"
                     onClick={() => {
                       if (currentUserStatus.state === "signed_out") {

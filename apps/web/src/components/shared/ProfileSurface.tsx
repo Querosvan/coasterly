@@ -34,29 +34,6 @@ export function ProfileSurface({
     isCurrentUser && (onOpenPublicProfile !== undefined || onCopyPublicProfile !== undefined);
   const hasRideActivity = profile.totalRiddenRides > 0;
   const showOnboardingState = isCurrentUser && !hasRideActivity;
-  const emptyStateLabel = locale === "es" ? "Empieza aqu\u00ed" : "Get started";
-  const emptyStateTitle =
-    locale === "es"
-      ? "Empieza a construir tu historial coaster."
-      : "Start building your coaster history.";
-  const emptyStateBody =
-    locale === "es"
-      ? "Registra tus primeras atracciones para guardar cr\u00e9ditos, ver tu progreso en parques y crear un perfil p\u00fablico presentable."
-      : "Log your first rides to track credits, build park progress, and turn this into a public profile worth sharing.";
-  const emptyStateValueCredits =
-    locale === "es" ? "Guardar cr\u00e9ditos coaster" : "Track coaster credits";
-  const emptyStateValueParks =
-    locale === "es" ? "Construir progreso en parques" : "Build park progress";
-  const emptyStateValuePublic =
-    locale === "es" ? "Crear un perfil p\u00fablico" : "Create a public profile";
-  const emptyStateBrowseParks = locale === "es" ? "Ver parques" : "Browse parks";
-  const emptyStateBrowseRides = locale === "es" ? "Ver atracciones" : "Browse rides";
-  const publicEmptyTitle =
-    locale === "es" ? "Todav\u00eda no hay atracciones registradas." : "No rides logged yet.";
-  const publicEmptyBody =
-    locale === "es"
-      ? "Este perfil ganar\u00e1 contexto cuando empiece a registrar atracciones."
-      : "This profile will start to fill out once rides are logged.";
 
   return (
     <div className="profile-layout">
@@ -143,32 +120,32 @@ export function ProfileSurface({
       </section>
 
       {showOnboardingState ? (
-        <section className="stats-panel profile-empty-panel" aria-label={emptyStateTitle}>
+        <section className="stats-panel profile-empty-panel" aria-label={copy.profile.emptyStateTitle}>
           <div className="profile-empty-copy">
-            <p className="status-label">{emptyStateLabel}</p>
-            <h2 className="section-title">{emptyStateTitle}</h2>
-            <p className="section-copy">{emptyStateBody}</p>
+            <p className="status-label">{copy.profile.emptyStateLabel}</p>
+            <h2 className="section-title">{copy.profile.emptyStateTitle}</h2>
+            <p className="section-copy">{copy.profile.emptyStateBody}</p>
           </div>
           <div className="profile-empty-value-grid">
             <article className="profile-empty-value-card">
-              <strong>{emptyStateValueCredits}</strong>
+              <strong>{copy.profile.emptyStateValueCredits}</strong>
             </article>
             <article className="profile-empty-value-card">
-              <strong>{emptyStateValueParks}</strong>
+              <strong>{copy.profile.emptyStateValueParks}</strong>
             </article>
             <article className="profile-empty-value-card">
-              <strong>{emptyStateValuePublic}</strong>
+              <strong>{copy.profile.emptyStateValuePublic}</strong>
             </article>
           </div>
           <div className="profile-empty-actions">
-            {onBrowseParks ? (
-              <button className="primary-button" type="button" onClick={onBrowseParks}>
-                {emptyStateBrowseParks}
+            {onBrowseRides ? (
+              <button className="primary-button" type="button" onClick={onBrowseRides}>
+                {copy.profile.emptyStateBrowseRides}
               </button>
             ) : null}
-            {onBrowseRides ? (
-              <button className="ghost-button" type="button" onClick={onBrowseRides}>
-                {emptyStateBrowseRides}
+            {onBrowseParks ? (
+              <button className="ghost-button" type="button" onClick={onBrowseParks}>
+                {copy.profile.emptyStateBrowseParks}
               </button>
             ) : null}
           </div>
@@ -230,12 +207,12 @@ export function ProfileSurface({
       ) : !isCurrentUser ? (
         <section
           className="stats-panel profile-empty-panel profile-empty-panel-compact"
-          aria-label={publicEmptyTitle}
+          aria-label={copy.profile.publicEmptyTitle}
         >
           <div className="profile-empty-copy">
             <p className="status-label">{copy.profile.publicTitle}</p>
-            <h2 className="section-title">{publicEmptyTitle}</h2>
-            <p className="section-copy">{publicEmptyBody}</p>
+            <h2 className="section-title">{copy.profile.publicEmptyTitle}</h2>
+            <p className="section-copy">{copy.profile.publicEmptyBody}</p>
           </div>
         </section>
       ) : null}

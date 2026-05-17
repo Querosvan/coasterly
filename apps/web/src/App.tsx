@@ -221,10 +221,7 @@ function App() {
     locale === "es"
       ? "Usa Google para guardar monta\u00f1as rusas montadas, avance por parque, retos diarios y un perfil p\u00fablico para compartir."
       : "Use Google to save ridden coasters, park progress, daily challenges, and a public profile you can share.";
-  const rideSignInPrompt =
-    locale === "es"
-      ? "Inicia sesi\u00f3n para guardar esta atracci\u00f3n."
-      : "Sign in to track this ride.";
+  const rideSignInPrompt = copy.ride.signInToTrack;
   const adminNavLabel = "Admin";
   const adminPageLabel = locale === "es" ? "Revisi\u00f3n editorial" : "Editorial review";
   const adminPageTitle =
@@ -515,7 +512,7 @@ function App() {
       await loadUserProgression();
       await loadUserProfile();
       setRideCreditMessage(
-        payload.ridden ? "Ride marked as ridden." : "Ride marked as not ridden."
+        payload.ridden ? copy.ride.creditSavedSuccess : copy.ride.creditRemovedSuccess
       );
     } catch (error) {
       setRideCreditMessage(
