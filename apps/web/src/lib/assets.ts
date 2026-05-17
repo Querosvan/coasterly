@@ -5,7 +5,8 @@ export const brandIconDark = "/brand/coasterly-logo-icon-dark.png";
 
 const placeholderImageHost = "placehold.co";
 
-const isPlaceholderImageUrl = (value?: string) => value?.includes(placeholderImageHost) ?? false;
+export const isPlaceholderImageUrl = (value?: string) =>
+  value?.includes(placeholderImageHost) ?? false;
 
 const getLocalMediaPath = (kind: MediaKind, slug: string) =>
   kind === "park"

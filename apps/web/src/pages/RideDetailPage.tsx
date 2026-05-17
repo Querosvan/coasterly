@@ -1,4 +1,5 @@
 import type { Park, Ride } from "@coasterly/types";
+import { useCallback, useState } from "react";
 
 import { MediaAsset } from "../components/shared/MediaAsset";
 import {
@@ -89,6 +90,10 @@ export function RideDetailPage({
   rideSpecItems,
   toggleRideCredit
 }: RideDetailPageProps) {
+  const [hasRideDetailMedia, setHasRideDetailMedia] = useState(true);
+  const handleRideMediaAvailabilityChange = useCallback((hasMedia: boolean) => {
+    setHasRideDetailMedia(hasMedia);
+  }, []);
   const isCreditCtaReady = currentUserStatus.state === "signed_in" && !isCurrentRideRidden;
   const creditPanelState =
     currentUserStatus.state === "signed_out"
@@ -190,9 +195,12 @@ export function RideDetailPage({
                   slug={rideDetailStatus.ride.slug}
                   imageUrl={rideDetailStatus.ride.imageUrl}
                   alt={`${rideDetailStatus.ride.name} ${locale === "es" ? "atracción" : "ride"} view`}
-                  frameClassName="media-frame media-frame-detail"
+                  frameClassName={`media-frame media-frame-detail${
+                    hasRideDetailMedia ? "" : " media-frame-detail-compact-fallback"
+                  }`}
                   imageClassName="media-image"
                   loading="eager"
+                  onAvailabilityChange={handleRideMediaAvailabilityChange}
                 />
 
                 <div

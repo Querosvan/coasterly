@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { brandIconDark, getMediaSources } from "../../lib/assets";
+import { brandIconDark, getMediaSources, isPlaceholderImageUrl } from "../../lib/assets";
 import type { MediaKind } from "../../lib/types";
 
 type MediaAssetProps = {
@@ -11,6 +11,7 @@ type MediaAssetProps = {
   frameClassName: string;
   imageClassName: string;
   loading?: "eager" | "lazy";
+  onAvailabilityChange?: (hasMedia: boolean) => void;
 };
 
 export function MediaAsset({
@@ -20,7 +21,8 @@ export function MediaAsset({
   alt,
   frameClassName,
   imageClassName,
-  loading = "lazy"
+  loading = "lazy",
+  onAvailabilityChange
 }: MediaAssetProps) {
   const sources = getMediaSources(kind, slug, imageUrl);
   const sourceKey = sources.join("|");
@@ -31,15 +33,22 @@ export function MediaAsset({
   }, [sourceKey]);
 
   const activeSource = sources[activeSourceIndex];
+  const activeImageSource =
+    activeSource && !isPlaceholderImageUrl(activeSource) ? activeSource : undefined;
+  const hasRealMedia = Boolean(activeImageSource);
 
-  const fallbackClassName = activeSource ? "" : " media-frame-fallback";
+  useEffect(() => {
+    onAvailabilityChange?.(hasRealMedia);
+  }, [hasRealMedia, onAvailabilityChange]);
+
+  const fallbackClassName = hasRealMedia ? "" : " media-frame-fallback";
 
   return (
     <div className={`${frameClassName} media-kind-${kind}${fallbackClassName}`}>
-      {activeSource ? (
+      {hasRealMedia ? (
         <img
           className={imageClassName}
-          src={activeSource}
+          src={activeImageSource}
           alt={alt}
           loading={loading}
           onError={() => {
