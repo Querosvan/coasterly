@@ -1,5 +1,28 @@
 import type { CuratedCollection, EditorialNote } from "./types";
 
+export const editorialFeaturedParkSlugs = [
+  "phantasialand",
+  "europa-park",
+  "energylandia",
+  "portaventura-park",
+  "parque-warner-madrid",
+  "alton-towers"
+] as const;
+
+export const selectEditorialFeaturedParks = <TPark extends { slug: string }>(
+  parks: readonly TPark[],
+  limit: number
+) => {
+  const parkBySlug = new Map(parks.map((park) => [park.slug, park]));
+  const editorialParks = editorialFeaturedParkSlugs
+    .map((slug) => parkBySlug.get(slug))
+    .filter((park): park is TPark => Boolean(park));
+  const editorialSlugs = new Set(editorialParks.map((park) => park.slug));
+  const fallbackParks = parks.filter((park) => !editorialSlugs.has(park.slug));
+
+  return [...editorialParks, ...fallbackParks].slice(0, limit);
+};
+
 export const journalTeasers = [
   {
     category: "Guide",
@@ -60,6 +83,11 @@ export const parkEditorialBySlug: Record<string, EditorialNote> = {
   "portaventura-park": {
     summary:
       "A large destination park known for skyline coasters, strong throughput, and broad resort appeal.",
+    cues: ["Headliner"]
+  },
+  "parque-warner-madrid": {
+    summary:
+      "A Madrid thrill park with recognizable IP, strong coaster anchors, and a clear destination feel.",
     cues: ["Headliner"]
   },
   gardaland: {

@@ -836,6 +836,11 @@ export const parkEditorialBySlugEs: Record<string, { summary: string; cues: Disc
       "Un gran parque de destino conocido por su skyline, su capacidad y su atractivo de resort.",
     cues: ["Headliner"]
   },
+  "parque-warner-madrid": {
+    summary:
+      "Un parque de thrill en Madrid con IP reconocible, coasters potentes y clara sensaci\u00f3n de destino.",
+    cues: ["Headliner"]
+  },
   gardaland: {
     summary:
       "El parque más conocido de Italia, mezclando tirón familiar con varios headliners fiables.",
