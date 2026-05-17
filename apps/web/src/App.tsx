@@ -51,7 +51,8 @@ import {
   curatedCollections,
   journalTeasers,
   parkEditorialBySlug,
-  rideEditorialBySlug
+  rideEditorialBySlug,
+  selectEditorialFeaturedParks
 } from "./lib/catalogContent";
 import {
   formatDecimalValue,
@@ -612,7 +613,7 @@ function App() {
           ridesCatalogPageInfo.totalCount
         )
       : null;
-  const featuredParks = allParks.slice(0, 4);
+  const featuredParks = selectEditorialFeaturedParks(allParks, 6);
   const landingFeaturedParks = featuredParks.slice(0, 3);
   const communityHighlights =
     communityHighlightsStatus.state === "success" ? communityHighlightsStatus.profiles : [];

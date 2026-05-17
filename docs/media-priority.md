@@ -8,9 +8,16 @@ Do not generate images in this task. Use this list to guide future image sourcin
 
 ## Selection logic checked
 
-- Home uses `featuredParks = allParks.slice(0, 4)` and `landingFeaturedParks = featuredParks.slice(0, 3)`.
-- Home currently surfaces Europa-Park, Phantasialand, and Alton Towers directly in the hero/discovery area.
-- Discover shows up to 2 recommended parks by default from `featuredParks.slice(0, 2)` unless a signed-in user has progress-ranked parks.
+- Home and Discover use the web editorial featured park order before falling back to raw catalog order.
+- Current editorial featured park order is:
+  - `phantasialand`
+  - `europa-park`
+  - `energylandia`
+  - `portaventura-park`
+  - `parque-warner-madrid`
+  - `alton-towers`
+- Home surfaces the first 3 available editorial parks directly in the hero/discovery area.
+- Discover shows up to 2 recommended parks by default from the editorial featured parks unless a signed-in user has progress-ranked parks.
 - Discover shows up to 3 curated collections. In the current order these are:
   - `first-time-europe-parks`
   - `parks-with-strong-lineups`
@@ -40,9 +47,9 @@ These are visible on Home or default Discover without user progress.
 
 | Priority | Park | Why first | Target path |
 | --- | --- | --- | --- |
-| P0 | Europa-Park | Home hero, Home featured card, Discover default recommendation, curated route park, Queue-Times mapped | `apps/web/public/media/parks/europa-park/cover.webp` |
-| P0 | Phantasialand | Home secondary card, Home featured card, Discover default recommendation, curated route park, Queue-Times mapped | `apps/web/public/media/parks/phantasialand/cover.webp` |
-| P0 | Alton Towers | Home secondary card, first-page catalog visibility, Queue-Times mapped | `apps/web/public/media/parks/alton-towers/cover.webp` |
+| P0 | Phantasialand | Editorial featured park #1, Home hero, Discover default recommendation, curated route park, Queue-Times mapped | `apps/web/public/media/parks/phantasialand/cover.webp` |
+| P0 | Europa-Park | Editorial featured park #2, Home secondary card, Discover default recommendation, curated route park, Queue-Times mapped | `apps/web/public/media/parks/europa-park/cover.webp` |
+| P0 | Energylandia | Editorial featured park #3, Home secondary card when present, major coaster lineup, Queue-Times mapped in seed data | `apps/web/public/media/parks/energylandia/cover.webp` |
 
 ### Rides
 
@@ -60,10 +67,9 @@ These complete the parks and headline rides used by the first Discover routes.
 
 | Priority | Park | Why next | Target path |
 | --- | --- | --- | --- |
-| P1 | PortAventura Park | `first-time-europe-parks` curated route, first-page catalog visibility, Queue-Times mapped | `apps/web/public/media/parks/portaventura-park/cover.webp` |
-| P1 | Efteling | `first-time-europe-parks` curated route, first-page catalog visibility, Queue-Times mapped | `apps/web/public/media/parks/efteling/cover.webp` |
-| P1 | Energylandia | `parks-with-strong-lineups` curated route, major coaster lineup, Queue-Times mapped | `apps/web/public/media/parks/energylandia/cover.webp` |
-| P1 | Walibi Holland | `parks-with-strong-lineups` curated route, major coaster lineup, Queue-Times mapped | `apps/web/public/media/parks/walibi-holland/cover.webp` |
+| P1 | PortAventura Park | Editorial featured park #4, `first-time-europe-parks` curated route, Queue-Times mapped | `apps/web/public/media/parks/portaventura-park/cover.webp` |
+| P1 | Parque Warner Madrid | Editorial featured park #5 for production catalogs when present | `apps/web/public/media/parks/parque-warner-madrid/cover.webp` |
+| P1 | Alton Towers | Editorial featured park #6, fallback Home/Discover candidate, Queue-Times mapped | `apps/web/public/media/parks/alton-towers/cover.webp` |
 
 ### Rides
 
@@ -83,10 +89,10 @@ These are still product-visible through ride detail, catalog, daily challenge, Q
 | Priority | Ride | Park | Reason | Target path |
 | --- | --- | --- | --- | --- |
 | P2 | F.L.Y. | Phantasialand | `standout-inverts-and-flyers` editorial collection, daily challenge pool, Queue-Times mapped | `apps/web/public/media/rides/fly/cover.webp` |
-| P2 | Nemesis Reborn | Alton Towers | `standout-inverts-and-flyers` editorial collection, Home park ride, daily challenge pool, Queue-Times mapped | `apps/web/public/media/rides/nemesis-reborn/cover.webp` |
+| P2 | Nemesis Reborn | Alton Towers | `standout-inverts-and-flyers` editorial collection, editorial featured park ride, daily challenge pool, Queue-Times mapped | `apps/web/public/media/rides/nemesis-reborn/cover.webp` |
 | P2 | OzIris | Parc Asterix | `standout-inverts-and-flyers` editorial collection, daily challenge pool, Queue-Times mapped | `apps/web/public/media/rides/oziris/cover.webp` |
 | P2 | Raptor | Gardaland | `standout-inverts-and-flyers` editorial collection, daily challenge pool, Queue-Times mapped | `apps/web/public/media/rides/raptor/cover.webp` |
-| P2 | Wicker Man | Alton Towers | Home park ride, daily challenge pool, Queue-Times mapped | `apps/web/public/media/rides/wicker-man/cover.webp` |
+| P2 | Wicker Man | Alton Towers | Editorial featured park ride, daily challenge pool, Queue-Times mapped | `apps/web/public/media/rides/wicker-man/cover.webp` |
 | P2 | Baron 1898 | Efteling | Route park ride, daily challenge pool, Queue-Times mapped | `apps/web/public/media/rides/baron-1898/cover.webp` |
 | P2 | Joris en de Draak | Efteling | Route park ride, daily challenge pool, Queue-Times mapped | `apps/web/public/media/rides/joris-en-de-draak/cover.webp` |
 | P2 | Goliath | Walibi Holland | Route park ride, daily challenge pool, Queue-Times mapped | `apps/web/public/media/rides/goliath/cover.webp` |
@@ -102,6 +108,8 @@ These complete the current seed catalog. They are lower priority only because th
 | --- | --- | --- | --- |
 | P3 | Parc Asterix | Supports Toutatis and OzIris; Queue-Times mapped | `apps/web/public/media/parks/parc-asterix/cover.webp` |
 | P3 | Disneyland Park | Seed catalog park; Queue-Times mapped | `apps/web/public/media/parks/disneyland-park/cover.webp` |
+| P3 | Efteling | `first-time-europe-parks` curated route; Queue-Times mapped | `apps/web/public/media/parks/efteling/cover.webp` |
+| P3 | Walibi Holland | `parks-with-strong-lineups` curated route; Queue-Times mapped | `apps/web/public/media/parks/walibi-holland/cover.webp` |
 | P3 | Gardaland | Supports Raptor and Oblivion: The Black Hole; Queue-Times mapped | `apps/web/public/media/parks/gardaland/cover.webp` |
 | P3 | Liseberg | Supports Helix and Balder; Queue-Times mapped | `apps/web/public/media/parks/liseberg/cover.webp` |
 
