@@ -807,6 +807,7 @@ img {
 .nested-panel,
 .editorial-panel {
   display: grid;
+  align-content: start;
   gap: 1rem;
 }
 
