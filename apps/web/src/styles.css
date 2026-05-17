@@ -2901,46 +2901,45 @@ img {
   }
 
   .topbar {
-    gap: 0.75rem;
-    padding: 0.72rem;
-    box-shadow: 0 12px 28px rgba(10, 18, 31, 0.1);
+    gap: 0.48rem;
+    margin-bottom: 0.68rem;
+    padding: 0.5rem 0.58rem;
+    box-shadow: 0 10px 22px rgba(10, 18, 31, 0.09);
   }
 
   .topbar-primary {
     display: grid;
-    grid-template-columns: minmax(0, auto) 1fr auto;
+    grid-template-columns: 1fr auto;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.55rem;
   }
 
   .brand-logo {
-    width: clamp(142px, 42vw, 198px);
-    height: 2.55rem;
+    width: clamp(116px, 34vw, 158px);
+    height: 2.12rem;
   }
 
   .mobile-route-label {
-    display: inline-flex;
-    min-width: 0;
-    color: rgba(235, 240, 245, 0.78);
-    font-size: 0.82rem;
-    font-weight: 800;
-    text-transform: uppercase;
+    display: none;
   }
 
   .mobile-menu-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 2.55rem;
-    padding: 0.62rem 0.88rem;
+    min-height: 2.28rem;
+    padding: 0.52rem 0.78rem;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.1);
     color: #ffffff;
+    font-size: 0.88rem;
+    font-weight: 800;
     cursor: pointer;
   }
 
-  .topbar-nav {
+  .topbar:not(.topbar-nav-open) .topbar-nav,
+  .topbar:not(.topbar-nav-open) .topbar-meta {
     display: none;
   }
 
@@ -2955,10 +2954,13 @@ img {
     padding-inline: 0.95rem;
   }
 
-  .topbar-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  .topbar-nav-open .topbar-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: 0.58rem;
+    padding-top: 0.12rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .auth-prompt-actions {
@@ -3049,7 +3051,7 @@ img {
 
   .topbar {
     border-radius: 20px;
-    padding: 0.68rem;
+    padding: 0.48rem 0.52rem;
   }
 
   .topbar-primary {
@@ -3058,12 +3060,6 @@ img {
 
   .mobile-route-label {
     display: none;
-  }
-
-  .topbar-meta {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
   }
 
   .topbar-auth-button,
