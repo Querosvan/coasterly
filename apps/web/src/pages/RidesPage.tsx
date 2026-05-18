@@ -1,10 +1,13 @@
-import type { Park, Ride, RideCatalogItem } from "@coasterly/types";
+import type { Park, Ride, RideCatalogItem, RideCatalogResponse } from "@coasterly/types";
 import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { CatalogSkeletonGrid } from "../components/shared/CatalogSkeletonGrid";
 import { CuratedCollectionCard } from "../components/shared/CuratedCollectionCard";
 import { MediaAsset } from "../components/shared/MediaAsset";
 import { formatStatusLabel, type Locale } from "../i18n";
+import { editorialFeaturedRideSlugs } from "../lib/catalogContent";
+import { fullCatalogFetchLimit } from "../lib/routes";
 import type {
   CuratedCollection,
   EditorialNote,
@@ -14,6 +17,27 @@ import type {
   RidesCatalogStatus,
   UiCopy
 } from "../lib/types";
+import { apiBaseUrl } from "../hooks/userDataApi";
+
+const dedupeStrings = (values: string[]) => Array.from(new Set(values));
+
+const selectEditorialRideItems = (
+  rides: RideCatalogItem[],
+  rideSlugOrder: string[],
+  rideEditorialBySlug: Record<string, EditorialNote>,
+  limit: number
+) => {
+  const rideBySlug = new Map(rides.map((entry) => [entry.ride.slug, entry]));
+  const orderedRides = rideSlugOrder
+    .map((slug) => rideBySlug.get(slug))
+    .filter((entry): entry is RideCatalogItem => Boolean(entry));
+  const orderedSlugs = new Set(orderedRides.map((entry) => entry.ride.slug));
+  const remainingEditorialRides = rides.filter(
+    (entry) => !orderedSlugs.has(entry.ride.slug) && Boolean(rideEditorialBySlug[entry.ride.slug])
+  );
+
+  return [...orderedRides, ...remainingEditorialRides].slice(0, limit);
+};
 
 interface RidesPageProps {
   copy: UiCopy;
@@ -108,6 +132,132 @@ export function RidesPage({
   setRidesCatalogPage,
   visibleRideCatalogCount
 }: RidesPageProps) {
+  const isDefaultRidesView =
+    !rideCatalogSearchQuery.trim() &&
+    !rideCatalogParkFilter &&
+    !rideCatalogRideTypeFilter &&
+    !rideCatalogManufacturerFilter &&
+    !hasActiveRideCollection &&
+    rideCatalogSort === defaultRidesCatalogSort &&
+    ridesCatalogPage === defaultCatalogPage;
+  const editorialRideSlugOrder = useMemo(
+    () =>
+      dedupeStrings([
+        ...editorialFeaturedRideSlugs,
+        ...rideCollections.flatMap((collection) => collection.itemSlugs),
+        ...Object.keys(localizedRideEditorialBySlug)
+      ]),
+    [localizedRideEditorialBySlug, rideCollections]
+  );
+  const [editorialRideItems, setEditorialRideItems] = useState<RideCatalogItem[]>([]);
+
+  useEffect(() => {
+    if (!isDefaultRidesView || !apiBaseUrl) {
+      setEditorialRideItems([]);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadEditorialRides = async () => {
+      try {
+        const ridesUrl = new URL("/rides", apiBaseUrl);
+        ridesUrl.searchParams.set("sort", defaultRidesCatalogSort);
+        ridesUrl.searchParams.set("limit", String(fullCatalogFetchLimit));
+        ridesUrl.searchParams.set("offset", "0");
+
+        const response = await fetch(ridesUrl, {
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          setEditorialRideItems([]);
+          return;
+        }
+
+        const payload = (await response.json()) as RideCatalogResponse;
+
+        setEditorialRideItems(
+          selectEditorialRideItems(
+            payload.rides,
+            editorialRideSlugOrder,
+            localizedRideEditorialBySlug,
+            8
+          )
+        );
+      } catch {
+        if (!controller.signal.aborted) {
+          setEditorialRideItems([]);
+        }
+      }
+    };
+
+    void loadEditorialRides();
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    defaultRidesCatalogSort,
+    editorialRideSlugOrder,
+    isDefaultRidesView,
+    localizedRideEditorialBySlug
+  ]);
+
+  const renderRideCard = (
+    entry: RideCatalogItem,
+    variant: "editorial" | "catalog" = "catalog"
+  ) => {
+    const rideEditorial = localizedRideEditorialBySlug[entry.ride.slug];
+    const isRidden = riddenRideIds?.has(entry.ride.id) === true;
+    const rideMeta = getRideCardMeta(locale, entry.ride);
+    const isHeadlineRide =
+      rideEditorial?.cues.some(
+        (cue) => cue === "Headliner" || cue === "Featured" || cue === "Iconic"
+      ) ?? false;
+
+    return (
+      <button
+        className={`ride-card ride-card-button${
+          variant === "editorial" ? " ride-card-editorial ride-card-headline" : ""
+        }${variant === "catalog" && !rideEditorial ? " ride-card-compact" : ""}${
+          isHeadlineRide ? " ride-card-featured-signal" : ""
+        }${isRidden ? " ride-card-ridden" : ""}`}
+        key={`${variant}-${entry.park.slug}-${entry.ride.slug}`}
+        type="button"
+        onClick={() => {
+          navigateToRide(entry.park.slug, entry.ride.slug, {
+            origin: "rides"
+          });
+        }}
+      >
+        <MediaAsset
+          kind="ride"
+          slug={entry.ride.slug}
+          imageUrl={entry.ride.imageUrl}
+          alt={`${entry.ride.name} ride view`}
+          frameClassName="media-frame media-frame-ride-card"
+          imageClassName="media-image"
+        />
+        <div className="card-header">
+          <div className="ride-card-heading">
+            <p className="ride-card-kicker">{entry.park.name}</p>
+            <div className="ride-link">
+              <p className="ride-name">{entry.ride.name}</p>
+            </div>
+          </div>
+        </div>
+        {rideEditorial ? <p className="card-summary">{rideEditorial.summary}</p> : null}
+        {rideMeta ? <p className="card-meta-line">{rideMeta}</p> : null}
+        {entry.ride.status !== "operating" ? (
+          <p className="card-support-line">
+            {formatStatusLabel(locale, entry.ride.status)}
+          </p>
+        ) : null}
+      </button>
+    );
+  };
+
   return (
         <section className="catalog-panel browse-panel" aria-live="polite">
           <div className="catalog-header">
@@ -316,51 +466,26 @@ export function RidesPage({
           {ridesCatalogStatus.state === "success" ? (
             displayedRideCatalogItems.length > 0 ? (
               <>
+                {isDefaultRidesView && editorialRideItems.length > 0 ? (
+                  <section className="rides-editorial-section" aria-label={copy.browse.editorialRidesTitle}>
+                    <div className="catalog-header landing-header">
+                      <div className="catalog-copy">
+                        <h3 className="section-title">{copy.browse.editorialRidesTitle}</h3>
+                        <p className="section-copy">{copy.browse.editorialRidesSummary}</p>
+                      </div>
+                    </div>
+                    <div className="rides-list rides-list-editorial">
+                      {editorialRideItems.map((entry) => renderRideCard(entry, "editorial"))}
+                    </div>
+                  </section>
+                ) : null}
+                <div className="catalog-header landing-header rides-all-header">
+                  <div className="catalog-copy">
+                    <h3 className="section-title">{copy.browse.allRidesTitle}</h3>
+                  </div>
+                </div>
                 <div className="rides-list rides-list-catalog">
-                  {displayedRideCatalogItems.map((entry) => {
-                    const rideEditorial = localizedRideEditorialBySlug[entry.ride.slug];
-                    const isRidden = riddenRideIds?.has(entry.ride.id) === true;
-                    const rideMeta = getRideCardMeta(locale, entry.ride);
-
-                    return (
-                      <button
-                        className={`ride-card ride-card-button${isRidden ? " ride-card-ridden" : ""}`}
-                        key={`${entry.park.slug}-${entry.ride.slug}`}
-                        type="button"
-                        onClick={() => {
-                          navigateToRide(entry.park.slug, entry.ride.slug, {
-                            origin: "rides"
-                          });
-                        }}
-                      >
-                        <MediaAsset
-                          kind="ride"
-                          slug={entry.ride.slug}
-                          imageUrl={entry.ride.imageUrl}
-                          alt={`${entry.ride.name} ride view`}
-                          frameClassName="media-frame media-frame-ride-card"
-                          imageClassName="media-image"
-                        />
-                        <div className="card-header">
-                          <div className="ride-card-heading">
-                            <p className="ride-card-kicker">{entry.park.name}</p>
-                            <div className="ride-link">
-                              <p className="ride-name">{entry.ride.name}</p>
-                            </div>
-                          </div>
-                        </div>
-                        {rideEditorial ? (
-                          <p className="card-summary">{rideEditorial.summary}</p>
-                        ) : null}
-                        {rideMeta ? <p className="card-meta-line">{rideMeta}</p> : null}
-                        {entry.ride.status !== "operating" ? (
-                          <p className="card-support-line">
-                            {formatStatusLabel(locale, entry.ride.status)}
-                          </p>
-                        ) : null}
-                      </button>
-                    );
-                  })}
+                  {displayedRideCatalogItems.map((entry) => renderRideCard(entry))}
                 </div>
                 {ridesCatalogPageInfo && !selectedRideCollection && ridesCatalogTotalPages > 1 ? (
                   <div className="catalog-pagination-row">

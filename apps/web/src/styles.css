@@ -2539,6 +2539,30 @@ img {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+.rides-editorial-section {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0.95rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(19, 37, 59, 0.08);
+  background:
+    radial-gradient(circle at top right, rgba(245, 130, 32, 0.1), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 248, 252, 0.92));
+}
+
+.rides-list-editorial {
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+}
+
+.rides-list-editorial .ride-card-headline {
+  grid-column: span 2;
+}
+
+.rides-all-header {
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(19, 37, 59, 0.08);
+}
+
 .rides-list-lineup {
   align-items: start;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -3213,6 +3237,10 @@ img {
   .ride-card-headline {
     grid-column: auto;
     grid-template-columns: 1fr;
+  }
+
+  .rides-list-editorial .ride-card-headline {
+    grid-column: auto;
   }
 
   .ride-card-headline .media-frame-ride-card:not(.media-frame-fallback) {
