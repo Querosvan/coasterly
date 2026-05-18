@@ -327,6 +327,10 @@ export const messages = {
       browse: "Browse",
       parksTitle: "Parks",
       ridesTitle: "Rides",
+      editorialRidesTitle: "Editorial picks",
+      editorialRidesSummary:
+        "Start with headline coasters and curated standouts before opening the full ride database.",
+      allRidesTitle: "All rides",
       searchParks: "Search parks",
       searchRides: "Search rides",
       parkPlaceholder: "Park name, country, or city",
@@ -631,6 +635,10 @@ export const messages = {
       browse: "Explorar",
       parksTitle: "Parques",
       ridesTitle: "Atracciones",
+      editorialRidesTitle: "Selecci\u00f3n editorial",
+      editorialRidesSummary:
+        "Empieza por coasters destacadas y selecciones curadas antes de abrir toda la base de datos.",
+      allRidesTitle: "Todas las atracciones",
       searchParks: "Buscar parques",
       searchRides: "Buscar atracciones",
       parkPlaceholder: "Nombre del parque, país o ciudad",

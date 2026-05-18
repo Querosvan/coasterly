@@ -9,6 +9,17 @@ export const editorialFeaturedParkSlugs = [
   "alton-towers"
 ] as const;
 
+export const editorialFeaturedRideSlugs = [
+  "taron",
+  "voltron-nevera",
+  "shambhala",
+  "hyperion",
+  "zadra",
+  "fly",
+  "nemesis-reborn",
+  "batman-gotham-city-escape"
+] as const;
+
 export const selectEditorialFeaturedParks = <TPark extends { slug: string }>(
   parks: readonly TPark[],
   limit: number
