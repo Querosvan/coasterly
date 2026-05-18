@@ -2539,6 +2539,7 @@ img {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+.parks-editorial-section,
 .rides-editorial-section {
   display: grid;
   gap: 0.9rem;
@@ -2550,6 +2551,30 @@ img {
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 248, 252, 0.92));
 }
 
+.parks-list-editorial {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.park-card-editorial {
+  background:
+    radial-gradient(circle at top right, rgba(245, 130, 32, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 252, 0.96));
+}
+
+.park-card-editorial .media-frame-park {
+  min-height: 11rem;
+}
+
+.park-card-catalog-repeat {
+  background: rgba(251, 253, 255, 0.92);
+  box-shadow: 0 10px 24px rgba(16, 30, 47, 0.035);
+}
+
+.park-card-catalog-repeat::before {
+  height: 2px;
+  opacity: 0.38;
+}
+
 .rides-list-editorial {
   grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
 }
@@ -2558,6 +2583,7 @@ img {
   grid-column: span 2;
 }
 
+.parks-all-header,
 .rides-all-header {
   padding-top: 0.25rem;
   border-top: 1px solid rgba(19, 37, 59, 0.08);

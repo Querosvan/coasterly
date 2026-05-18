@@ -1,10 +1,13 @@
-import type { UserStatsResponse, Park } from "@coasterly/types";
-import type { Dispatch, SetStateAction } from "react";
+import type { UserStatsResponse, Park, ParksResponse } from "@coasterly/types";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 
 import { CatalogSkeletonGrid } from "../components/shared/CatalogSkeletonGrid";
 import { CuratedCollectionCard } from "../components/shared/CuratedCollectionCard";
 import { MediaAsset } from "../components/shared/MediaAsset";
+import { apiBaseUrl } from "../hooks/userDataApi";
 import type { Locale } from "../i18n";
+import { editorialFeaturedParkSlugs, selectEditorialFeaturedParks } from "../lib/catalogContent";
+import { fullCatalogFetchLimit } from "../lib/routes";
 import type {
   CuratedCollection,
   EditorialNote,
@@ -13,6 +16,7 @@ import type {
 } from "../lib/types";
 
 type ParkProgress = UserStatsResponse["parks"][number];
+const editorialFeaturedParkSlugSet = new Set<string>(editorialFeaturedParkSlugs);
 
 interface ParksPageProps {
   copy: UiCopy;
@@ -78,6 +82,109 @@ export function ParksPage({
   setSearchQuery,
   visibleParkCount
 }: ParksPageProps) {
+  const [editorialParks, setEditorialParks] = useState<Park[]>([]);
+  const isDefaultParksView =
+    !hasActiveCatalogSearch && !hasActiveParkCollection && parksPage === defaultCatalogPage;
+  const visibleEditorialParks = useMemo(
+    () =>
+      selectEditorialFeaturedParks(editorialParks, 6).filter((park) =>
+        editorialFeaturedParkSlugSet.has(park.slug)
+      ),
+    [editorialParks]
+  );
+
+  useEffect(() => {
+    if (!isDefaultParksView || !apiBaseUrl) {
+      setEditorialParks([]);
+
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadEditorialParks = async () => {
+      try {
+        const parksUrl = new URL("/parks", apiBaseUrl);
+        parksUrl.searchParams.set("limit", String(fullCatalogFetchLimit));
+        parksUrl.searchParams.set("offset", "0");
+
+        const response = await fetch(parksUrl, {
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          setEditorialParks([]);
+
+          return;
+        }
+
+        const payload = (await response.json()) as ParksResponse;
+        setEditorialParks(payload.parks);
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setEditorialParks([]);
+      }
+    };
+
+    void loadEditorialParks();
+
+    return () => {
+      controller.abort();
+    };
+  }, [isDefaultParksView]);
+
+  const renderParkCard = (park: Park, variant: "editorial" | "catalog" = "catalog") => {
+    const parkProgress = parkProgressBySlug?.get(park.slug);
+    const parkEditorial = localizedParkEditorialBySlug[park.slug];
+    const parkMetric = getParkCardMetric(copy, parkProgress);
+    const isEditorialDuplicate =
+      variant === "catalog" &&
+      isDefaultParksView &&
+      visibleEditorialParks.some((editorialPark) => editorialPark.slug === park.slug);
+
+    return (
+      <button
+        className={[
+          "park-card",
+          "park-card-button",
+          variant === "editorial" ? "park-card-editorial" : "",
+          isEditorialDuplicate ? "park-card-catalog-repeat" : ""
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        key={`${variant}-${park.id}`}
+        type="button"
+        onClick={() => {
+          navigateToPark(park.slug);
+        }}
+      >
+        <MediaAsset
+          kind="park"
+          slug={park.slug}
+          imageUrl={park.imageUrl}
+          alt={`${park.name} park view`}
+          frameClassName="media-frame media-frame-park"
+          imageClassName="media-image"
+        />
+        <div className="card-header">
+          <div className="park-link">
+            <p className="park-name">{park.name}</p>
+          </div>
+        </div>
+        <p className="park-location">{formatParkLocation(park)}</p>
+        {parkEditorial ? <p className="card-summary">{parkEditorial.summary}</p> : null}
+        {parkMetric ? (
+          <p className="card-key-stat">
+            <span className="card-stat-label">{parkMetric.label}</span>
+            <strong className="card-stat-value">{parkMetric.value}</strong>
+          </p>
+        ) : null}
+      </button>
+    );
+  };
 
   return (
         <section className="catalog-panel browse-panel" aria-live="polite">
@@ -171,47 +278,31 @@ export function ParksPage({
           {parksStatus.state === "success" ? (
             displayedParks.length > 0 ? (
               <>
-                <div className="parks-list">
-                  {displayedParks.map((park) => {
-                    const parkProgress = parkProgressBySlug?.get(park.slug);
-                    const parkEditorial = localizedParkEditorialBySlug[park.slug];
-                    const parkMetric = getParkCardMetric(copy, parkProgress);
-
-                    return (
-                      <button
-                        className="park-card park-card-button"
-                        key={park.id}
-                        type="button"
-                        onClick={() => {
-                          navigateToPark(park.slug);
-                        }}
-                      >
-                        <MediaAsset
-                          kind="park"
-                          slug={park.slug}
-                          imageUrl={park.imageUrl}
-                          alt={`${park.name} park view`}
-                          frameClassName="media-frame media-frame-park"
-                          imageClassName="media-image"
-                        />
-                        <div className="card-header">
-                          <div className="park-link">
-                            <p className="park-name">{park.name}</p>
-                          </div>
-                        </div>
-                        <p className="park-location">{formatParkLocation(park)}</p>
-                        {parkEditorial ? (
-                          <p className="card-summary">{parkEditorial.summary}</p>
-                        ) : null}
-                        {parkMetric ? (
-                          <p className="card-key-stat">
-                            <span className="card-stat-label">{parkMetric.label}</span>
-                            <strong className="card-stat-value">{parkMetric.value}</strong>
-                          </p>
-                        ) : null}
-                      </button>
-                    );
-                  })}
+                {isDefaultParksView && visibleEditorialParks.length > 0 ? (
+                  <section
+                    className="parks-editorial-section"
+                    aria-label={copy.browse.editorialParksTitle}
+                  >
+                    <div className="catalog-header landing-header">
+                      <div className="catalog-copy">
+                        <h3 className="section-title">{copy.browse.editorialParksTitle}</h3>
+                        <p className="section-copy">{copy.browse.editorialParksSummary}</p>
+                      </div>
+                    </div>
+                    <div className="parks-list parks-list-editorial">
+                      {visibleEditorialParks.map((park) => renderParkCard(park, "editorial"))}
+                    </div>
+                  </section>
+                ) : null}
+                {isDefaultParksView ? (
+                  <div className="catalog-header landing-header parks-all-header">
+                    <div className="catalog-copy">
+                      <h3 className="section-title">{copy.browse.allParksTitle}</h3>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="parks-list parks-list-catalog">
+                  {displayedParks.map((park) => renderParkCard(park))}
                 </div>
                 {parksPageInfo && !selectedParkCollection && parksTotalPages > 1 ? (
                   <div className="catalog-pagination-row">
