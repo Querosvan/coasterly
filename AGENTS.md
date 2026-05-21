@@ -11,7 +11,7 @@ This repository is cloud-first and Railway-oriented. Prefer changes that are eas
 - `apps/web`: React, Vite, and TypeScript web app.
 - `apps/api`: Fastify and TypeScript API.
 - `apps/catalog-import`: Queue-Times catalog import job.
-- `apps/queue-times-cron`: Queue-Times batch ingestion service. Do not expand cron behavior unless explicitly requested.
+- `apps/queue-times-cron`: existing Queue-Times batch/cron-related package. Treat it as existing infrastructure only; do not expand, schedule, persist historical waits, or build new ingestion behavior unless explicitly requested.
 - `packages/types`: shared TypeScript types and API/domain contracts.
 - `apps/web/public/media`: local public media assets for parks and rides.
 - `docs`: architecture, deployment, media, admin, and Codex workflow documentation.
