@@ -179,10 +179,11 @@ export const messages = {
       language: "Language"
     },
     home: {
-      heroTitle: "Track every coaster day with less noise.",
+      heroTitle: "Explore parks. Discover rides. Track coaster credits.",
       heroText:
-        "Find parks worth the trip, log ridden coasters, follow your progress, and use live Queue-Times where coverage is available.",
+        "Use Coasterly to find parks worth the trip, compare ride lineups, and keep a clear record of every coaster you have ridden.",
       browseParks: "Explore parks",
+      browseRides: "Explore rides",
       startTracking: "Start tracking",
       openProfile: "Open profile",
       valueTrackTitle: "Track credits",
@@ -491,10 +492,11 @@ export const messages = {
       language: "Idioma"
     },
     home: {
-      heroTitle: "Sigue cada día coaster con menos ruido.",
+      heroTitle: "Explora parques. Descubre rides. Registra créditos.",
       heroText:
-        "Encuentra parques que merecen el viaje, guarda montañas rusas montadas, sigue tu progreso y usa Queue-Times en directo donde haya cobertura.",
+        "Usa Coasterly para encontrar parques que merecen el viaje, comparar lineups de rides y llevar un registro claro de cada coaster que has montado.",
       browseParks: "Explorar parques",
+      browseRides: "Explorar rides",
       startTracking: "Empezar a seguir",
       openProfile: "Abrir perfil",
       valueTrackTitle: "Registra créditos",
