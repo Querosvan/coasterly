@@ -22,6 +22,8 @@ Use these gates before opening a PR, marking a draft ready, or asking for final 
 
 ## Validation
 
+- GitHub Actions runs the `Quality Gate` workflow on pull requests targeting `develop` and `main`.
+- The workflow installs dependencies with `corepack pnpm install --frozen-lockfile`, then runs `corepack pnpm typecheck`, `corepack pnpm build`, and `corepack pnpm test`.
 - Relevant typecheck/build commands were run.
 - Tests were run when available and relevant.
 - Missing lint/test scripts are stated honestly.
@@ -52,5 +54,6 @@ Before marking ready:
 - acceptance criteria are met
 - review comments are addressed
 - validation is current after the latest commit
+- the GitHub Actions quality gate has passed or any blocker is documented
 - deployment impact is clear
 - no unresolved blockers remain

@@ -87,11 +87,11 @@ Before coding, choose the validation level.
 - Documentation-only: manual readability check is enough.
 - Type-only or shared contract changes: run `pnpm typecheck`.
 - Web UI changes: run `pnpm --filter @coasterly/web typecheck`; run `pnpm --filter @coasterly/web build` when routing, bundling, assets, or environment variables are affected.
-- API changes: run `pnpm --filter @coasterly/api typecheck`; run build when runtime output or deployment could be affected.
+- API changes: run `pnpm --filter @coasterly/api typecheck`; run `pnpm --filter @coasterly/api test` when pure API logic, service helpers, or route behavior is affected; run build when runtime output or deployment could be affected.
 - Batch job changes: run the relevant package typecheck and build.
-- Cross-workspace changes: prefer root `pnpm typecheck` and `pnpm build`.
+- Cross-workspace changes: prefer root `pnpm typecheck`, `pnpm test`, and `pnpm build`.
 
-There are currently no root or workspace `lint` or `test` scripts. Do not claim they ran unless they are added later or the task provides another command.
+There are currently no root or workspace `lint` scripts. Do not claim lint ran unless that script is added later or the task provides another command.
 
 ## 8. Implementation
 
