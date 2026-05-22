@@ -492,11 +492,11 @@ export const messages = {
       language: "Idioma"
     },
     home: {
-      heroTitle: "Explora parques. Descubre rides. Registra créditos.",
+      heroTitle: "Explora parques. Descubre atracciones. Registra tus créditos.",
       heroText:
-        "Usa Coasterly para encontrar parques que merecen el viaje, comparar lineups de rides y llevar un registro claro de cada coaster que has montado.",
+        "Usa Coasterly para encontrar parques que merecen el viaje, comparar montañas rusas y llevar un registro claro de cada coaster que has montado.",
       browseParks: "Explorar parques",
-      browseRides: "Explorar rides",
+      browseRides: "Explorar atracciones",
       startTracking: "Empezar a seguir",
       openProfile: "Abrir perfil",
       valueTrackTitle: "Registra créditos",
