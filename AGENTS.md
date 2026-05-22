@@ -83,7 +83,19 @@ pnpm --filter @coasterly/queue-times-cron build
 pnpm --filter @coasterly/queue-times-cron typecheck
 ```
 
-There are currently no root or workspace `lint` or `test` scripts. Do not claim lint or tests were run unless those scripts are added later or a task provides another explicit command.
+Run all workspace tests that define a `test` script:
+
+```sh
+pnpm test
+```
+
+Run app-specific tests when scope matters:
+
+```sh
+pnpm --filter @coasterly/api test
+```
+
+There are currently no root or workspace `lint` scripts. Do not claim lint was run unless that script is added later or a task provides another explicit command.
 
 ## Coding Conventions
 
@@ -126,6 +138,7 @@ There are currently no root or workspace `lint` or `test` scripts. Do not claim 
 - Confirm the branch is not `main` or `develop`.
 - Summarize changed files.
 - Run the most relevant existing validation command, usually `pnpm typecheck` for code changes and `pnpm build` when behavior or bundling could be affected.
+- Run `pnpm test` or a scoped workspace test command when tests exist for the affected area.
 - If validation is not run, state why.
 - Suggest a Conventional Commit message.
 - Mention any Railway environment variables or deployment settings affected by the change.
