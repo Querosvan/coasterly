@@ -9,20 +9,24 @@ Available root scripts:
 - `pnpm dev`
 - `pnpm build`
 - `pnpm typecheck`
+- `pnpm test`
 - `pnpm clean`
 
-Available workspace validation is mostly TypeScript and build based:
+Available workspace validation is mostly TypeScript, build, and targeted unit-test based:
 
 - `pnpm --filter @coasterly/web typecheck`
 - `pnpm --filter @coasterly/web build`
 - `pnpm --filter @coasterly/api typecheck`
 - `pnpm --filter @coasterly/api build`
+- `pnpm --filter @coasterly/api test`
 - `pnpm --filter @coasterly/catalog-import typecheck`
 - `pnpm --filter @coasterly/catalog-import build`
 - `pnpm --filter @coasterly/queue-times-cron typecheck`
 - `pnpm --filter @coasterly/queue-times-cron build`
 
-There are currently no root or workspace `lint` or `test` scripts. Do not claim lint or tests were run unless those scripts are added later or a task provides another explicit command.
+There are currently no root or workspace `lint` scripts. Do not claim lint ran unless that script is added later or a task provides another explicit command.
+
+The first real test baseline uses Vitest in `@coasterly/api` for deterministic pure TypeScript logic. The root `pnpm test` command runs all workspace tests that define a `test` script.
 
 ## Target State
 
@@ -36,7 +40,6 @@ Coasterly should grow toward a small, useful test pyramid:
 
 Suggested tools to evaluate later:
 
-- Vitest for TypeScript unit tests
 - React Testing Library for component tests
 - Fastify injection tests for API routes
 - Playwright for high-value browser flows
@@ -65,6 +68,7 @@ Web UI changes:
 API changes:
 
 - run `pnpm --filter @coasterly/api typecheck`
+- run `pnpm --filter @coasterly/api test` when pure API logic, service helpers, route behavior, progression, challenges, or user-facing API decisions are affected
 - run `pnpm --filter @coasterly/api build` when deployment or runtime output is affected
 - future API tests should cover success, missing data, invalid input, unauthenticated, and unauthorized paths
 
@@ -83,6 +87,7 @@ Queue-Times cron changes:
 Cross-workspace changes:
 
 - run `pnpm typecheck`
+- run `pnpm test`
 - run `pnpm build` when runtime output, bundling, or deployment could be affected
 
 Security-sensitive changes:
@@ -98,4 +103,4 @@ At minimum, every PR should include one of:
 - relevant validation commands and their result
 - a clear reason validation was not run
 
-Documentation-only PRs can be ready with a manual readability check. Code PRs should not be marked ready without the most relevant existing typecheck or build command unless there is a documented blocker.
+Documentation-only PRs can be ready with a manual readability check. Code PRs should not be marked ready without the most relevant existing typecheck, test, or build command unless there is a documented blocker.
