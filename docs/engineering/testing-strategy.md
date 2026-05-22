@@ -28,6 +28,8 @@ There are currently no root or workspace `lint` scripts. Do not claim lint ran u
 
 The first real test baseline uses Vitest in `@coasterly/api` for deterministic pure TypeScript logic. The root `pnpm test` command runs all workspace tests that define a `test` script.
 
+GitHub Actions runs the `Quality Gate` workflow on pull requests targeting `develop` and `main`. It uses Node.js 20 with Corepack, installs dependencies with a frozen lockfile, then runs root typecheck, build, and test commands.
+
 ## Target State
 
 Coasterly should grow toward a small, useful test pyramid:
@@ -89,6 +91,7 @@ Cross-workspace changes:
 - run `pnpm typecheck`
 - run `pnpm test`
 - run `pnpm build` when runtime output, bundling, or deployment could be affected
+- confirm the GitHub Actions quality gate result on the pull request after it opens
 
 Security-sensitive changes:
 
