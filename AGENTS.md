@@ -104,6 +104,12 @@ There are currently no root or workspace `lint` or `test` scripts. Do not claim 
 - Show Queue-Times attribution wherever live wait data is surfaced.
 - Treat auth, admin editing, moderation, and advanced personalization as foundations that can evolve incrementally.
 
+## Engineering Workflow Docs
+
+- For larger tasks, use `docs/engineering/user-story-workflow.md` to move from idea intake to PR readiness.
+- Use `docs/engineering/agent-roles.md` as practical review lenses for product, architecture, security, testing, implementation, code review, and PR delivery.
+- Use `docs/engineering/pull-request-gates.md` before opening or marking a PR ready.
+
 ## Media And Image Rules
 
 - Local public media belongs under `apps/web/public/media`.
