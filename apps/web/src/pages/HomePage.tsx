@@ -67,6 +67,15 @@ export function HomePage({
               className="secondary-button"
               type="button"
               onClick={() => {
+                navigateToRides({ preserveFilters: true });
+              }}
+            >
+              {copy.home.browseRides}
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => {
                 if (isAuthenticated) {
                   navigateToProfile();
                   return;
