@@ -2,7 +2,7 @@
 
 These roles describe how Codex should split thinking for Coasterly work. They are practical review lenses, not separate job titles or mandatory ceremony for every small change.
 
-Use the smallest set of roles that reduces risk for the task.
+Do not apply every role to every task. Use only the roles that match the risk, scope, and affected areas of the change.
 
 ## Product / User Story Analyst
 
